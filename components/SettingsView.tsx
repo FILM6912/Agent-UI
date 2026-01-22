@@ -336,8 +336,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           className={`flex-1 overflow-y-auto ${activeTab === "langflow" ? "p-0" : "p-8"} custom-scrollbar`}
         >
           {/* GENERAL TAB */}
-          {activeTab === "general" && (
-            <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className={`max-w-4xl space-y-6 ${activeTab === "general" ? "block" : "hidden"}`}>
               <div className="mb-2">
                 <p className="text-sm text-zinc-500 dark:text-zinc-500">
                   {t("settings.generalDesc")}
@@ -552,12 +551,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {t("settings.clearAll")}
                 </button>
               </div>
-            </div>
-          )}
+          </div>
 
           {/* ACCOUNT TAB */}
-          {activeTab === "account" && (
-            <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className={`max-w-4xl ${activeTab === "account" ? "block" : "hidden"}`}>
               <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl p-8 mb-6 flex flex-col items-center shadow-sm dark:shadow-none">
                 <div className="relative group cursor-pointer mb-4">
                   <div className="w-24 h-24 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 text-2xl font-bold border-2 border-zinc-200 dark:border-zinc-700 overflow-hidden">
@@ -702,12 +699,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+          </div>
 
           {/* TOOLS TAB (MCP) */}
-          {activeTab === "tools" && (
-            <div className="max-w-4xl space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className={`max-w-4xl space-y-6 ${activeTab === "tools" ? "block" : "hidden"}`}>
               <div className="flex justify-between items-center mb-6">
                 <p className="text-zinc-500 dark:text-zinc-400 text-sm">
                   {t("settings.toolsDesc")}
@@ -795,16 +790,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   ))
                 )}
               </div>
-            </div>
-          )}
+          </div>
 
           {/* LANGFLOW TAB */}
-          {activeTab === "langflow" && (
-            <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className={`flex flex-col h-full ${activeTab === "langflow" ? "block" : "hidden"}`}>
               <div className="flex-1 bg-zinc-100 dark:bg-black relative">
                 {modelConfig.langflowUrl ? (
                   <iframe
-                    key={`langflow-${iframeKey}`} // Force remount on update
                     src={modelConfig.langflowUrl}
                     className="w-full h-full border-0"
                     title="LangFlow Interface"
@@ -818,8 +810,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                 )}
               </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
