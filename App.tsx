@@ -21,6 +21,221 @@ import {
 import { PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 
+// Define AppLayout props interface
+interface AppLayoutProps {
+  showSettings?: boolean;
+  isMobile: boolean;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
+  history: ChatSession[];
+  activeChatId: string;
+  handleNewChat: () => void;
+  handleSelectChat: (id: string) => void;
+  onRequestDeleteChat: (id: string) => void;
+  modelConfig: ModelConfig;
+  handleProviderChange: (provider: AIProvider) => void;
+  navigate: (path: string | number) => void;
+  setIsAuthenticated: (auth: boolean) => void;
+  settingsTab: "general" | "account" | "tools" | "langflow";
+  setModelConfig: (config: ModelConfig) => void;
+  chatHistory: ChatSession[];
+  handleClearAllChats: () => void;
+  currentMessages: Message[];
+  inputValue: string;
+  setInputValue: (value: string) => void;
+  handleSend: (message: string, attachments?: Attachment[]) => Promise<void>;
+  handleRegenerate: (messageId: string) => Promise<void>;
+  handleEditUserMessage: (messageId: string, newContent: string) => Promise<void>;
+  isLoading: boolean;
+  isStreaming: boolean;
+  handleVersionChange: (messageId: string, newIndex: number) => void;
+  isPreviewOpen: boolean;
+  handlePreviewRequest: (html: string) => void;
+  setIsPreviewOpen: (open: boolean) => void;
+  previewContent: string | null;
+  chatToDelete: string | null;
+  setChatToDelete: (id: string | null) => void;
+  t: (key: string) => string;
+  confirmDeleteChat: () => void;
+  isLangFlowConfigOpen: boolean;
+  setIsLangFlowConfigOpen: (open: boolean) => void;
+}
+
+// AppLayout component extracted outside to prevent recreation
+const AppLayout: React.FC<AppLayoutProps> = React.memo(({
+  showSettings = false,
+  isMobile,
+  isSidebarOpen,
+  setIsSidebarOpen,
+  history,
+  activeChatId,
+  handleNewChat,
+  handleSelectChat,
+  onRequestDeleteChat,
+  modelConfig,
+  handleProviderChange,
+  navigate,
+  setIsAuthenticated,
+  settingsTab,
+  setModelConfig,
+  chatHistory,
+  handleClearAllChats,
+  currentMessages,
+  inputValue,
+  setInputValue,
+  handleSend,
+  handleRegenerate,
+  handleEditUserMessage,
+  isLoading,
+  isStreaming,
+  handleVersionChange,
+  isPreviewOpen,
+  handlePreviewRequest,
+  setIsPreviewOpen,
+  previewContent,
+  chatToDelete,
+  setChatToDelete,
+  t,
+  confirmDeleteChat,
+  isLangFlowConfigOpen,
+  setIsLangFlowConfigOpen,
+}) => (
+  <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden font-sans relative transition-colors duration-200">
+    {/* Mobile Sidebar Backdrop */}
+    {isMobile && isSidebarOpen && (
+      <div
+        className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity"
+        onClick={() => setIsSidebarOpen(false)}
+      />
+    )}
+
+    <Sidebar
+      history={history}
+      activeChatId={activeChatId}
+      onNewChat={handleNewChat}
+      onSelectChat={handleSelectChat}
+      onDeleteChat={onRequestDeleteChat}
+      activeProvider={modelConfig.provider}
+      onProviderChange={handleProviderChange}
+      onOpenSettings={() => {
+        navigate('/settings/general');
+      }}
+      isOpen={isSidebarOpen}
+      toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+      isMobile={isMobile}
+      onLogout={() => {
+        setIsAuthenticated(false);
+        navigate('/login');
+      }}
+    />
+
+    <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
+      {showSettings ? (
+        <SettingsView
+          modelConfig={modelConfig}
+          onModelConfigChange={setModelConfig}
+          onBack={() => navigate(-1)}
+          chatHistory={chatHistory}
+          onDeleteChat={onRequestDeleteChat}
+          onClearAllChats={handleClearAllChats}
+          initialTab={settingsTab}
+          onTabChange={(tab) => navigate(`/settings/${tab}`)}
+        />
+      ) : (
+        <>
+          <ChatInterface
+            messages={currentMessages}
+            input={inputValue}
+            setInput={setInputValue}
+            onSend={handleSend}
+            onRegenerate={handleRegenerate}
+            onEdit={handleEditUserMessage}
+            isLoading={isLoading}
+            isStreaming={isStreaming}
+            modelConfig={modelConfig}
+            onModelConfigChange={setModelConfig}
+            onProviderChange={handleProviderChange}
+            onVersionChange={handleVersionChange}
+            isPreviewOpen={isPreviewOpen}
+            onPreviewRequest={handlePreviewRequest}
+          />
+
+          {!isPreviewOpen && (
+            <button
+              onClick={() => setIsPreviewOpen(true)}
+              className="absolute top-3 right-3 z-30 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Open Preview"
+            >
+              <PanelRight className="w-5 h-5" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+
+    {/* Only show PreviewWindow if Settings are NOT open */}
+    {!showSettings && (
+      <PreviewWindow
+        isOpen={isPreviewOpen}
+        onToggle={() => setIsPreviewOpen(!isPreviewOpen)}
+        isMobile={isMobile}
+        isSidebarOpen={isSidebarOpen}
+        previewContent={previewContent}
+        isLoading={isLoading || isStreaming}
+      />
+    )}
+
+    {/* Delete Confirmation Dialog */}
+    {chatToDelete && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+        onClick={() => setChatToDelete(null)}
+      >
+        <div
+          className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+              {t("common.deleteTitle")}
+            </h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+              {t("common.deleteWarning")}
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setChatToDelete(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={confirmDeleteChat}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+              >
+                {t("common.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <LangFlowConfigModal
+      isOpen={isLangFlowConfigOpen}
+      onClose={() => setIsLangFlowConfigOpen(false)}
+      currentUrl={modelConfig.langflowUrl || ""}
+      onSave={(url) =>
+        setModelConfig((prev) => ({ ...prev, langflowUrl: url }))
+      }
+    />
+  </div>
+));
+
 export default function App() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -735,150 +950,90 @@ export default function App() {
     }
   }, [location.pathname]);
 
-  // Main app layout component
-  const AppLayout = ({ showSettings = false }: { showSettings?: boolean }) => (
-    <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden font-sans relative transition-colors duration-200">
-      {/* Mobile Sidebar Backdrop */}
-      {isMobile && isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      <Sidebar
-        history={history}
-        activeChatId={activeChatId}
-        onNewChat={handleNewChat}
-        onSelectChat={handleSelectChat}
-        onDeleteChat={onRequestDeleteChat}
-        activeProvider={modelConfig.provider}
-        onProviderChange={handleProviderChange}
-        onOpenSettings={() => {
-          navigate('/settings/general');
-        }}
-        isOpen={isSidebarOpen}
-        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        isMobile={isMobile}
-        onLogout={() => {
-          setIsAuthenticated(false);
-          navigate('/login');
-        }}
-      />
-
-      <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
-        {showSettings ? (
-          <SettingsView
-            modelConfig={modelConfig}
-            onModelConfigChange={setModelConfig}
-            onBack={() => navigate(-1)}
-            chatHistory={history}
-            onDeleteChat={onRequestDeleteChat}
-            onClearAllChats={handleClearAllChats}
-            initialTab={settingsTab}
-            onTabChange={(tab) => navigate(`/settings/${tab}`)}
-          />
-        ) : (
-          <>
-            <ChatInterface
-              messages={currentMessages}
-              input={inputValue}
-              setInput={setInputValue}
-              onSend={handleSend}
-              onRegenerate={handleRegenerate}
-              onEdit={handleEditUserMessage}
-              isLoading={isLoading}
-              isStreaming={isStreaming}
-              modelConfig={modelConfig}
-              onModelConfigChange={setModelConfig}
-              onProviderChange={handleProviderChange}
-              onVersionChange={handleVersionChange}
-              isPreviewOpen={isPreviewOpen}
-              onPreviewRequest={handlePreviewRequest}
-            />
-
-            {!isPreviewOpen && (
-              <button
-                onClick={() => setIsPreviewOpen(true)}
-                className="absolute top-3 right-3 z-30 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-                title="Open Preview"
-              >
-                <PanelRight className="w-5 h-5" />
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Only show PreviewWindow if Settings are NOT open */}
-      {!showSettings && (
-        <PreviewWindow
-          isOpen={isPreviewOpen}
-          onToggle={() => setIsPreviewOpen(!isPreviewOpen)}
-          isMobile={isMobile}
-          isSidebarOpen={isSidebarOpen}
-          previewContent={previewContent}
-          isLoading={isLoading || isStreaming}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {chatToDelete && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => setChatToDelete(null)}
-        >
-          <div
-            className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-6 h-6 text-red-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                {t("common.deleteTitle")}
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                {t("common.deleteWarning")}
-              </p>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setChatToDelete(null)}
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  {t("common.cancel")}
-                </button>
-                <button
-                  onClick={confirmDeleteChat}
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-                >
-                  {t("common.delete")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <LangFlowConfigModal
-        isOpen={isLangFlowConfigOpen}
-        onClose={() => setIsLangFlowConfigOpen(false)}
-        currentUrl={modelConfig.langflowUrl || ""}
-        onSave={(url) =>
-          setModelConfig((prev) => ({ ...prev, langflowUrl: url }))
-        }
-      />
-    </div>
-  );
-
   return (
     <Routes>
       <Route path="/login" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
       <Route path="/register" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
-      <Route path="/settings/:tab" element={isAuthenticated ? <AppLayout showSettings={true} /> : <Navigate to="/login" />} />
-      <Route path="/chat/:chatId" element={isAuthenticated ? <AppLayout showSettings={false} /> : <Navigate to="/login" />} />
+      <Route path="/settings/:tab" element={isAuthenticated ? (
+        <AppLayout
+          showSettings={true}
+          isMobile={isMobile}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          history={history}
+          activeChatId={activeChatId}
+          handleNewChat={handleNewChat}
+          handleSelectChat={handleSelectChat}
+          onRequestDeleteChat={onRequestDeleteChat}
+          modelConfig={modelConfig}
+          handleProviderChange={handleProviderChange}
+          navigate={navigate}
+          setIsAuthenticated={setIsAuthenticated}
+          settingsTab={settingsTab}
+          setModelConfig={setModelConfig}
+          chatHistory={history}
+          handleClearAllChats={handleClearAllChats}
+          currentMessages={currentMessages}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSend={handleSend}
+          handleRegenerate={handleRegenerate}
+          handleEditUserMessage={handleEditUserMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          handleVersionChange={handleVersionChange}
+          isPreviewOpen={isPreviewOpen}
+          handlePreviewRequest={handlePreviewRequest}
+          setIsPreviewOpen={setIsPreviewOpen}
+          previewContent={previewContent}
+          chatToDelete={chatToDelete}
+          setChatToDelete={setChatToDelete}
+          t={t}
+          confirmDeleteChat={confirmDeleteChat}
+          isLangFlowConfigOpen={isLangFlowConfigOpen}
+          setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+        />
+      ) : <Navigate to="/login" />} />
+      <Route path="/chat/:chatId" element={isAuthenticated ? (
+        <AppLayout
+          showSettings={false}
+          isMobile={isMobile}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          history={history}
+          activeChatId={activeChatId}
+          handleNewChat={handleNewChat}
+          handleSelectChat={handleSelectChat}
+          onRequestDeleteChat={onRequestDeleteChat}
+          modelConfig={modelConfig}
+          handleProviderChange={handleProviderChange}
+          navigate={navigate}
+          setIsAuthenticated={setIsAuthenticated}
+          settingsTab={settingsTab}
+          setModelConfig={setModelConfig}
+          chatHistory={history}
+          handleClearAllChats={handleClearAllChats}
+          currentMessages={currentMessages}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSend={handleSend}
+          handleRegenerate={handleRegenerate}
+          handleEditUserMessage={handleEditUserMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          handleVersionChange={handleVersionChange}
+          isPreviewOpen={isPreviewOpen}
+          handlePreviewRequest={handlePreviewRequest}
+          setIsPreviewOpen={setIsPreviewOpen}
+          previewContent={previewContent}
+          chatToDelete={chatToDelete}
+          setChatToDelete={setChatToDelete}
+          t={t}
+          confirmDeleteChat={confirmDeleteChat}
+          isLangFlowConfigOpen={isLangFlowConfigOpen}
+          setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+        />
+      ) : <Navigate to="/login" />} />
       <Route path="/" element={isAuthenticated ? <Navigate to={`/chat/${activeChatId || (Object.keys(sessions).length > 0 ? Object.keys(sessions)[0] : "new")}`} replace /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
