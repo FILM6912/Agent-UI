@@ -145,6 +145,76 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const recognitionRef = useRef<any>(null);
 
   const PRESET_MODELS = getPresetModels(t);
+  
+  // Load agent flows from API
+  const [agentModels, setAgentModels] = useState<{ id: string; name: string; desc: string }[]>([]);
+  
+  // Store config in ref to avoid dependency array issues
+  const langflowConfigRef = useRef({ url: modelConfig.langflowUrl, apiKey: modelConfig.langflowApiKey });
+  
+  useEffect(() => {
+    langflowConfigRef.current = { url: modelConfig.langflowUrl, apiKey: modelConfig.langflowApiKey };
+  }, [modelConfig.langflowUrl, modelConfig.langflowApiKey]);
+  
+  useEffect(() => {
+    const loadAgentModels = async () => {
+      const { url, apiKey } = langflowConfigRef.current;
+      
+      // Fetch from LangFlow API instead of localStorage
+      if (!url || !apiKey) {
+        setAgentModels([]);
+        return;
+      }
+      
+      try {
+        const baseUrl = url.replace(/\/+$/, "");
+        const apiUrl = new URL(`${baseUrl}/api/v1/flows/`);
+        apiUrl.searchParams.append('remove_example_flows', 'false');
+        apiUrl.searchParams.append('components_only', 'false');
+        apiUrl.searchParams.append('get_all', 'true');
+        apiUrl.searchParams.append('header_flows', 'false');
+        apiUrl.searchParams.append('page', '1');
+        apiUrl.searchParams.append('size', '50');
+        apiUrl.searchParams.append('x-api-key', apiKey);
+        
+        const response = await fetch(apiUrl.toString(), {
+          headers: { "accept": "application/json" }
+        });
+        
+        if (!response.ok) {
+          console.error("Failed to fetch agents:", response.status);
+          setAgentModels([]);
+          return;
+        }
+        
+        const flows = await response.json();
+        if (!Array.isArray(flows)) {
+          setAgentModels([]);
+          return;
+        }
+        
+        const agents = flows.map((flow: any) => ({
+          id: flow.id, // Use flow ID as model ID
+          name: flow.name, // Display name
+          desc: flow.description || "LangFlow Agent"
+        }));
+        
+        setAgentModels(agents);
+      } catch (error) {
+        console.error("Failed to load agent models:", error);
+        setAgentModels([]);
+      }
+    };
+    
+    loadAgentModels();
+    
+    // Reload when window gains focus (after settings change)
+    const handleFocus = () => loadAgentModels();
+    window.addEventListener('focus', handleFocus);
+    
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []); // Empty dependency array, use ref for config
+
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -734,7 +804,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     {t('chat.availableModels')}
                                 </div>
                                 <div className="p-1 max-h-60 overflow-y-auto">
-                                    {PRESET_MODELS[modelConfig.provider].map(m => (
+                                    {/* Agent Models */}
+                                    {agentModels.map(m => (
                                         <button 
                                             key={m.id}
                                             onClick={() => {
@@ -743,14 +814,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                             }}
                                             className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ${modelConfig.modelId === m.id ? 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'}`}
                                         >
-                                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${modelConfig.modelId === m.id ? (modelConfig.provider === 'google' ? 'bg-amber-500' : 'bg-blue-500') : 'bg-zinc-400 dark:bg-zinc-700'}`}></div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="font-medium truncate">{m.name}</span>
-                                            <span className="text-[10px] opacity-60 truncate">{m.desc}</span>
-                                        </div>
-                                        {modelConfig.modelId === m.id && <Check className="w-3 h-3 ml-auto text-emerald-500" />}
+                                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${modelConfig.modelId === m.id ? 'bg-indigo-500' : 'bg-zinc-400 dark:bg-zinc-700'}`}></div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="font-medium truncate">{m.name}</span>
+                                                <span className="text-[10px] opacity-60 truncate">{m.desc}</span>
+                                            </div>
+                                            {modelConfig.modelId === m.id && <Check className="w-3 h-3 ml-auto text-emerald-500" />}
                                         </button>
                                     ))}
+                                    
+                                    {/* Show message if no agents */}
+                                    {agentModels.length === 0 && (
+                                        <div className="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                                            <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                            <p className="mb-1">No agents available</p>
+                                            <p className="text-[10px]">Configure agents in Settings</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

@@ -62,7 +62,7 @@ interface SettingsViewProps {
   onTabChange?: (tab: SettingsTab) => void;
 }
 
-type SettingsTab = "general" | "account" | "tools" | "langflow";
+type SettingsTab = "general" | "account" | "tools" | "agent" | "langflow";
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   modelConfig,
@@ -93,6 +93,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [mcpInput, setMcpInput] = useState("");
   const [searchModel, setSearchModel] = useState("");
 
+  // Agent State
+  interface AgentFlow {
+    id: string;
+    name: string;
+    description: string;
+    enabled: boolean;
+    customName?: string;
+  }
+  const [agentFlows, setAgentFlows] = useState<AgentFlow[]>([]);
+  const [loadingAgents, setLoadingAgents] = useState(false);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+  const [editingAgentName, setEditingAgentName] = useState("");
+  
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'success' | 'error' | 'warning';
+    title: string;
+    message: string;
+  }>({
+    type: 'success',
+    title: '',
+    message: ''
+  });
+  
+  // LangFlow Config Modal
+  const [showLangflowConfigModal, setShowLangflowConfigModal] = useState(false);
+
   // General Settings State
   const [voiceDelay, setVoiceDelay] = useState(modelConfig.voiceDelay || 0.5);
   const [systemPromptOpen, setSystemPromptOpen] = useState(false);
@@ -104,6 +132,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Separate the input state from the committed configuration state to prevent iframe reload on every keystroke
   const [langflowUrlInput, setLangflowUrlInput] = useState(
     modelConfig.langflowUrl || "",
+  );
+  const [langflowApiKeyInput, setLangflowApiKeyInput] = useState(
+    modelConfig.langflowApiKey || "",
   );
   const [iframeKey, setIframeKey] = useState(0);
 
@@ -130,7 +161,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (savedProfile) {
       setProfile((prev) => ({ ...prev, ...JSON.parse(savedProfile) }));
     }
+
+    // Don't load saved agent flows - fetch fresh from API instead
+    
+    // Load LangFlow config
+    const savedLangflowConfig = localStorage.getItem("langflow_config");
+    if (savedLangflowConfig) {
+      try {
+        const config = JSON.parse(savedLangflowConfig);
+        setLangflowUrlInput(config.url || "");
+        setLangflowApiKeyInput(config.apiKey || "");
+        
+        // Update modelConfig if not already set
+        if (!modelConfig.langflowUrl && config.url) {
+          onModelConfigChange({
+            ...modelConfig,
+            langflowUrl: config.url,
+            langflowApiKey: config.apiKey
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load LangFlow config:", error);
+      }
+    }
   }, []);
+
+  // Auto fetch agents when entering Agent tab
+  useEffect(() => {
+    if (activeTab === 'agent' && modelConfig.langflowUrl && modelConfig.langflowApiKey) {
+      fetchAgentFlows();
+    }
+  }, [activeTab, modelConfig.langflowUrl, modelConfig.langflowApiKey]);
 
   // Sync general settings to model config when changed (debounced/on blur)
   useEffect(() => {
@@ -154,9 +215,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const saveLangflowUrl = () => {
-    onModelConfigChange({ ...modelConfig, langflowUrl: langflowUrlInput });
+    const newConfig = { 
+      ...modelConfig, 
+      langflowUrl: langflowUrlInput,
+      langflowApiKey: langflowApiKeyInput 
+    };
+    
+    onModelConfigChange(newConfig);
+    
+    // Save to localStorage
+    localStorage.setItem('langflow_config', JSON.stringify({
+      url: langflowUrlInput,
+      apiKey: langflowApiKeyInput
+    }));
+    
     // Force iframe reload by updating key
     setIframeKey((prev) => prev + 1);
+    setShowLangflowConfigModal(false);
+    showNotification('success', t("settings.configSaved"), t("settings.configSavedMessage"));
   };
 
   const handleAddMcp = () => {
@@ -248,10 +324,144 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
       updateTranslations(newTranslations);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      alert("Language imported successfully!");
+      showNotification('success', t("settings.importSuccess"), t("settings.importSuccessMessage"));
     };
     reader.readAsText(file);
   };
+
+  // Agent Functions
+  const showNotification = (type: 'success' | 'error' | 'warning', title: string, message: string) => {
+    setModalConfig({ type, title, message });
+    setShowModal(true);
+  };
+
+  const fetchAgentFlows = async () => {
+    if (!modelConfig.langflowUrl) {
+      showNotification('warning', t("settings.configRequired"), t("settings.configureLangflowFirst"));
+      return;
+    }
+
+    setLoadingAgents(true);
+    try {
+      const baseUrl = modelConfig.langflowUrl.replace(/\/+$/, "");
+      
+      // Build URL with query parameters
+      const url = new URL(`${baseUrl}/api/v1/flows/`);
+      url.searchParams.append('remove_example_flows', 'false');
+      url.searchParams.append('components_only', 'false');
+      url.searchParams.append('get_all', 'true');
+      url.searchParams.append('header_flows', 'false');
+      url.searchParams.append('page', '1');
+      url.searchParams.append('size', '50');
+      
+      // Add API Key as query parameter if provided
+      if (modelConfig.langflowApiKey) {
+        url.searchParams.append('x-api-key', modelConfig.langflowApiKey);
+      }
+      
+      const apiUrl = url.toString();
+      
+      const headers: HeadersInit = {
+        "accept": "application/json"
+      };
+      
+      // Debug: Log request details
+      console.log("LangFlow URL:", modelConfig.langflowUrl);
+      console.log("API Key exists:", !!modelConfig.langflowApiKey);
+      console.log("API Key length:", modelConfig.langflowApiKey?.length || 0);
+      console.log("Fetching from:", apiUrl);
+      
+      const response = await fetch(apiUrl, { headers });
+      
+      console.log("Response status:", response.status);
+      
+      // Handle 401 Unauthorized
+      if (response.status === 401) {
+        showNotification('error', t("settings.authRequired"), t("settings.authRequiredMessage"));
+        setAgentFlows([]); // Clear agents on auth error
+        setLoadingAgents(false);
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+      
+      const flows = await response.json();
+      
+      // Check if flows is an array
+      if (!Array.isArray(flows)) {
+        throw new Error("Invalid response format");
+      }
+      
+      console.log("Fetched flows:", flows.length);
+      
+      // Map flows to agent format, all enabled by default
+      const newAgents: AgentFlow[] = flows.map((flow: any) => {
+        return {
+          id: flow.id,
+          name: flow.name, // Original name from LangFlow (used as FLOW_ID)
+          description: flow.description || "No description available",
+          enabled: true, // All enabled by default
+          customName: flow.name // Display name (same as original name)
+        };
+      });
+      
+      setAgentFlows(newAgents);
+      // Don't save to localStorage - fetch fresh each time
+      // Don't show success notification, only show errors
+    } catch (error) {
+      console.error("Failed to fetch agent flows:", error);
+      showNotification('error', t("settings.fetchError"), t("settings.fetchErrorMessage"));
+      setAgentFlows([]); // Clear agents on error
+    } finally {
+      setLoadingAgents(false);
+    }
+  };
+
+  const toggleAgentEnabled = (id: string) => {
+    const updated = agentFlows.map(agent =>
+      agent.id === id ? { ...agent, enabled: !agent.enabled } : agent
+    );
+    setAgentFlows(updated);
+    // Don't save to localStorage
+  };
+
+  const startEditingAgent = (agent: AgentFlow) => {
+    setEditingAgentId(agent.id);
+    setEditingAgentName(agent.customName || agent.name);
+  };
+
+  const saveAgentName = (id: string) => {
+    const updated = agentFlows.map(agent =>
+      agent.id === id ? { ...agent, customName: editingAgentName } : agent
+    );
+    setAgentFlows(updated);
+    // Don't save to localStorage
+    setEditingAgentId(null);
+    setEditingAgentName("");
+  };
+
+  const cancelEditingAgent = () => {
+    setEditingAgentId(null);
+    setEditingAgentName("");
+  };
+
+  // Keyboard shortcut for Ctrl+Q (support all keyboard layouts)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Q or Cmd+Q using both key and code
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'q' || e.code === 'KeyQ')) {
+        e.preventDefault();
+        if (activeTab === 'langflow' || activeTab === 'agent') {
+          setShowLangflowConfigModal(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab]);
 
   return (
     <div className="flex h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 font-sans overflow-hidden transition-colors duration-200">
@@ -268,6 +478,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             { id: "general", icon: Settings, label: t("settings.general") },
             { id: "account", icon: User, label: t("settings.account") },
             { id: "tools", icon: Wrench, label: t("settings.myTools") },
+            { id: "agent", icon: Bot, label: t("settings.agent") },
             { id: "langflow", icon: Workflow, label: t("settings.langflow") },
           ].map((item) => (
             <button
@@ -275,16 +486,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onClick={() => handleTabChange(item.id as SettingsTab)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                 activeTab === item.id
-                  ? item.id === "langflow"
+                  ? item.id === "langflow" || item.id === "agent"
                     ? "bg-indigo-50 dark:bg-[#27272a] text-indigo-600 dark:text-indigo-400 font-medium shadow-sm"
                     : "bg-white dark:bg-[#27272a] text-zinc-900 dark:text-white font-medium shadow-sm border border-zinc-200 dark:border-transparent"
-                  : item.id === "langflow"
+                  : item.id === "langflow" || item.id === "agent"
                   ? "text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-zinc-800/50"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
               }`}
             >
               <item.icon
-                className={`w-4 h-4 ${activeTab === item.id ? (item.id === "langflow" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
+                className={`w-4 h-4 ${activeTab === item.id ? (item.id === "langflow" || item.id === "agent" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
               />
               {item.label}
             </button>
@@ -317,6 +528,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {activeTab === "tools" && (
                 <Wrench className="w-5 h-5 text-blue-500" />
               )}
+              {activeTab === "agent" && (
+                <Bot className="w-5 h-5 text-indigo-500" />
+              )}
               {activeTab === "langflow" && (
                 <Workflow className="w-5 h-5 text-indigo-500" />
               )}
@@ -325,6 +539,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {activeTab === "general" && t("settings.general")}
                 {activeTab === "account" && t("settings.account")}
                 {activeTab === "tools" && t("settings.myTools")}
+                {activeTab === "agent" && t("settings.agent")}
                 {activeTab === "langflow" && t("settings.langflow")}
               </h2>
             </div>
@@ -792,11 +1007,150 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
           </div>
 
+          {/* AGENT TAB */}
+          <div className={`max-w-4xl space-y-6 ${activeTab === "agent" ? "block" : "hidden"}`}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                    {t("settings.agentDesc")}
+                  </p>
+                  <div className="flex items-center gap-1 mt-2 text-xs text-zinc-400">
+                    <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded border border-zinc-300 dark:border-zinc-700 font-mono">Ctrl</kbd>
+                    <span>+</span>
+                    <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded border border-zinc-300 dark:border-zinc-700 font-mono">Q</kbd>
+                    <span className="ml-1">{t("settings.toClose")}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchAgentFlows}
+                  disabled={loadingAgents}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-400 text-white px-4 py-2 rounded-lg text-xs font-medium transition-colors shadow-lg shadow-indigo-500/20"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingAgents ? 'animate-spin' : ''}`} />
+                  {loadingAgents ? t("settings.loading") : t("settings.fetchAgents")}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {agentFlows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-zinc-400 dark:text-zinc-500 text-sm border border-dashed border-zinc-300 dark:border-zinc-800 rounded-xl bg-zinc-50 dark:bg-[#121212]/50">
+                    <Bot className="w-8 h-8 mb-3 opacity-50" />
+                    <span>{t("settings.noAgents")}</span>
+                    <button
+                      onClick={fetchAgentFlows}
+                      className="mt-4 text-indigo-600 dark:text-indigo-400 hover:underline text-xs"
+                    >
+                      {t("settings.fetchAgentsNow")}
+                    </button>
+                  </div>
+                ) : (
+                  agentFlows.map((agent) => (
+                    <div
+                      key={agent.id}
+                      className="flex items-center justify-between p-4 bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors group shadow-sm dark:shadow-none"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                          {(agent.customName || agent.name).substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          {editingAgentId === agent.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingAgentName}
+                                onChange={(e) => setEditingAgentName(e.target.value)}
+                                className="bg-white dark:bg-[#1e1e20] border border-indigo-300 dark:border-indigo-700 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-indigo-500 flex-1"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveAgentName(agent.id);
+                                  if (e.key === 'Escape') cancelEditingAgent();
+                                }}
+                              />
+                              <button
+                                onClick={() => saveAgentName(agent.id)}
+                                className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-lg transition-colors"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={cancelEditingAgent}
+                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                                {agent.customName || agent.name}
+                              </div>
+                              <div className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
+                                {agent.description}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Toggle Switch */}
+                        <button
+                          onClick={() => toggleAgentEnabled(agent.id)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            agent.enabled
+                              ? 'bg-green-500'
+                              : 'bg-zinc-300 dark:bg-zinc-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              agent.enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+
+                        {/* Status Badge */}
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold border uppercase tracking-wider ${
+                          agent.enabled
+                            ? 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-200 dark:border-green-500/20'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
+                        }`}>
+                          {agent.enabled ? (
+                            <>
+                              <Check className="w-3 h-3" />
+                              {t("settings.enabled")}
+                            </>
+                          ) : (
+                            <>
+                              <X className="w-3 h-3" />
+                              {t("settings.disabled")}
+                            </>
+                          )}
+                        </div>
+
+                        {/* Edit Button */}
+                        {editingAgentId !== agent.id && (
+                          <button
+                            onClick={() => startEditingAgent(agent)}
+                            className="p-2 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors text-zinc-500"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+          </div>
+
           {/* LANGFLOW TAB */}
           <div className={`flex flex-col h-full ${activeTab === "langflow" ? "block" : "hidden"}`}>
+              {/* Iframe */}
               <div className="flex-1 bg-zinc-100 dark:bg-black relative">
                 {modelConfig.langflowUrl ? (
                   <iframe
+                    key={iframeKey}
                     src={modelConfig.langflowUrl}
                     className="w-full h-full border-0"
                     title="LangFlow Interface"
@@ -804,15 +1158,214 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     referrerPolicy="strict-origin-when-cross-origin"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                    <Workflow className="w-12 h-12 mb-2 opacity-50" />
-                    <span>Please configure LangFlow URL</span>
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-500 dark:text-zinc-400">
+                    <Workflow className="w-16 h-16 mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">{t("settings.configureLangflowUrl")}</p>
+                    <p className="text-sm mb-4">{t("settings.pressCtrlQ")}</p>
+                    <button
+                      onClick={() => setShowLangflowConfigModal(true)}
+                      className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
+                    >
+                      <Settings className="w-4 h-4" />
+                      {t("settings.configureLangflow")}
+                    </button>
                   </div>
+                )}
+                
+                {/* Floating Config Button */}
+                {modelConfig.langflowUrl && (
+                  <button
+                    onClick={() => setShowLangflowConfigModal(true)}
+                    className="absolute bottom-6 right-6 p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
+                    title={t("settings.configureLangflow")}
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
                 )}
               </div>
           </div>
         </div>
       </div>
+
+      {/* LangFlow Configuration Modal */}
+      {showLangflowConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setShowLangflowConfigModal(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-zinc-900 dark:bg-zinc-950 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200 border border-zinc-700 dark:border-zinc-800">
+            {/* Header */}
+            <div className="bg-zinc-800 dark:bg-zinc-900 border-b border-zinc-700 dark:border-zinc-800 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-zinc-700 dark:bg-zinc-800 rounded-xl">
+                    <Workflow className="w-6 h-6 text-zinc-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-zinc-100">
+                      {t("settings.langflowConfig")}
+                    </h3>
+                    <p className="text-sm text-zinc-400 mt-0.5">
+                      {t("settings.configureLangflowDesc")}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowLangflowConfigModal(false)}
+                  className="p-2 hover:bg-zinc-700 dark:hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-zinc-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-5 bg-zinc-900 dark:bg-zinc-950">
+              {/* URL Input */}
+              <div>
+                <label className="text-sm font-semibold text-zinc-300 mb-2 flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-zinc-400" />
+                  {t("settings.langflowUrl")}
+                  <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={langflowUrlInput}
+                  onChange={(e) => setLangflowUrlInput(e.target.value)}
+                  placeholder="http://localhost:7860"
+                  className="w-full bg-zinc-800 dark:bg-zinc-900 border-2 border-zinc-700 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-600 font-mono transition-colors"
+                />
+                <p className="text-xs text-zinc-500 mt-1.5 ml-1">
+                  {t("settings.langflowUrlHint")}
+                </p>
+              </div>
+
+              {/* API Key Input */}
+              <div>
+                <label className="text-sm font-semibold text-zinc-300 mb-2 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-zinc-400" />
+                  {t("settings.apiKey")}
+                  <span className="text-xs font-normal text-zinc-500">({t("settings.optional")})</span>
+                </label>
+                <input
+                  type="password"
+                  value={langflowApiKeyInput}
+                  onChange={(e) => setLangflowApiKeyInput(e.target.value)}
+                  placeholder="sk-..."
+                  className="w-full bg-zinc-800 dark:bg-zinc-900 border-2 border-zinc-700 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-600 font-mono transition-colors"
+                />
+                <p className="text-xs text-zinc-500 mt-1.5 ml-1">
+                  {t("settings.apiKeyHint")}
+                </p>
+              </div>
+
+              {/* Keyboard Hint */}
+              <div className="bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 dark:border-zinc-800 rounded-xl p-4">
+                <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="font-medium">{t("settings.quickTip")}:</span>
+                  <kbd className="px-2 py-1 bg-zinc-700 dark:bg-zinc-800 rounded border border-zinc-600 dark:border-zinc-700 font-mono text-xs text-zinc-300">Ctrl</kbd>
+                  <span>+</span>
+                  <kbd className="px-2 py-1 bg-zinc-700 dark:bg-zinc-800 rounded border border-zinc-600 dark:border-zinc-700 font-mono text-xs text-zinc-300">Q</kbd>
+                  <span>{t("settings.toOpenConfig")}</span>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={saveLangflowUrl}
+                  disabled={!langflowUrlInput.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-100 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg disabled:shadow-none"
+                >
+                  <Save className="w-5 h-5" />
+                  {t("settings.saveAndReload")}
+                </button>
+                
+                {modelConfig.langflowUrl && (
+                  <a
+                    href={modelConfig.langflowUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-zinc-100 px-6 py-3 rounded-xl font-semibold transition-colors"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    {t("settings.openExternal")}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Beautiful Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowModal(false)}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white dark:bg-[#121212] rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
+            {/* Header with colored accent */}
+            <div className={`h-2 ${
+              modalConfig.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+              modalConfig.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-500' :
+              'bg-gradient-to-r from-amber-500 to-orange-500'
+            }`} />
+            
+            <div className="p-6">
+              {/* Icon */}
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                modalConfig.type === 'success' ? 'bg-green-100 dark:bg-green-500/20' :
+                modalConfig.type === 'error' ? 'bg-red-100 dark:bg-red-500/20' :
+                'bg-amber-100 dark:bg-amber-500/20'
+              }`}>
+                {modalConfig.type === 'success' && (
+                  <Check className="w-8 h-8 text-green-600 dark:text-green-500" />
+                )}
+                {modalConfig.type === 'error' && (
+                  <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-500" />
+                )}
+                {modalConfig.type === 'warning' && (
+                  <HelpCircle className="w-8 h-8 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold text-center text-zinc-900 dark:text-white mb-2">
+                {modalConfig.title}
+              </h3>
+
+              {/* Message */}
+              <p className="text-sm text-center text-zinc-600 dark:text-zinc-400 mb-6">
+                {modalConfig.message}
+              </p>
+
+              {/* Button */}
+              <button
+                onClick={() => setShowModal(false)}
+                className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 shadow-lg ${
+                  modalConfig.type === 'success' 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-green-500/30' :
+                  modalConfig.type === 'error'
+                    ? 'bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 shadow-red-500/30' :
+                    'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30'
+                }`}
+              >
+                {t("common.ok")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

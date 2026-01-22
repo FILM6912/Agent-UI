@@ -36,7 +36,7 @@ interface AppLayoutProps {
   handleProviderChange: (provider: AIProvider) => void;
   navigate: (path: string | number) => void;
   setIsAuthenticated: (auth: boolean) => void;
-  settingsTab: "general" | "account" | "tools" | "langflow";
+  settingsTab: "general" | "account" | "tools" | "agent" | "langflow";
   setModelConfig: (config: ModelConfig) => void;
   chatHistory: ChatSession[];
   handleClearAllChats: () => void;
@@ -269,11 +269,21 @@ export default function App() {
   const [sessions, setSessions] = useState<Record<string, ChatSession>>(() => {
     const saved = localStorage.getItem('chat_sessions');
     if (saved) {
-      return JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
+        // Ensure sessions is valid
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      } catch (error) {
+        console.error("Failed to parse chat sessions:", error);
+      }
     }
+    // Create initial session
+    const newId = crypto.randomUUID();
     return {
-      [initialId]: {
-        id: initialId,
+      [newId]: {
+        id: newId,
         title: "New Task",
         messages: [],
         updatedAt: Date.now(),
@@ -285,7 +295,11 @@ export default function App() {
     localStorage.setItem('chat_sessions', JSON.stringify(sessions));
   }, [sessions]);
 
-  const [activeChatId, setActiveChatId] = useState<string>(initialId);
+  const [activeChatId, setActiveChatId] = useState<string>(() => {
+    // Get first session ID from sessions
+    const sessionIds = Object.keys(sessions);
+    return sessionIds.length > 0 ? sessionIds[0] : crypto.randomUUID();
+  });
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -295,7 +309,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLangFlowConfigOpen, setIsLangFlowConfigOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<
-    "general" | "account" | "tools" | "langflow"
+    "general" | "account" | "tools" | "agent" | "langflow"
   >("general");
 
   // Live Preview Content State
@@ -326,21 +340,35 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [modelConfig, setModelConfig] = useState<ModelConfig>({
-    provider: "google",
-    baseUrl: "",
-    modelId: "gemini-3-flash-preview",
-    name: "Gemini 3.0 Flash",
-    mcpServers: ["http://192.168.99.1:9000/mcp"],
-    enabledConnections: ["google", "mimo", "rou"],
-    enabledModels: [
-      "gemini-3-flash-preview",
-      "gemini-2.5-flash-lite-latest",
-      "gpt-4o",
-    ],
-    systemPrompt: "You are a helpful AI assistant focused on technical tasks.",
-    voiceDelay: 0.5,
-    langflowUrl: "http://localhost:7860",
+  const [modelConfig, setModelConfig] = useState<ModelConfig>(() => {
+    // Load LangFlow config from localStorage
+    const savedLangflowConfig = localStorage.getItem("langflow_config");
+    let langflowUrl = "";
+    let langflowApiKey = "";
+    
+    if (savedLangflowConfig) {
+      try {
+        const config = JSON.parse(savedLangflowConfig);
+        langflowUrl = config.url || "";
+        langflowApiKey = config.apiKey || "";
+      } catch (error) {
+        console.error("Failed to load LangFlow config:", error);
+      }
+    }
+    
+    return {
+      provider: "google",
+      baseUrl: "",
+      modelId: "", // No default model
+      name: "Select Agent", // Placeholder name
+      mcpServers: [],
+      enabledConnections: [],
+      enabledModels: [],
+      systemPrompt: "You are a helpful AI assistant focused on technical tasks.",
+      voiceDelay: 0.5,
+      langflowUrl,
+      langflowApiKey,
+    };
   });
 
   // Update "New Task" title when language changes for empty sessions
@@ -440,8 +468,9 @@ export default function App() {
             currentVersionIndex: 0,
           };
 
+          // Set initial content if it's a text chunk
           if (chunk.type === "text" && chunk.content) {
-            accumulatedContent = chunk.content;
+            accumulatedContent += chunk.content;
             initialAssistantMsg.content = accumulatedContent;
             if (initialAssistantMsg.versions) {
               initialAssistantMsg.versions[0].content = accumulatedContent;
@@ -456,7 +485,8 @@ export default function App() {
             },
           }));
           messageInitialized = true;
-          if (chunk.type === "steps") continue;
+          // Skip the rest of the loop for this chunk since we already handled it
+          continue;
         }
 
         if (
@@ -590,6 +620,13 @@ export default function App() {
       isStreaming
     )
       return;
+    
+    // Ensure active session exists
+    if (!sessions[activeChatId]) {
+      console.error("Active session not found:", activeChatId);
+      return;
+    }
+    
     const currentPrompt = message;
     const isFirstUserMessage = currentMessages.length === 0;
 
@@ -612,25 +649,36 @@ export default function App() {
     setInputValue("");
     const historyBeforeNewMessage = [...currentMessages];
 
-    setSessions((prev) => ({
-      ...prev,
-      [activeChatId]: {
-        ...prev[activeChatId],
-        title: isFirstUserMessage
-          ? currentPrompt.substring(0, 30)
-          : prev[activeChatId].title,
-        messages: [...prev[activeChatId].messages, userMsg],
-        updatedAt: Date.now(),
-      },
-    }));
+    setSessions((prev) => {
+      const currentSession = prev[activeChatId];
+      if (!currentSession) {
+        console.error("Session not found in setSessions:", activeChatId);
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        [activeChatId]: {
+          ...currentSession,
+          title: isFirstUserMessage
+            ? currentPrompt.substring(0, 30)
+            : currentSession.title,
+          messages: [...currentSession.messages, userMsg],
+          updatedAt: Date.now(),
+        },
+      };
+    });
 
     if (isFirstUserMessage) {
-      generateChatTitle(currentPrompt)
+      generateChatTitle(currentPrompt, modelConfig)
         .then((aiTitle) => {
-          setSessions((prev) => ({
-            ...prev,
-            [activeChatId]: { ...prev[activeChatId], title: aiTitle },
-          }));
+          setSessions((prev) => {
+            if (!prev[activeChatId]) return prev;
+            return {
+              ...prev,
+              [activeChatId]: { ...prev[activeChatId], title: aiTitle },
+            };
+          });
         })
         .catch(() => {});
     }
@@ -940,8 +988,8 @@ export default function App() {
   // Sync route params to settings state
   useEffect(() => {
     if (location.pathname.startsWith('/settings/')) {
-      const tab = location.pathname.split('/')[2] as 'general' | 'account' | 'tools' | 'langflow';
-      if (['general', 'account', 'tools', 'langflow'].includes(tab)) {
+      const tab = location.pathname.split('/')[2] as 'general' | 'account' | 'tools' | 'agent' | 'langflow';
+      if (['general', 'account', 'tools', 'agent', 'langflow'].includes(tab)) {
         setSettingsTab(tab);
         setIsSettingsOpen(true);
       }
