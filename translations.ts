@@ -64,7 +64,7 @@ export const translations = {
       title: "Settings",
       general: "General",
       account: "Account",
-      myTools: "My Tools",
+      myTools: "Tools",
       langflow: "LangFlow",
       back: "Back",
       
@@ -203,7 +203,7 @@ export const translations = {
       title: "การตั้งค่า",
       general: "ทั่วไป",
       account: "ตั้งค่าบัญชี",
-      myTools: "เครื่องมือของฉัน",
+      myTools: "เครื่องมือ",
       langflow: "LangFlow",
       back: "กลับ",
 
