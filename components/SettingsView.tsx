@@ -120,13 +120,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   
   // LangFlow Config Modal
   const [showLangflowConfigModal, setShowLangflowConfigModal] = useState(false);
-
-  // General Settings State
-  const [voiceDelay, setVoiceDelay] = useState(modelConfig.voiceDelay || 0.5);
-  const [systemPromptOpen, setSystemPromptOpen] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState(
-    modelConfig.systemPrompt || "",
-  );
+  
+  // Clear All Chats Confirmation Modal
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
   // LangFlow State
   // Separate the input state from the committed configuration state to prevent iframe reload on every keystroke
@@ -193,27 +189,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   }, [activeTab, modelConfig.langflowUrl, modelConfig.langflowApiKey]);
 
-  // Sync general settings to model config when changed (debounced/on blur)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (modelConfig.voiceDelay !== voiceDelay) {
-        onModelConfigChange({ ...modelConfig, voiceDelay });
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [voiceDelay]);
-
-  const handleSystemPromptChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
-  ) => {
-    const val = e.target.value;
-    setSystemPrompt(val);
-  };
-
-  const saveSystemPrompt = () => {
-    onModelConfigChange({ ...modelConfig, systemPrompt });
-  };
-
   const saveLangflowUrl = () => {
     const newConfig = { 
       ...modelConfig, 
@@ -276,7 +251,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // CSV Logic
   const handleExportCSV = () => {
     const csvContent = exportTranslations();
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Add BOM for UTF-8 to ensure proper encoding in Excel and other programs
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -284,6 +261,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -672,78 +650,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
-              {/* Voice Delay */}
-              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-sm dark:shadow-none">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-lg bg-zinc-100 dark:bg-[#1e1e20] text-green-500 dark:text-green-400 border border-zinc-200 dark:border-zinc-800">
-                    <Mic className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
-                      {t("settings.voiceDelay")}
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-0.5">
-                      {t("settings.voiceDelayDesc")}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="2.0"
-                    step="0.1"
-                    value={voiceDelay}
-                    onChange={(e) => setVoiceDelay(parseFloat(e.target.value))}
-                    className="w-32 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-green-500"
-                  />
-                  <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 min-w-[30px] text-right">
-                    {voiceDelay}s
-                  </span>
-                </div>
-              </div>
-
-              {/* System Prompt */}
-              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
-                <button
-                  onClick={() => setSystemPromptOpen(!systemPromptOpen)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-[#1e1e20] transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-zinc-100 dark:bg-[#1e1e20] text-indigo-500 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-800">
-                      <MessageSquare className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
-                        {t("settings.systemPrompt")}
-                      </div>
-                      <div className="text-xs text-zinc-500 mt-0.5">
-                        {t("settings.systemPromptDesc")}
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronDown
-                    className={`w-4 h-4 text-zinc-500 transition-transform ${systemPromptOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {systemPromptOpen && (
-                  <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#0c0c0e] animate-in slide-in-from-top-2">
-                    <textarea
-                      className="w-full h-32 bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 text-xs text-zinc-800 dark:text-zinc-300 font-mono focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 resize-none mb-2"
-                      placeholder="You are a helpful AI assistant..."
-                      value={systemPrompt}
-                      onChange={handleSystemPromptChange}
-                      onBlur={saveSystemPrompt}
-                    />
-                    <div className="flex justify-end">
-                      <span className="text-[10px] text-zinc-500">
-                        Auto-saved
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Clear Chat History (Retained as requested) */}
               <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-sm dark:shadow-none">
                 <div className="flex items-center gap-4">
@@ -760,7 +666,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={onClearAllChats}
+                  onClick={() => setShowClearAllConfirm(true)}
                   className="bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-500 border border-red-200 dark:border-red-500/30 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 >
                   {t("settings.clearAll")}
@@ -1362,6 +1268,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 {t("common.ok")}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Chats Confirmation Modal */}
+      {showClearAllConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setShowClearAllConfirm(false)}
+        >
+          <div
+            className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+                {t("settings.clearHistory")}
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                {t("settings.clearHistoryWarning") || "Are you sure you want to delete all conversation history? This action cannot be undone."}
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowClearAllConfirm(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  onClick={() => {
+                    onClearAllChats();
+                    setShowClearAllConfirm(false);
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                >
+                  {t("common.delete")}
+                </button>
+              </div>
             </div>
           </div>
         </div>
