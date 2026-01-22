@@ -41,8 +41,13 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
   return steps;
 };
 
-export async function generateChatTitle(userPrompt: string): Promise<string> {
+export async function generateChatTitle(userPrompt: string, config?: ModelConfig): Promise<string> {
   try {
+    // If using LangFlow, just use the prompt as title
+    if (config?.langflowUrl) {
+      return userPrompt.substring(0, 30);
+    }
+    
     if (!process.env.API_KEY) return userPrompt.substring(0, 30);
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -53,6 +58,111 @@ export async function generateChatTitle(userPrompt: string): Promise<string> {
     return response.text?.trim() || userPrompt.substring(0, 30);
   } catch (error) {
     return userPrompt.substring(0, 30);
+  }
+}
+
+// Stream from LangFlow using OpenAI SDK format
+async function* streamFromLangFlow(
+  history: Message[],
+  newMessage: string,
+  config: ModelConfig
+): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
+  try {
+    const baseUrl = config.langflowUrl?.replace(/\/+$/, '');
+    const apiUrl = `${baseUrl}/api/v1/`;
+    
+    // Build headers
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Add API key if provided
+    if (config.langflowApiKey) {
+      headers['x-api-key'] = config.langflowApiKey;
+    }
+    
+    console.log('LangFlow Request:', {
+      url: `${apiUrl}responses`,
+      model: config.modelId,
+      hasApiKey: !!config.langflowApiKey,
+      apiKeyLength: config.langflowApiKey?.length || 0,
+      langflowUrl: config.langflowUrl
+    });
+    
+    // Use responses endpoint (client.responses.create format)
+    const response = await fetch(`${apiUrl}responses`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: config.modelId, // This is the flow ID
+        input: newMessage,
+        stream: true
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`LangFlow API Error: ${response.status} ${response.statusText}`);
+    }
+    
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Failed to read stream");
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastContent = ''; // Track last content to detect duplicates
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const cleanLine = line.replace(/^data: /, '').trim();
+        if (!cleanLine || cleanLine === '[DONE]') continue;
+        
+        try {
+          const json = JSON.parse(cleanLine);
+          
+          // Handle delta format (streaming chunks)
+          if (json.delta && json.delta.content) {
+            const content = json.delta.content;
+            
+            // Skip empty content
+            if (!content) continue;
+            
+            // Skip duplicate content (LangFlow sometimes sends the same chunk twice)
+            if (content === lastContent) {
+              console.log('Skipping duplicate chunk:', content);
+              continue;
+            }
+            
+            lastContent = content;
+            yield { type: 'text', content };
+            continue;
+          }
+          
+          // Handle full response (non-streaming)
+          const responseContent = json.output_text || json.output || json.text || json.content;
+          if (responseContent) {
+            yield { type: 'text', content: responseContent };
+            continue;
+          }
+          
+          // Handle chunk format
+          if (json.chunk) {
+            yield { type: 'text', content: json.chunk };
+          }
+        } catch (e) {
+          console.error("Error parsing LangFlow stream:", cleanLine);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("LangFlow streaming error:", error);
+    yield { type: 'text', content: `Error: ${error instanceof Error ? error.message : 'Failed to connect to LangFlow'}` };
   }
 }
 
@@ -68,6 +178,13 @@ export async function* streamMessageFromGemini(
   if (mockSteps.length > 0) {
     yield { type: 'steps', steps: mockSteps };
     await new Promise(resolve => setTimeout(resolve, 600));
+  }
+
+  // Check if this is a LangFlow agent (has langflowUrl configured)
+  if (config.langflowUrl && config.modelId) {
+    // Use OpenAI SDK to call LangFlow
+    yield* streamFromLangFlow(history, newMessage, config);
+    return;
   }
 
   if (config.provider === 'google') {

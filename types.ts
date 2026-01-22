@@ -12,6 +12,7 @@ export interface ModelConfig {
   systemPrompt?: string;
   voiceDelay?: number;
   langflowUrl?: string;
+  langflowApiKey?: string;
 }
 
 export interface Agent {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Lock, ArrowRight, Loader2, Sparkles, CheckCircle2, AlertCircle, Eye, EyeOff, KeyRound, MoreVertical, Sun, Moon, Laptop, Languages, Mail } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 
@@ -10,7 +11,9 @@ interface AuthPageProps {
 export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const [isLogin, setIsLogin] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isLogin = location.pathname === '/login' || location.pathname === '/';
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -275,9 +278,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
             <div className="mt-8 text-center">
               <p className="text-sm text-zinc-500 dark:text-zinc-500">
                 {isLogin ? t('auth.noAccount') : t('auth.hasAccount')}{' '}
-                <button
+                <Link
+                  to={isLogin ? "/register" : "/login"}
                   onClick={() => {
-                    setIsLogin(!isLogin);
                     setError('');
                     setFormData({ username: '', password: '', confirmPassword: '' });
                   }}
@@ -285,7 +288,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
                 >
                   <span className="relative z-10">{isLogin ? t('auth.signup') : t('auth.login')}</span>
                   <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-indigo-500 transition-all duration-300 group-hover/link:w-full"></span>
-                </button>
+                </Link>
               </p>
             </div>
           </div>
