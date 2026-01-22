@@ -69,11 +69,12 @@ async function* streamFromLangFlow(
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
   try {
     const baseUrl = config.langflowUrl?.replace(/\/+$/, '');
-    const apiUrl = `${baseUrl}/api/v1/`;
+    const flowId = config.modelId; // Flow ID
     
     // Build headers
     const headers: HeadersInit = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'accept': 'application/json'
     };
     
     // Add API key if provided
@@ -81,22 +82,26 @@ async function* streamFromLangFlow(
       headers['x-api-key'] = config.langflowApiKey;
     }
     
+    // Generate session ID (you can make this persistent per chat if needed)
+    const sessionId = `chat-${Date.now()}`;
+    
     console.log('LangFlow Request:', {
-      url: `${apiUrl}responses`,
-      model: config.modelId,
-      hasApiKey: !!config.langflowApiKey,
-      apiKeyLength: config.langflowApiKey?.length || 0,
-      langflowUrl: config.langflowUrl
+      url: `${baseUrl}/api/v1/run/${flowId}?stream=true`,
+      flowId,
+      sessionId,
+      hasApiKey: !!config.langflowApiKey
     });
     
-    // Use responses endpoint (client.responses.create format)
-    const response = await fetch(`${apiUrl}responses`, {
+    // Use /run endpoint with proper format
+    const response = await fetch(`${baseUrl}/api/v1/run/${flowId}?stream=true`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: config.modelId, // This is the flow ID
-        input: newMessage,
-        stream: true
+        input_value: newMessage,
+        input_type: "chat",
+        output_type: "chat",
+        session_id: sessionId,
+        tweaks: {}
       })
     });
     
@@ -120,20 +125,70 @@ async function* streamFromLangFlow(
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        const cleanLine = line.replace(/^data: /, '').trim();
+        // LangFlow uses _19 as delimiter, clean it
+        const cleanLine = line.replace(/^_19/, '').replace(/^data: /, '').trim();
         if (!cleanLine || cleanLine === '[DONE]') continue;
         
         try {
           const json = JSON.parse(cleanLine);
           
-          // Handle delta format (streaming chunks)
-          if (json.delta && json.delta.content) {
-            const content = json.delta.content;
+          // Handle add_message event with content_blocks (tool usage)
+          if (json.event === 'add_message' && json.data?.content_blocks) {
+            const contentBlocks = json.data.content_blocks;
+            console.log('Content blocks received:', contentBlocks);
+            
+            if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
+              const steps: ProcessStep[] = [];
+              
+              for (const block of contentBlocks) {
+                // Parse tool_use blocks
+                if (block.type === 'tool_use') {
+                  const toolName = block.name || 'Unknown Tool';
+                  const toolInput = block.input ? JSON.stringify(block.input, null, 2) : '';
+                  const toolOutput = block.output || '';
+                  const duration = block.duration || '';
+                  
+                  steps.push({
+                    id: block.id || crypto.randomUUID(),
+                    type: 'command',
+                    content: `Executed **${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+                    duration: duration,
+                    status: 'completed',
+                    isExpanded: false
+                  });
+                }
+                
+                // Parse thinking blocks
+                if (block.type === 'thinking' || block.type === 'text') {
+                  const content = block.content || block.text || '';
+                  if (content) {
+                    steps.push({
+                      id: block.id || crypto.randomUUID(),
+                      type: 'thinking',
+                      title: 'Reasoning',
+                      content: content,
+                      status: 'completed',
+                      isExpanded: false
+                    });
+                  }
+                }
+              }
+              
+              if (steps.length > 0) {
+                yield { type: 'steps', steps };
+              }
+            }
+            continue;
+          }
+          
+          // Handle LangFlow /run endpoint format
+          if (json.event === 'token' && json.data?.chunk) {
+            const content = json.data.chunk;
             
             // Skip empty content
             if (!content) continue;
             
-            // Skip duplicate content (LangFlow sometimes sends the same chunk twice)
+            // Skip duplicate content
             if (content === lastContent) {
               console.log('Skipping duplicate chunk:', content);
               continue;
@@ -144,14 +199,31 @@ async function* streamFromLangFlow(
             continue;
           }
           
-          // Handle full response (non-streaming)
+          // Handle end event (optional, contains full message)
+          if (json.event === 'end' && json.data?.result?.message) {
+            // We already streamed all tokens, so we can skip this
+            continue;
+          }
+          
+          // Fallback: Handle delta format (old responses endpoint)
+          if (json.delta && json.delta.content) {
+            const content = json.delta.content;
+            if (!content) continue;
+            if (content === lastContent) continue;
+            
+            lastContent = content;
+            yield { type: 'text', content };
+            continue;
+          }
+          
+          // Fallback: Handle full response
           const responseContent = json.output_text || json.output || json.text || json.content;
           if (responseContent) {
             yield { type: 'text', content: responseContent };
             continue;
           }
           
-          // Handle chunk format
+          // Fallback: Handle chunk format
           if (json.chunk) {
             yield { type: 'text', content: json.chunk };
           }
