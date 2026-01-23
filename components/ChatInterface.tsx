@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Send, Paperclip, Copy, RotateCw, Sparkles, Settings, Globe, X, Check, ChevronLeft, ChevronRight, File as FileIcon, Pencil, ImageIcon, ChevronUp, ChevronDown, Server, Trash2, Plug, Play, Mic, MicOff } from 'lucide-react';
+import { Send, Paperclip, Copy, RotateCw, Sparkles, Settings, Globe, X, Check, ChevronLeft, ChevronRight, File as FileIcon, Pencil, ImageIcon, ChevronUp, ChevronDown, Server, Trash2, Plug, Play, Mic, MicOff, Sun, Moon, Laptop, Languages } from 'lucide-react';
 import { Message, ModelConfig, AIProvider, Attachment } from '../types';
 import { ProcessStep } from './ProcessStep';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '../LanguageContext';
+import { useTheme } from '../ThemeContext';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -118,7 +119,8 @@ const CodeBlock = React.memo(({ className, children, onPreviewRequest, ...props 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
   messages, input, setInput, onSend, onRegenerate, onEdit, isLoading, isStreaming, modelConfig, onModelConfigChange, onProviderChange, onVersionChange, isPreviewOpen = false, onPreviewRequest, onOpenSettings
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,11 +128,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Menu Refs for click outside handling
   const mcpMenuRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   
   // Dropdown States
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -194,11 +200,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           return;
         }
         
-        const agents = flows.map((flow: any) => ({
-          id: flow.id, // Use flow ID as model ID
-          name: flow.name, // Display name
-          desc: flow.description || "LangFlow Agent"
-        }));
+        // Load enabled/disabled state from localStorage
+        const savedAgents = localStorage.getItem('agent_flows');
+        let enabledMap: Record<string, boolean> = {};
+        
+        if (savedAgents) {
+          try {
+            const parsed = JSON.parse(savedAgents);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((agent: any) => {
+                enabledMap[agent.id] = agent.enabled !== false; // Default to true if not specified
+              });
+            }
+          } catch (e) {
+            console.error('Failed to parse saved agents:', e);
+          }
+        }
+        
+        // Filter only enabled agents
+        const agents = flows
+          .filter((flow: any) => enabledMap[flow.id] !== false) // Show if not explicitly disabled
+          .map((flow: any) => ({
+            id: flow.id,
+            name: flow.name,
+            desc: flow.description || "LangFlow Agent"
+          }));
         
         setAgentModels(agents);
       } catch (error) {
@@ -232,13 +258,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         if (showMcpMenu && mcpMenuRef.current && !mcpMenuRef.current.contains(event.target as Node)) {
             setShowMcpMenu(false);
         }
+        if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+            setShowSettingsMenu(false);
+        }
+        if (showLanguageDropdown && languageDropdownRef.current && !languageDropdownRef.current.contains(event.target as Node)) {
+            setShowLanguageDropdown(false);
+        }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
         document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showModelMenu, showMcpMenu]);
+  }, [showModelMenu, showMcpMenu, showSettingsMenu, showLanguageDropdown]);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -405,8 +437,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     
     onSend(input, attachments);
     setAttachments([]);
-    // Reset height
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    // Reset height and focus back to textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      // Focus back after a short delay to ensure state updates
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    }
   };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -493,15 +531,133 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     <div className="flex flex-col h-full bg-white dark:bg-[#09090b] relative transition-colors duration-200">
       {/* Settings Button - Top Right */}
       {onOpenSettings && (
-        <button
-          onClick={onOpenSettings}
-          className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
-            isPreviewOpen ? 'right-4' : 'right-12'
-          }`}
-          title="Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
+        <div className="relative" ref={settingsMenuRef}>
+          <button
+            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
+              isPreviewOpen ? 'right-4' : 'right-12'
+            } ${showSettingsMenu ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
+          {/* Settings Dropdown Menu */}
+          {showSettingsMenu && (
+            <div 
+              className={`absolute top-14 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200 min-w-[280px] ${
+                isPreviewOpen ? 'right-4' : 'right-12'
+              }`}
+            >
+              {/* Theme Section */}
+              <div className="mb-3">
+                <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
+                  {t('sidebar.theme')}
+                </div>
+                <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-lg p-1 border border-zinc-200 dark:border-zinc-800">
+                  <button 
+                    onClick={() => setTheme('light')} 
+                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
+                      theme === 'light' 
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' 
+                        : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => setTheme('dark')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
+                      theme === 'dark' 
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' 
+                        : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    <Moon className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => setTheme('system')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
+                      theme === 'system' 
+                        ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' 
+                        : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+                    }`}
+                  >
+                    <Laptop className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+
+              {/* Language Dropdown */}
+              <div className="px-2 py-1" ref={languageDropdownRef}>
+                <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
+                  {t('sidebar.language')}
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                    className="w-full flex items-center justify-between bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Languages className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                      <span>{language === 'en' ? 'English' : 'ไทย'}</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showLanguageDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <button
+                        onClick={() => {
+                          setLanguage('en');
+                          setShowLanguageDropdown(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
+                          language === 'en'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <span className="flex-1 text-left">English</span>
+                        {language === 'en' && <Check className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setLanguage('th');
+                          setShowLanguageDropdown(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
+                          language === 'th'
+                            ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <span className="flex-1 text-left">ไทย</span>
+                        {language === 'th' && <Check className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+
+              {/* Go to Settings Page */}
+              <button 
+                onClick={() => {
+                  setShowSettingsMenu(false);
+                  onOpenSettings();
+                }}
+                className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
+              >
+                <Settings className="w-4 h-4 flex-shrink-0 text-zinc-500 dark:text-zinc-400" />
+                <span className="flex-1 text-left">{t('settings.title')}</span>
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
