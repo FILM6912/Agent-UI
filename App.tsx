@@ -158,6 +158,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
             onVersionChange={handleVersionChange}
             isPreviewOpen={isPreviewOpen}
             onPreviewRequest={handlePreviewRequest}
+            onOpenSettings={() => setShowSettings(true)}
           />
 
           {!isPreviewOpen && (
