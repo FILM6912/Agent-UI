@@ -96,11 +96,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {showExpanded && <span className="text-lg whitespace-nowrap animate-in fade-in duration-200">Agent</span>}
         </div>
         
-        {showExpanded && toggleSidebar && (
-             <button onClick={toggleSidebar} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors">
-                <PanelLeftClose className="w-4 h-4" />
-             </button>
-        )}
+        {/* Settings Button - Top Right */}
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={onOpenSettings}
+            className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors"
+            title={showExpanded ? t('sidebar.settings') : undefined}
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          
+          {showExpanded && toggleSidebar && (
+            <button onClick={toggleSidebar} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors">
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Nav */}
@@ -286,13 +297,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                     </div>
                 </div>
-                
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
-                  className={`p-1.5 rounded-lg transition-all duration-200 ${showMenu ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
-                >
-                    <Settings className="w-3.5 h-3.5" />
-                </button>
                </>
            )}
         </div>

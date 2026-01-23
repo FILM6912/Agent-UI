@@ -217,8 +217,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isLoading, isStreaming, editingId]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading, isStreaming, editingId, input]);
 
   // Click outside handler for menus
   useEffect(() => {
@@ -489,7 +491,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#09090b] relative transition-colors duration-200">
       <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
-        <div className="max-w-5xl mx-auto px-4 pb-24 md:pb-32 pt-8 space-y-8">
+        <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
             {messages.map((msg, index) => {
             const isLastMessage = index === messages.length - 1;
             const isAssistant = msg.role === 'assistant';

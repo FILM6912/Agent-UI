@@ -141,7 +141,48 @@ async function* streamFromLangFlow(
               const steps: ProcessStep[] = [];
               
               for (const block of contentBlocks) {
-                // Parse tool_use blocks
+                // Check if block has "contents" array (new LangFlow format)
+                if (block.contents && Array.isArray(block.contents)) {
+                  for (const content of block.contents) {
+                    // Parse tool_use type
+                    if (content.type === 'tool_use') {
+                      const toolName = content.name || 'Unknown Tool';
+                      const toolInput = content.tool_input ? JSON.stringify(content.tool_input, null, 2) : '';
+                      const toolOutput = content.output || '';
+                      const duration = content.duration ? `${content.duration}s` : '';
+                      
+                      steps.push({
+                        id: crypto.randomUUID(),
+                        type: 'command',
+                        content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+                        duration: duration,
+                        status: 'completed',
+                        isExpanded: false
+                      });
+                    }
+                    
+                    // Parse text type (Input/Output)
+                    if (content.type === 'text' && content.header?.title) {
+                      const headerTitle = content.header.title;
+                      const text = content.text || '';
+                      
+                      // Only show thinking/reasoning steps, skip Input/Output
+                      if (headerTitle !== 'Input' && headerTitle !== 'Output' && text) {
+                        steps.push({
+                          id: crypto.randomUUID(),
+                          type: 'thinking',
+                          title: headerTitle,
+                          content: text,
+                          status: 'completed',
+                          isExpanded: false
+                        });
+                      }
+                    }
+                  }
+                }
+                
+                // Fallback: Old format support
+                // Parse tool_use blocks (old format)
                 if (block.type === 'tool_use') {
                   const toolName = block.name || 'Unknown Tool';
                   const toolInput = block.input ? JSON.stringify(block.input, null, 2) : '';
@@ -151,14 +192,14 @@ async function* streamFromLangFlow(
                   steps.push({
                     id: block.id || crypto.randomUUID(),
                     type: 'command',
-                    content: `Executed **${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+                    content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
                     duration: duration,
                     status: 'completed',
                     isExpanded: false
                   });
                 }
                 
-                // Parse thinking blocks
+                // Parse thinking blocks (old format)
                 if (block.type === 'thinking' || block.type === 'text') {
                   const content = block.content || block.text || '';
                   if (content) {
