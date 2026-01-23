@@ -22,6 +22,7 @@ interface ChatInterfaceProps {
   onVersionChange?: (messageId: string, newIndex: number) => void;
   isPreviewOpen?: boolean;
   onPreviewRequest?: (content: string) => void;
+  onOpenSettings?: () => void;
 }
 
 export const getPresetModels = (t: (key: string) => string): Record<AIProvider, { id: string; name: string; desc: string }[]> => ({
@@ -115,7 +116,7 @@ const CodeBlock = React.memo(({ className, children, onPreviewRequest, ...props 
 });
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
-  messages, input, setInput, onSend, onRegenerate, onEdit, isLoading, isStreaming, modelConfig, onModelConfigChange, onProviderChange, onVersionChange, isPreviewOpen = false, onPreviewRequest
+  messages, input, setInput, onSend, onRegenerate, onEdit, isLoading, isStreaming, modelConfig, onModelConfigChange, onProviderChange, onVersionChange, isPreviewOpen = false, onPreviewRequest, onOpenSettings
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -490,6 +491,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#09090b] relative transition-colors duration-200">
+      {/* Settings Button - Top Right */}
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
+            isPreviewOpen ? 'right-4' : 'right-12'
+          }`}
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+      )}
+
       <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
             {messages.map((msg, index) => {
