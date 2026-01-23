@@ -158,7 +158,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
             onVersionChange={handleVersionChange}
             isPreviewOpen={isPreviewOpen}
             onPreviewRequest={handlePreviewRequest}
-            onOpenSettings={() => setShowSettings(true)}
+            onOpenSettings={() => navigate('/settings/general')}
           />
 
           {!isPreviewOpen && (
@@ -250,6 +250,9 @@ export default function App() {
         if (id !== activeChatId) {
             setActiveChatId(id);
         }
+    } else if (location.pathname === '/chat') {
+        // On /chat without ID, clear activeChatId
+        setActiveChatId('');
     }
   }, [location.pathname]);
 
@@ -419,7 +422,11 @@ export default function App() {
     historyToUse: Message[],
     targetMessageId?: string,
     attachments?: Attachment[],
+    chatId?: string,
   ) => {
+    // Use provided chatId or fall back to activeChatId
+    const sessionId = chatId || activeChatId;
+    
     if (!targetMessageId) {
       setIsLoading(true);
     }
@@ -480,9 +487,9 @@ export default function App() {
 
           setSessions((prev) => ({
             ...prev,
-            [activeChatId]: {
-              ...prev[activeChatId],
-              messages: [...prev[activeChatId].messages, initialAssistantMsg],
+            [sessionId]: {
+              ...prev[sessionId],
+              messages: [...prev[sessionId].messages, initialAssistantMsg],
             },
           }));
           messageInitialized = true;
@@ -499,7 +506,7 @@ export default function App() {
           }
 
           setSessions((prev) => {
-            const session = prev[activeChatId];
+            const session = prev[sessionId];
             const updatedMessages = session.messages.map((msg) => {
               if (msg.id === assistantMsgId) {
                 const updatedVersions = msg.versions ? [...msg.versions] : [];
@@ -532,7 +539,7 @@ export default function App() {
 
             return {
               ...prev,
-              [activeChatId]: {
+              [sessionId]: {
                 ...session,
                 messages: updatedMessages,
               },
@@ -622,14 +629,34 @@ export default function App() {
     )
       return;
     
-    // Ensure active session exists
-    if (!sessions[activeChatId]) {
-      console.error("Active session not found:", activeChatId);
-      return;
-    }
-    
     const currentPrompt = message;
     const isFirstUserMessage = currentMessages.length === 0;
+    
+    // Create new chat ID if this is the first message and no active chat
+    let chatId = activeChatId;
+    if (isFirstUserMessage && (!activeChatId || !sessions[activeChatId])) {
+      chatId = crypto.randomUUID();
+      
+      // Create new session
+      setSessions((prev) => ({
+        ...prev,
+        [chatId]: {
+          id: chatId,
+          title: currentPrompt.substring(0, 30),
+          messages: [],
+          updatedAt: Date.now(),
+        },
+      }));
+      
+      // Navigate to new chat URL with ID
+      navigate(`/chat/${chatId}`);
+    }
+    
+    // Ensure active session exists
+    if (!sessions[chatId] && chatId !== activeChatId) {
+      // Session was just created, wait for state update
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -651,15 +678,15 @@ export default function App() {
     const historyBeforeNewMessage = [...currentMessages];
 
     setSessions((prev) => {
-      const currentSession = prev[activeChatId];
+      const currentSession = prev[chatId];
       if (!currentSession) {
-        console.error("Session not found in setSessions:", activeChatId);
+        console.error("Session not found in setSessions:", chatId);
         return prev;
       }
       
       return {
         ...prev,
-        [activeChatId]: {
+        [chatId]: {
           ...currentSession,
           title: isFirstUserMessage
             ? currentPrompt.substring(0, 30)
@@ -674,10 +701,10 @@ export default function App() {
       generateChatTitle(currentPrompt, modelConfig)
         .then((aiTitle) => {
           setSessions((prev) => {
-            if (!prev[activeChatId]) return prev;
+            if (!prev[chatId]) return prev;
             return {
               ...prev,
-              [activeChatId]: { ...prev[activeChatId], title: aiTitle },
+              [chatId]: { ...prev[chatId], title: aiTitle },
             };
           });
         })
@@ -689,6 +716,7 @@ export default function App() {
       historyBeforeNewMessage,
       undefined,
       attachments,
+      chatId,
     );
   };
 
@@ -878,17 +906,8 @@ export default function App() {
   };
 
   const handleNewChat = () => {
-    const newId = crypto.randomUUID();
-    setSessions((prev) => ({
-      ...prev,
-      [newId]: {
-        id: newId,
-        title: t("sidebar.newTask"),
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    }));
-    navigate(`/chat/${newId}`);
+    // Navigate to /chat without ID
+    navigate('/chat');
     setPreviewContent(null);
     setIsSettingsOpen(false);
     if (isMobile) {
@@ -903,41 +922,27 @@ export default function App() {
     // Close the modal immediately
     setChatToDelete(null);
 
-    let nextId: string | null = null;
-
     setSessions((prev) => {
       const newSessions = { ...prev };
       delete newSessions[id];
       
-      if (Object.keys(newSessions).length === 0) {
-        // No chats left, create new one
-        const newId = crypto.randomUUID();
-        nextId = newId;
-        return {
-          [newId]: {
-            id: newId,
-            title: t("sidebar.newTask"),
-            messages: [],
-            updatedAt: Date.now(),
-          },
-        };
-      }
-      
+      // If deleted the active chat, navigate to /chat or another chat
       if (activeChatId === id) {
-        // Deleted active chat, find next
-        const remaining = Object.values(newSessions) as ChatSession[];
-        const latest = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-        if (latest) {
-          nextId = latest.id;
+        if (Object.keys(newSessions).length === 0) {
+          // No chats left, go to /chat
+          navigate('/chat');
+        } else {
+          // Navigate to the most recent chat
+          const remaining = Object.values(newSessions) as ChatSession[];
+          const latest = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          if (latest) {
+            navigate(`/chat/${latest.id}`);
+          }
         }
       }
       
       return newSessions;
     });
-
-    if (nextId) {
-        navigate(`/chat/${nextId}`);
-    }
   };
 
   const onRequestDeleteChat = (id: string) => {
@@ -1065,7 +1070,47 @@ export default function App() {
           setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
         />
       ) : <Navigate to="/login" />} />
-      <Route path="/" element={isAuthenticated ? <Navigate to={`/chat/${activeChatId || (Object.keys(sessions).length > 0 ? Object.keys(sessions)[0] : "new")}`} replace /> : <Navigate to="/login" />} />
+      <Route path="/chat" element={isAuthenticated ? (
+        <AppLayout
+          showSettings={false}
+          isMobile={isMobile}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          history={history}
+          activeChatId=""
+          handleNewChat={handleNewChat}
+          handleSelectChat={handleSelectChat}
+          onRequestDeleteChat={onRequestDeleteChat}
+          modelConfig={modelConfig}
+          handleProviderChange={handleProviderChange}
+          navigate={navigate}
+          setIsAuthenticated={setIsAuthenticated}
+          settingsTab={settingsTab}
+          setModelConfig={setModelConfig}
+          chatHistory={history}
+          handleClearAllChats={handleClearAllChats}
+          currentMessages={[]}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSend={handleSend}
+          handleRegenerate={handleRegenerate}
+          handleEditUserMessage={handleEditUserMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          handleVersionChange={handleVersionChange}
+          isPreviewOpen={isPreviewOpen}
+          handlePreviewRequest={handlePreviewRequest}
+          setIsPreviewOpen={setIsPreviewOpen}
+          previewContent={previewContent}
+          chatToDelete={chatToDelete}
+          setChatToDelete={setChatToDelete}
+          t={t}
+          confirmDeleteChat={confirmDeleteChat}
+          isLangFlowConfigOpen={isLangFlowConfigOpen}
+          setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+        />
+      ) : <Navigate to="/login" />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/chat" replace /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
