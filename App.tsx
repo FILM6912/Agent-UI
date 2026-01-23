@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatInterface, getPresetModels } from "./components/ChatInterface";
 import { PreviewWindow } from "./components/PreviewWindow";
 import { SettingsView } from "./components/SettingsView";
+import { ErrorModal } from "./components/ErrorModal";
 import { LangFlowConfigModal } from "./components/LangFlowConfigModal";
 import { AuthPage } from "./components/AuthPage";
 import {
@@ -316,6 +317,14 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
 
+  // Error Modal State
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalConfig, setErrorModalConfig] = useState({
+    title: '',
+    message: '',
+    type: 'error' as 'error' | 'warning'
+  });
+
   // View State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLangFlowConfigOpen, setIsLangFlowConfigOpen] = useState(false);
@@ -580,13 +589,28 @@ export default function App() {
         errorMsg.includes("model is required") ||
         errorMsg.includes("No model selected");
 
-      // Show popup alert instead of adding error to chat
+      // Show error modal instead of alert
       if (isModelError) {
-        alert('⚠️ กรุณาเลือก Model\n\nคุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ');
+        setErrorModalConfig({
+          title: 'กรุณาเลือก Model',
+          message: 'คุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ',
+          type: 'warning'
+        });
+        setShowErrorModal(true);
       } else if (isQuotaError) {
-        alert('⚠️ API Quota Exceeded\n\nYou have exceeded your request quota. Please check your billing details or try again later.');
+        setErrorModalConfig({
+          title: 'API Quota Exceeded',
+          message: 'You have exceeded your request quota. Please check your billing details or try again later.',
+          type: 'error'
+        });
+        setShowErrorModal(true);
       } else {
-        alert(`⚠️ Error Generating Response\n\n${errorMsg}`);
+        setErrorModalConfig({
+          title: 'Error Generating Response',
+          message: errorMsg,
+          type: 'error'
+        });
+        setShowErrorModal(true);
       }
 
       // Remove the assistant message if it was initialized but failed
@@ -620,6 +644,17 @@ export default function App() {
       isStreaming
     )
       return;
+    
+    // Check if model is selected before sending
+    if (!modelConfig.modelId) {
+      setErrorModalConfig({
+        title: 'กรุณาเลือก Model',
+        message: 'คุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ',
+        type: 'warning'
+      });
+      setShowErrorModal(true);
+      return;
+    }
     
     const currentPrompt = message;
     const isFirstUserMessage = currentMessages.length === 0;
@@ -979,10 +1014,11 @@ export default function App() {
   }, [location.pathname]);
 
   return (
-    <Routes>
-      <Route path="/login" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
-      <Route path="/register" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
-      <Route path="/settings/:tab" element={isAuthenticated ? (
+    <>
+      <Routes>
+        <Route path="/login" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
+        <Route path="/register" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
+        <Route path="/settings/:tab" element={isAuthenticated ? (
         <AppLayout
           showSettings={true}
           isMobile={isMobile}
@@ -1105,5 +1141,15 @@ export default function App() {
       <Route path="/" element={isAuthenticated ? <Navigate to="/chat" replace /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+    
+    {/* Error Modal - Outside Routes */}
+    <ErrorModal
+      isOpen={showErrorModal}
+      onClose={() => setShowErrorModal(false)}
+      title={errorModalConfig.title}
+      message={errorModalConfig.message}
+      type={errorModalConfig.type}
+    />
+    </>
   );
 }
