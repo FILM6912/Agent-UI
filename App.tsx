@@ -953,23 +953,26 @@ export default function App() {
       const newSessions = { ...prev };
       delete newSessions[id];
       
-      // If deleted the active chat, navigate to /chat or another chat
-      if (activeChatId === id) {
-        if (Object.keys(newSessions).length === 0) {
-          // No chats left, go to /chat
-          navigate('/chat');
-        } else {
-          // Navigate to the most recent chat
-          const remaining = Object.values(newSessions) as ChatSession[];
-          const latest = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-          if (latest) {
-            navigate(`/chat/${latest.id}`);
-          }
-        }
-      }
-      
       return newSessions;
     });
+    
+    // If deleted the active chat, navigate to /chat or another chat
+    if (activeChatId === id) {
+      const remainingSessions = Object.values(sessions).filter(s => s.id !== id) as ChatSession[];
+      
+      if (remainingSessions.length === 0) {
+        // No chats left, go to /chat
+        navigate('/chat');
+      } else {
+        // Navigate to the most recent chat
+        const latest = remainingSessions.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        if (latest) {
+          navigate(`/chat/${latest.id}`);
+        } else {
+          navigate('/chat');
+        }
+      }
+    }
   };
 
   const onRequestDeleteChat = (id: string) => {
@@ -977,16 +980,9 @@ export default function App() {
   };
 
   const handleClearAllChats = () => {
-    const newId = crypto.randomUUID();
-    setSessions({
-      [newId]: {
-        id: newId,
-        title: t("sidebar.newTask"),
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    });
-    setActiveChatId(newId);
+    // Clear all chats and navigate to /chat
+    setSessions({});
+    navigate('/chat');
     setPreviewContent(null);
   };
 
