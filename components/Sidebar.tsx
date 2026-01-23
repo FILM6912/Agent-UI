@@ -52,9 +52,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const [showMenu, setShowMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLogoHovered, setIsLogoHovered] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   // Sidebar expanded state relies purely on isOpen prop now
   const showExpanded = isOpen;
@@ -74,6 +74,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Content of the sidebar
   const SidebarContent = (
     <div className="flex flex-col h-full w-full overflow-hidden bg-zinc-50 dark:bg-black">
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+              {t('sidebar.logout')}
+            </h3>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
+              {language === 'th' ? 'คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบ?' : 'Are you sure you want to log out?'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                {language === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  onLogout?.();
+                }}
+                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+              >
+                {t('sidebar.logout')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logo Area */}
       <div className={`flex items-center text-zinc-800 dark:text-zinc-100 font-bold tracking-tight w-full flex-shrink-0 h-16 ${showExpanded ? 'px-4 gap-2 justify-between' : 'justify-center'}`}>
         <div 
@@ -146,15 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Search className="w-5 h-5" />
             </button>
         )}
-
-        {/* Gallery */}
-        <button className={showExpanded 
-            ? "w-full flex items-center gap-3 px-3 py-2 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-200 rounded-lg transition-colors whitespace-nowrap"
-            : "w-9 h-9 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors"
-        }>
-          <LayoutGrid className={showExpanded ? "w-4 h-4 flex-shrink-0" : "w-5 h-5"} />
-          {showExpanded && <span>{t('sidebar.gallery')}</span>}
-        </button>
       </div>
 
       {/* History Section - Only visible when open */}
@@ -210,84 +232,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Actions */}
       <div className={`border-t border-zinc-200 dark:border-zinc-900 relative w-full overflow-visible ${showExpanded ? 'p-3' : 'p-2 flex justify-center py-4'}`}>
-        {/* User Menu Popup */}
-        {showMenu && showExpanded && (
-            <div className="absolute bottom-[calc(100%+8px)] left-3 right-3 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-1 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
-               {/* Theme Switching */}
-               <div className="px-3 py-1.5">
-                 <div className="text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">{t('sidebar.theme')}</div>
-                 <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-800">
-                    <button 
-                      onClick={() => setTheme('light')} 
-                      className={`flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${theme === 'light' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
-                      title={t('sidebar.light')}
-                    >
-                       <Sun className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => setTheme('dark')}
-                      className={`flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${theme === 'dark' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
-                      title={t('sidebar.dark')}
-                    >
-                       <Moon className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => setTheme('system')}
-                      className={`flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${theme === 'system' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
-                      title={t('sidebar.system')}
-                    >
-                       <Laptop className="w-3.5 h-3.5" />
-                    </button>
-                 </div>
-               </div>
-               
-               <div className="my-1 border-t border-zinc-200 dark:border-zinc-800/50"></div>
-               
-               <button 
-                  onClick={toggleLanguage}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-300"
-               >
-                  <Languages className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{language === 'en' ? 'ภาษาไทย' : 'English'}</span>
-               </button>
+        <div className={`flex items-center ${showExpanded ? 'gap-2' : 'flex-col gap-2'}`}>
+          {/* User Profile */}
+          <div 
+              onClick={showExpanded ? undefined : toggleSidebar}
+              className={`flex items-center rounded-xl group transition-colors ${
+                  showExpanded 
+                  ? `gap-3 px-2 py-2 cursor-default flex-1` 
+                  : 'justify-center w-9 h-9 hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer'
+              }`}
+          >
+             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/10 group-hover:scale-105 transition-transform flex-shrink-0 relative">
+                <User className="w-5 h-5 text-white" />
+                {!showExpanded && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-black rounded-full"></div>}
+             </div>
+             
+             {showExpanded && (
+                 <>
+                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">Watcharaphon Pam...</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium truncate">{providerName} Plan</span>
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                      </div>
+                  </div>
+                 </>
+             )}
+          </div>
 
-               <div className="my-1 border-t border-zinc-200 dark:border-zinc-800/50"></div>
-
-               <button 
-                  onClick={onLogout}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
-               >
-                  <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{t('sidebar.logout')}</span>
-               </button>
-            </div>
-        )}
-
-        {/* User Profile */}
-        <div 
-            onClick={showExpanded ? () => setShowMenu(!showMenu) : toggleSidebar}
-            className={`flex items-center rounded-xl group cursor-pointer transition-colors ${
-                showExpanded 
-                ? `gap-3 px-2 py-2 ${showMenu ? 'bg-zinc-100 dark:bg-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900/50'}` 
-                : 'justify-center w-9 h-9 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+          {/* Logout Button */}
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className={`flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl transition-colors text-red-500 dark:text-red-400 ${
+              showExpanded ? 'p-2' : 'w-9 h-9'
             }`}
-        >
-           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/10 group-hover:scale-105 transition-transform flex-shrink-0 relative">
-              <User className="w-5 h-5 text-white" />
-              {!showExpanded && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-black rounded-full"></div>}
-           </div>
-           
-           {showExpanded && (
-               <>
-                <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">Watcharaphon Pam...</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium truncate">{providerName} Plan</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                    </div>
-                </div>
-               </>
-           )}
+            title={t('sidebar.logout')}
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
