@@ -109,32 +109,35 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
       />
     )}
 
-    <Sidebar
-      history={history}
-      activeChatId={activeChatId}
-      onNewChat={handleNewChat}
-      onSelectChat={handleSelectChat}
-      onDeleteChat={onRequestDeleteChat}
-      activeProvider={modelConfig.provider}
-      onProviderChange={handleProviderChange}
-      onOpenSettings={() => {
-        navigate('/settings/general');
-      }}
-      isOpen={isSidebarOpen}
-      toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      isMobile={isMobile}
-      onLogout={() => {
-        setIsAuthenticated(false);
-        navigate('/login');
-      }}
-    />
+    {/* Hide main Sidebar when Settings is open */}
+    {!showSettings && (
+      <Sidebar
+        history={history}
+        activeChatId={activeChatId}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+        onDeleteChat={onRequestDeleteChat}
+        activeProvider={modelConfig.provider}
+        onProviderChange={handleProviderChange}
+        onOpenSettings={() => {
+          navigate('/settings/general');
+        }}
+        isOpen={isSidebarOpen}
+        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        isMobile={isMobile}
+        onLogout={() => {
+          setIsAuthenticated(false);
+          navigate('/login');
+        }}
+      />
+    )}
 
     <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
       {showSettings ? (
         <SettingsView
           modelConfig={modelConfig}
           onModelConfigChange={setModelConfig}
-          onBack={() => navigate(-1)}
+          onBack={() => navigate('/chat')}
           chatHistory={chatHistory}
           onDeleteChat={onRequestDeleteChat}
           onClearAllChats={handleClearAllChats}

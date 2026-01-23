@@ -209,7 +209,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             const parsed = JSON.parse(savedAgents);
             if (Array.isArray(parsed)) {
               parsed.forEach((agent: any) => {
-                enabledMap[agent.id] = agent.enabled !== false; // Default to true if not specified
+                enabledMap[agent.id] = agent.enabled === true; // Default to false (disabled) if not specified
               });
             }
           } catch (e) {
@@ -219,7 +219,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         
         // Filter only enabled agents
         const agents = flows
-          .filter((flow: any) => enabledMap[flow.id] !== false) // Show if not explicitly disabled
+          .filter((flow: any) => enabledMap[flow.id] === true) // Show only if explicitly enabled
           .map((flow: any) => ({
             id: flow.id,
             name: flow.name,

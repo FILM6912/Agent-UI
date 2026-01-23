@@ -417,7 +417,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           id: flow.id,
           name: flow.name, // Original name from LangFlow (used as FLOW_ID)
           description: flow.description || "No description available",
-          enabled: enabledMap[flow.id] !== false, // Use saved state, default to true
+          enabled: enabledMap[flow.id] === true, // Use saved state, default to false (disabled)
           customName: customNameMap[flow.id] || flow.name // Use saved custom name or default to flow name
         };
       });
