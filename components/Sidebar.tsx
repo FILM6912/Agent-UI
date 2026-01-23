@@ -96,22 +96,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {showExpanded && <span className="text-lg whitespace-nowrap animate-in fade-in duration-200">Agent</span>}
         </div>
         
-        {/* Settings Button - Top Right */}
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={onOpenSettings}
-            className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors"
-            title={showExpanded ? t('sidebar.settings') : undefined}
-          >
-            <Settings className="w-4 h-4" />
+        {showExpanded && toggleSidebar && (
+          <button onClick={toggleSidebar} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors">
+            <PanelLeftClose className="w-4 h-4" />
           </button>
-          
-          {showExpanded && toggleSidebar && (
-            <button onClick={toggleSidebar} className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors">
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Main Nav */}
