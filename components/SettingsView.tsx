@@ -45,6 +45,8 @@ import {
   RefreshCw,
   ExternalLink,
   HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { ModelConfig, ChatSession, Agent } from "../types";
 import { useLanguage } from "../LanguageContext";
@@ -105,6 +107,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [editingAgentName, setEditingAgentName] = useState("");
+  
+  // Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -507,11 +512,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="flex h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 font-sans overflow-hidden transition-colors duration-200">
       {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex flex-col transition-colors duration-200">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800/50">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            {t("settings.title")}
-          </h1>
+      <div className={`border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex flex-col transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-16'}`}>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800/50">
+          {isSidebarOpen && (
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+              {t("settings.title")}
+            </h1>
+          )}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors ml-auto"
+            title={isSidebarOpen ? 'ปิด Sidebar' : 'เปิด Sidebar'}
+          >
+            {isSidebarOpen ? (
+              <PanelLeftClose className="w-4 h-4" />
+            ) : (
+              <PanelLeftOpen className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
@@ -534,11 +552,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   ? "text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-zinc-800/50"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
               }`}
+              title={!isSidebarOpen ? item.label : undefined}
             >
               <item.icon
-                className={`w-4 h-4 ${activeTab === item.id ? (item.id === "langflow" || item.id === "agent" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
+                className={`w-4 h-4 flex-shrink-0 ${activeTab === item.id ? (item.id === "langflow" || item.id === "agent" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
               />
-              {item.label}
+              {isSidebarOpen && item.label}
             </button>
           ))}
         </nav>
@@ -546,10 +565,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium"
+            className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium ${!isSidebarOpen ? 'justify-center w-full' : ''}`}
+            title={!isSidebarOpen ? t("settings.back") : undefined}
           >
             <ArrowLeft className="w-4 h-4" />
-            {t("settings.back")}
+            {isSidebarOpen && t("settings.back")}
           </button>
         </div>
       </div>

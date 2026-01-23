@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Send, Paperclip, Copy, RotateCw, Sparkles, Settings, Globe, X, Check, ChevronLeft, ChevronRight, File as FileIcon, Pencil, ImageIcon, ChevronUp, ChevronDown, Server, Trash2, Plug, Play, Mic, MicOff, Sun, Moon, Laptop, Languages } from 'lucide-react';
+import { Send, Paperclip, Copy, RotateCw, Sparkles, Settings, Globe, X, Check, ChevronLeft, ChevronRight, File as FileIcon, Pencil, ImageIcon, ChevronUp, ChevronDown, Server, Trash2, Plug, Play, Mic, MicOff, Sun, Moon, Laptop, Languages, LogOut } from 'lucide-react';
 import { Message, ModelConfig, AIProvider, Attachment } from '../types';
 import { ProcessStep } from './ProcessStep';
 import Markdown from 'react-markdown';
@@ -24,6 +24,7 @@ interface ChatInterfaceProps {
   isPreviewOpen?: boolean;
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
+  onLogout?: () => void;
 }
 
 export const getPresetModels = (t: (key: string) => string): Record<AIProvider, { id: string; name: string; desc: string }[]> => ({
@@ -117,7 +118,7 @@ const CodeBlock = React.memo(({ className, children, onPreviewRequest, ...props 
 });
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
-  messages, input, setInput, onSend, onRegenerate, onEdit, isLoading, isStreaming, modelConfig, onModelConfigChange, onProviderChange, onVersionChange, isPreviewOpen = false, onPreviewRequest, onOpenSettings
+  messages, input, setInput, onSend, onRegenerate, onEdit, isLoading, isStreaming, modelConfig, onModelConfigChange, onProviderChange, onVersionChange, isPreviewOpen = false, onPreviewRequest, onOpenSettings, onLogout
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -655,6 +656,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <Settings className="w-4 h-4 flex-shrink-0 text-zinc-500 dark:text-zinc-400" />
                 <span className="flex-1 text-left">{t('settings.title')}</span>
               </button>
+
+              {/* Logout Button */}
+              {onLogout && (
+                <button 
+                  onClick={() => {
+                    setShowSettingsMenu(false);
+                    onLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+                >
+                  <LogOut className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">{t('sidebar.logout')}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -662,6 +677,58 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
+            {/* Agent Warning - Show if selected model is an agent but not enabled */}
+            {(() => {
+              // Check if current model is an agent
+              const savedAgents = localStorage.getItem('agent_flows');
+              let isAgentDisabled = false;
+              
+              if (savedAgents && modelConfig.modelId) {
+                try {
+                  const parsed = JSON.parse(savedAgents);
+                  if (Array.isArray(parsed)) {
+                    const agent = parsed.find((a: any) => a.id === modelConfig.modelId);
+                    // If agent exists in saved list but is disabled, or if it's not in agentModels (filtered out)
+                    if (agent && agent.enabled !== true) {
+                      isAgentDisabled = true;
+                    } else if (agent && !agentModels.find(m => m.id === modelConfig.modelId)) {
+                      isAgentDisabled = true;
+                    }
+                  }
+                } catch (e) {
+                  console.error('Failed to parse saved agents:', e);
+                }
+              }
+              
+              if (isAgentDisabled) {
+                return (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
+                      <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                        {language === 'th' ? 'เอเจนต์ถูกปิดใช้งาน' : 'Agent Disabled'}
+                      </h3>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                        {language === 'th' 
+                          ? `เอเจนต์ "${modelConfig.name}" ถูกปิดใช้งาน กรุณาเปิดใช้งานในหน้าตั้งค่าหรือเลือก model อื่น`
+                          : `Agent "${modelConfig.name}" is disabled. Please enable it in settings or select another model.`
+                        }
+                      </p>
+                      <button
+                        onClick={() => onOpenSettings?.()}
+                        className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 underline"
+                      >
+                        {language === 'th' ? 'ไปที่การตั้งค่า' : 'Go to Settings'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
             {messages.map((msg, index) => {
             const isLastMessage = index === messages.length - 1;
             const isAssistant = msg.role === 'assistant';

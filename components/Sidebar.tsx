@@ -260,15 +260,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
              )}
           </div>
 
-          {/* Logout Button */}
+          {/* Settings Button */}
           <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className={`flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/20 rounded-xl transition-colors text-red-500 dark:text-red-400 ${
+            onClick={onOpenSettings}
+            className={`flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 ${
               showExpanded ? 'p-2' : 'w-9 h-9'
             }`}
-            title={t('sidebar.logout')}
+            title={t('settings.title')}
           >
-            <LogOut className="w-4 h-4" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>

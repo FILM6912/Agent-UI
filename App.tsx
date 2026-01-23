@@ -162,6 +162,10 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
             isPreviewOpen={isPreviewOpen}
             onPreviewRequest={handlePreviewRequest}
             onOpenSettings={() => navigate('/settings/general')}
+            onLogout={() => {
+              setIsAuthenticated(false);
+              navigate('/login');
+            }}
           />
 
           {!isPreviewOpen && (
@@ -448,6 +452,11 @@ export default function App() {
     }
 
     try {
+      // Validate modelConfig before making API call
+      if (!modelConfig.modelId) {
+        throw new Error('No model selected. Please select a model before sending a message.');
+      }
+      
       const stream = streamMessageFromGemini(
         historyToUse,
         prompt,
@@ -488,13 +497,21 @@ export default function App() {
             }
           }
 
-          setSessions((prev) => ({
-            ...prev,
-            [sessionId]: {
-              ...prev[sessionId],
-              messages: [...prev[sessionId].messages, initialAssistantMsg],
-            },
-          }));
+          setSessions((prev) => {
+            // Ensure session exists before updating
+            if (!prev[sessionId]) {
+              console.error(`Session ${sessionId} not found`);
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [sessionId]: {
+                ...prev[sessionId],
+                messages: [...prev[sessionId].messages, initialAssistantMsg],
+              },
+            };
+          });
           messageInitialized = true;
           // Skip the rest of the loop for this chunk since we already handled it
           continue;
@@ -558,63 +575,35 @@ export default function App() {
         errorMsg.includes("429") ||
         errorMsg.includes("quota") ||
         errorMsg.includes("RESOURCE_EXHAUSTED");
+      
+      const isModelError = 
+        errorMsg.includes("model is required") ||
+        errorMsg.includes("No model selected");
 
-      const userFriendlyError = isQuotaError
-        ? "\n\n> **⚠️ API Quota Exceeded**\n> You have exceeded your request quota. Please check your billing details or try again later."
-        : `\n\n> **⚠️ Error Generating Response**\n> ${errorMsg}`;
+      // Show popup alert instead of adding error to chat
+      if (isModelError) {
+        alert('⚠️ กรุณาเลือก Model\n\nคุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ');
+      } else if (isQuotaError) {
+        alert('⚠️ API Quota Exceeded\n\nYou have exceeded your request quota. Please check your billing details or try again later.');
+      } else {
+        alert(`⚠️ Error Generating Response\n\n${errorMsg}`);
+      }
 
-      const finalContent = accumulatedContent + userFriendlyError;
-
-      setSessions((prev) => {
-        const session = prev[activeChatId];
-
-        if (!messageInitialized) {
-          const initialAssistantMsg: Message = {
-            id: assistantMsgId,
-            role: "assistant",
-            content: finalContent,
-            timestamp: Date.now(),
-            versions: [{ content: finalContent, timestamp: Date.now() }],
-            currentVersionIndex: 0,
-          };
+      // Remove the assistant message if it was initialized but failed
+      if (messageInitialized) {
+        setSessions((prev) => {
+          const session = prev[activeChatId];
+          if (!session) return prev;
+          
           return {
             ...prev,
             [activeChatId]: {
               ...session,
-              messages: [...session.messages, initialAssistantMsg],
+              messages: session.messages.filter(msg => msg.id !== assistantMsgId),
             },
           };
-        }
-
-        const updatedMessages = session.messages.map((msg) => {
-          if (msg.id === assistantMsgId) {
-            const currentVersions = msg.versions ? [...msg.versions] : [];
-            const currentIndex = msg.currentVersionIndex ?? 0;
-
-            if (currentVersions[currentIndex]) {
-              currentVersions[currentIndex] = {
-                ...currentVersions[currentIndex],
-                content: finalContent,
-              };
-            }
-
-            return {
-              ...msg,
-              content: finalContent,
-              versions: currentVersions,
-            };
-          }
-          return msg;
         });
-
-        return {
-          ...prev,
-          [activeChatId]: {
-            ...session,
-            messages: updatedMessages,
-          },
-        };
-      });
+      }
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
