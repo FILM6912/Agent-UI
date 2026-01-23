@@ -123,6 +123,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   
   // Clear All Chats Confirmation Modal
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   // LangFlow State
   // Separate the input state from the committed configuration state to prevent iframe reload on every keystroke
@@ -188,6 +190,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       fetchAgentFlows();
     }
   }, [activeTab, modelConfig.langflowUrl, modelConfig.langflowApiKey]);
+
+  // Click outside handler for language dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showLanguageDropdown && languageDropdownRef.current && !languageDropdownRef.current.contains(event.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLanguageDropdown]);
 
   const saveLangflowUrl = () => {
     const newConfig = { 
@@ -374,19 +390,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       
       console.log("Fetched flows:", flows.length);
       
-      // Map flows to agent format, all enabled by default
+      // Load existing enabled/disabled state from localStorage
+      const savedAgents = localStorage.getItem('agent_flows');
+      let enabledMap: Record<string, boolean> = {};
+      let customNameMap: Record<string, string> = {};
+      
+      if (savedAgents) {
+        try {
+          const parsed = JSON.parse(savedAgents);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((agent: any) => {
+              enabledMap[agent.id] = agent.enabled !== false; // Default to true if not specified
+              if (agent.customName) {
+                customNameMap[agent.id] = agent.customName;
+              }
+            });
+          }
+        } catch (e) {
+          console.error('Failed to parse saved agents:', e);
+        }
+      }
+      
+      // Map flows to agent format, preserving enabled state from localStorage
       const newAgents: AgentFlow[] = flows.map((flow: any) => {
         return {
           id: flow.id,
           name: flow.name, // Original name from LangFlow (used as FLOW_ID)
           description: flow.description || "No description available",
-          enabled: true, // All enabled by default
-          customName: flow.name // Display name (same as original name)
+          enabled: enabledMap[flow.id] !== false, // Use saved state, default to true
+          customName: customNameMap[flow.id] || flow.name // Use saved custom name or default to flow name
         };
       });
       
       setAgentFlows(newAgents);
-      // Don't save to localStorage - fetch fresh each time
+      // Save to localStorage to persist state
+      localStorage.setItem('agent_flows', JSON.stringify(newAgents));
       // Don't show success notification, only show errors
     } catch (error) {
       console.error("Failed to fetch agent flows:", error);
@@ -402,7 +440,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       agent.id === id ? { ...agent, enabled: !agent.enabled } : agent
     );
     setAgentFlows(updated);
-    // Don't save to localStorage
+    // Save to localStorage so ChatInterface can filter
+    localStorage.setItem('agent_flows', JSON.stringify(updated));
+    
+    // If disabling the currently selected model, switch to another available model
+    const disabledAgent = updated.find(agent => agent.id === id);
+    if (disabledAgent && !disabledAgent.enabled && modelConfig.modelId === id) {
+      // Find first enabled agent or fallback to preset model
+      const firstEnabledAgent = updated.find(agent => agent.enabled);
+      if (firstEnabledAgent) {
+        onModelConfigChange({
+          ...modelConfig,
+          modelId: firstEnabledAgent.id,
+          name: firstEnabledAgent.customName || firstEnabledAgent.name
+        });
+      } else {
+        // Fallback to first preset model
+        const presetModels = getPresetModels(t);
+        const firstPreset = presetModels.google[0];
+        onModelConfigChange({
+          ...modelConfig,
+          modelId: firstPreset.id,
+          name: firstPreset.name
+        });
+      }
+    }
   };
 
   const startEditingAgent = (agent: AgentFlow) => {
@@ -415,7 +477,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       agent.id === id ? { ...agent, customName: editingAgentName } : agent
     );
     setAgentFlows(updated);
-    // Don't save to localStorage
+    // Save to localStorage so ChatInterface can use custom names
+    localStorage.setItem('agent_flows', JSON.stringify(updated));
     setEditingAgentId(null);
     setEditingAgentName("");
   };
@@ -537,7 +600,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               {/* Theme & Language Group */}
-              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-visible shadow-sm dark:shadow-none">
                 {/* Theme Row */}
                 <div className="p-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center gap-4">
@@ -594,14 +657,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     </div>
                   </div>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value as "en" | "th")}
-                    className="bg-zinc-100 dark:bg-[#1e1e20] text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 min-w-[100px]"
-                  >
-                    <option value="en">English</option>
-                    <option value="th">ไทย</option>
-                  </select>
+                  <div className="relative min-w-[120px]" ref={languageDropdownRef}>
+                    <button
+                      onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                      className="w-full flex items-center justify-between bg-zinc-100 dark:bg-[#1e1e20] text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span>{language === 'en' ? 'English' : 'ไทย'}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ml-2 ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showLanguageDropdown && (
+                      <div className="absolute top-full right-0 mt-1 w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setLanguage('en');
+                            setShowLanguageDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                            language === 'en'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <span>English</span>
+                          {language === 'en' && <Check className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setLanguage('th');
+                            setShowLanguageDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                            language === 'th'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <span>ไทย</span>
+                          {language === 'th' && <Check className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
