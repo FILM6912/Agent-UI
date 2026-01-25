@@ -1288,17 +1288,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </button>
                   </div>
                 )}
-                
-                {/* Floating Config Button */}
-                {modelConfig.langflowUrl && (
-                  <button
-                    onClick={() => setShowLangflowConfigModal(true)}
-                    className="absolute bottom-6 right-6 p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
-                    title={t("settings.configureLangflow")}
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
-                )}
               </div>
           </div>
         </div>
