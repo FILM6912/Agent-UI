@@ -285,19 +285,26 @@ export async function* streamMessageFromGemini(
   config: ModelConfig,
   attachments: Attachment[] = []
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
+  // Check if this is a LangFlow agent (has langflowUrl configured)
+  if (config.langflowUrl && config.modelId) {
+    // Use LangFlow - no need for Google API Key
+    const mockSteps = generateMockSteps(newMessage);
+    if (mockSteps.length > 0) {
+      yield { type: 'steps', steps: mockSteps };
+      await new Promise(resolve => setTimeout(resolve, 600));
+    }
+    
+    yield* streamFromLangFlow(history, newMessage, config);
+    return;
+  }
+
+  // For Google/OpenAI providers, API Key is required
   if (!process.env.API_KEY) throw new Error("API_KEY is missing");
 
   const mockSteps = generateMockSteps(newMessage);
   if (mockSteps.length > 0) {
     yield { type: 'steps', steps: mockSteps };
     await new Promise(resolve => setTimeout(resolve, 600));
-  }
-
-  // Check if this is a LangFlow agent (has langflowUrl configured)
-  if (config.langflowUrl && config.modelId) {
-    // Use OpenAI SDK to call LangFlow
-    yield* streamFromLangFlow(history, newMessage, config);
-    return;
   }
 
   if (config.provider === 'google') {
