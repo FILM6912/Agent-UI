@@ -172,10 +172,10 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
           {!isPreviewOpen && (
             <button
               onClick={() => setIsPreviewOpen(true)}
-              className="absolute top-3 right-3 z-30 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="absolute top-4 right-3 z-30 p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               title="Open Preview"
             >
-              <PanelRight className="w-5 h-5" />
+              <PanelRight className="w-4 h-4" />
             </button>
           )}
         </>
