@@ -222,19 +222,19 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
               setActiveTab("process");
               setSelectedFile(null);
             }}
-            className={`text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === "process" ? "text-foreground border-foreground" : "text-muted-foreground border-transparent hover:text-foreground"}`}
+            className={`text-sm font-medium pb-1 border-b-2 transition-all ${activeTab === "process" ? "text-foreground border-foreground opacity-100" : "text-muted-foreground border-transparent opacity-50 hover:text-foreground hover:opacity-75"}`}
           >
             {t("preview.tabProcess")}
           </button>
           <button
             onClick={() => setActiveTab("files")}
-            className={`text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === "files" ? "text-foreground border-foreground" : "text-muted-foreground border-transparent hover:text-foreground"}`}
+            className={`text-sm font-medium pb-1 border-b-2 transition-all ${activeTab === "files" ? "text-foreground border-foreground opacity-100" : "text-muted-foreground border-transparent opacity-50 hover:text-foreground hover:opacity-75"}`}
           >
             {t("preview.tabFiles")}
           </button>
           <button
             onClick={() => setActiveTab("web")}
-            className={`text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === "web" ? "text-foreground border-foreground" : "text-muted-foreground border-transparent hover:text-foreground"}`}
+            className={`text-sm font-medium pb-1 border-b-2 transition-all ${activeTab === "web" ? "text-foreground border-foreground opacity-100" : "text-muted-foreground border-transparent opacity-50 hover:text-foreground hover:opacity-75"}`}
           >
             {t("preview.tabPreview")}
           </button>
