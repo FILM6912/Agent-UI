@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatInterface, getPresetModels } from "./components/ChatInterface";
 import { PreviewWindow } from "./components/PreviewWindow";
 import { SettingsView } from "./components/SettingsView";
+import { ErrorModal } from "./components/ErrorModal";
 import { LangFlowConfigModal } from "./components/LangFlowConfigModal";
 import { AuthPage } from "./components/AuthPage";
 import {
@@ -109,32 +110,35 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
       />
     )}
 
-    <Sidebar
-      history={history}
-      activeChatId={activeChatId}
-      onNewChat={handleNewChat}
-      onSelectChat={handleSelectChat}
-      onDeleteChat={onRequestDeleteChat}
-      activeProvider={modelConfig.provider}
-      onProviderChange={handleProviderChange}
-      onOpenSettings={() => {
-        navigate('/settings/general');
-      }}
-      isOpen={isSidebarOpen}
-      toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      isMobile={isMobile}
-      onLogout={() => {
-        setIsAuthenticated(false);
-        navigate('/login');
-      }}
-    />
+    {/* Hide main Sidebar when Settings is open */}
+    {!showSettings && (
+      <Sidebar
+        history={history}
+        activeChatId={activeChatId}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+        onDeleteChat={onRequestDeleteChat}
+        activeProvider={modelConfig.provider}
+        onProviderChange={handleProviderChange}
+        onOpenSettings={() => {
+          navigate('/settings/general');
+        }}
+        isOpen={isSidebarOpen}
+        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        isMobile={isMobile}
+        onLogout={() => {
+          setIsAuthenticated(false);
+          navigate('/login');
+        }}
+      />
+    )}
 
     <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
       {showSettings ? (
         <SettingsView
           modelConfig={modelConfig}
           onModelConfigChange={setModelConfig}
-          onBack={() => navigate(-1)}
+          onBack={() => navigate('/chat')}
           chatHistory={chatHistory}
           onDeleteChat={onRequestDeleteChat}
           onClearAllChats={handleClearAllChats}
@@ -158,15 +162,20 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(({
             onVersionChange={handleVersionChange}
             isPreviewOpen={isPreviewOpen}
             onPreviewRequest={handlePreviewRequest}
+            onOpenSettings={() => navigate('/settings/general')}
+            onLogout={() => {
+              setIsAuthenticated(false);
+              navigate('/login');
+            }}
           />
 
           {!isPreviewOpen && (
             <button
               onClick={() => setIsPreviewOpen(true)}
-              className="absolute top-3 right-3 z-30 p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="absolute top-4 right-3 z-30 p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               title="Open Preview"
             >
-              <PanelRight className="w-5 h-5" />
+              <PanelRight className="w-4 h-4" />
             </button>
           )}
         </>
@@ -249,6 +258,9 @@ export default function App() {
         if (id !== activeChatId) {
             setActiveChatId(id);
         }
+    } else if (location.pathname === '/chat') {
+        // On /chat without ID, clear activeChatId
+        setActiveChatId('');
     }
   }, [location.pathname]);
 
@@ -304,6 +316,14 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+
+  // Error Modal State
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalConfig, setErrorModalConfig] = useState({
+    title: '',
+    message: '',
+    type: 'error' as 'error' | 'warning'
+  });
 
   // View State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -418,7 +438,11 @@ export default function App() {
     historyToUse: Message[],
     targetMessageId?: string,
     attachments?: Attachment[],
+    chatId?: string,
   ) => {
+    // Use provided chatId or fall back to activeChatId
+    const sessionId = chatId || activeChatId;
+    
     if (!targetMessageId) {
       setIsLoading(true);
     }
@@ -437,6 +461,11 @@ export default function App() {
     }
 
     try {
+      // Validate modelConfig before making API call
+      if (!modelConfig.modelId) {
+        throw new Error('No model selected. Please select a model before sending a message.');
+      }
+      
       const stream = streamMessageFromGemini(
         historyToUse,
         prompt,
@@ -477,13 +506,21 @@ export default function App() {
             }
           }
 
-          setSessions((prev) => ({
-            ...prev,
-            [activeChatId]: {
-              ...prev[activeChatId],
-              messages: [...prev[activeChatId].messages, initialAssistantMsg],
-            },
-          }));
+          setSessions((prev) => {
+            // Ensure session exists before updating
+            if (!prev[sessionId]) {
+              console.error(`Session ${sessionId} not found`);
+              return prev;
+            }
+            
+            return {
+              ...prev,
+              [sessionId]: {
+                ...prev[sessionId],
+                messages: [...prev[sessionId].messages, initialAssistantMsg],
+              },
+            };
+          });
           messageInitialized = true;
           // Skip the rest of the loop for this chunk since we already handled it
           continue;
@@ -498,7 +535,7 @@ export default function App() {
           }
 
           setSessions((prev) => {
-            const session = prev[activeChatId];
+            const session = prev[sessionId];
             const updatedMessages = session.messages.map((msg) => {
               if (msg.id === assistantMsgId) {
                 const updatedVersions = msg.versions ? [...msg.versions] : [];
@@ -531,7 +568,7 @@ export default function App() {
 
             return {
               ...prev,
-              [activeChatId]: {
+              [sessionId]: {
                 ...session,
                 messages: updatedMessages,
               },
@@ -547,63 +584,50 @@ export default function App() {
         errorMsg.includes("429") ||
         errorMsg.includes("quota") ||
         errorMsg.includes("RESOURCE_EXHAUSTED");
+      
+      const isModelError = 
+        errorMsg.includes("model is required") ||
+        errorMsg.includes("No model selected");
 
-      const userFriendlyError = isQuotaError
-        ? "\n\n> **⚠️ API Quota Exceeded**\n> You have exceeded your request quota. Please check your billing details or try again later."
-        : `\n\n> **⚠️ Error Generating Response**\n> ${errorMsg}`;
+      // Show error modal instead of alert
+      if (isModelError) {
+        setErrorModalConfig({
+          title: 'กรุณาเลือก Model',
+          message: 'คุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ',
+          type: 'warning'
+        });
+        setShowErrorModal(true);
+      } else if (isQuotaError) {
+        setErrorModalConfig({
+          title: 'API Quota Exceeded',
+          message: 'You have exceeded your request quota. Please check your billing details or try again later.',
+          type: 'error'
+        });
+        setShowErrorModal(true);
+      } else {
+        setErrorModalConfig({
+          title: 'Error Generating Response',
+          message: errorMsg,
+          type: 'error'
+        });
+        setShowErrorModal(true);
+      }
 
-      const finalContent = accumulatedContent + userFriendlyError;
-
-      setSessions((prev) => {
-        const session = prev[activeChatId];
-
-        if (!messageInitialized) {
-          const initialAssistantMsg: Message = {
-            id: assistantMsgId,
-            role: "assistant",
-            content: finalContent,
-            timestamp: Date.now(),
-            versions: [{ content: finalContent, timestamp: Date.now() }],
-            currentVersionIndex: 0,
-          };
+      // Remove the assistant message if it was initialized but failed
+      if (messageInitialized) {
+        setSessions((prev) => {
+          const session = prev[activeChatId];
+          if (!session) return prev;
+          
           return {
             ...prev,
             [activeChatId]: {
               ...session,
-              messages: [...session.messages, initialAssistantMsg],
+              messages: session.messages.filter(msg => msg.id !== assistantMsgId),
             },
           };
-        }
-
-        const updatedMessages = session.messages.map((msg) => {
-          if (msg.id === assistantMsgId) {
-            const currentVersions = msg.versions ? [...msg.versions] : [];
-            const currentIndex = msg.currentVersionIndex ?? 0;
-
-            if (currentVersions[currentIndex]) {
-              currentVersions[currentIndex] = {
-                ...currentVersions[currentIndex],
-                content: finalContent,
-              };
-            }
-
-            return {
-              ...msg,
-              content: finalContent,
-              versions: currentVersions,
-            };
-          }
-          return msg;
         });
-
-        return {
-          ...prev,
-          [activeChatId]: {
-            ...session,
-            messages: updatedMessages,
-          },
-        };
-      });
+      }
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
@@ -621,14 +645,45 @@ export default function App() {
     )
       return;
     
-    // Ensure active session exists
-    if (!sessions[activeChatId]) {
-      console.error("Active session not found:", activeChatId);
+    // Check if model is selected before sending
+    if (!modelConfig.modelId) {
+      setErrorModalConfig({
+        title: 'กรุณาเลือก Model',
+        message: 'คุณยังไม่ได้เลือก model กรุณาเลือก model ก่อนส่งข้อความ',
+        type: 'warning'
+      });
+      setShowErrorModal(true);
       return;
     }
     
     const currentPrompt = message;
     const isFirstUserMessage = currentMessages.length === 0;
+    
+    // Create new chat ID if this is the first message and no active chat
+    let chatId = activeChatId;
+    if (isFirstUserMessage && (!activeChatId || !sessions[activeChatId])) {
+      chatId = crypto.randomUUID();
+      
+      // Create new session
+      setSessions((prev) => ({
+        ...prev,
+        [chatId]: {
+          id: chatId,
+          title: currentPrompt.substring(0, 30),
+          messages: [],
+          updatedAt: Date.now(),
+        },
+      }));
+      
+      // Navigate to new chat URL with ID
+      navigate(`/chat/${chatId}`);
+    }
+    
+    // Ensure active session exists
+    if (!sessions[chatId] && chatId !== activeChatId) {
+      // Session was just created, wait for state update
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -650,15 +705,15 @@ export default function App() {
     const historyBeforeNewMessage = [...currentMessages];
 
     setSessions((prev) => {
-      const currentSession = prev[activeChatId];
+      const currentSession = prev[chatId];
       if (!currentSession) {
-        console.error("Session not found in setSessions:", activeChatId);
+        console.error("Session not found in setSessions:", chatId);
         return prev;
       }
       
       return {
         ...prev,
-        [activeChatId]: {
+        [chatId]: {
           ...currentSession,
           title: isFirstUserMessage
             ? currentPrompt.substring(0, 30)
@@ -673,10 +728,10 @@ export default function App() {
       generateChatTitle(currentPrompt, modelConfig)
         .then((aiTitle) => {
           setSessions((prev) => {
-            if (!prev[activeChatId]) return prev;
+            if (!prev[chatId]) return prev;
             return {
               ...prev,
-              [activeChatId]: { ...prev[activeChatId], title: aiTitle },
+              [chatId]: { ...prev[chatId], title: aiTitle },
             };
           });
         })
@@ -688,6 +743,7 @@ export default function App() {
       historyBeforeNewMessage,
       undefined,
       attachments,
+      chatId,
     );
   };
 
@@ -877,17 +933,8 @@ export default function App() {
   };
 
   const handleNewChat = () => {
-    const newId = crypto.randomUUID();
-    setSessions((prev) => ({
-      ...prev,
-      [newId]: {
-        id: newId,
-        title: t("sidebar.newTask"),
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    }));
-    navigate(`/chat/${newId}`);
+    // Navigate to /chat without ID
+    navigate('/chat');
     setPreviewContent(null);
     setIsSettingsOpen(false);
     if (isMobile) {
@@ -902,40 +949,29 @@ export default function App() {
     // Close the modal immediately
     setChatToDelete(null);
 
-    let nextId: string | null = null;
-
     setSessions((prev) => {
       const newSessions = { ...prev };
       delete newSessions[id];
       
-      if (Object.keys(newSessions).length === 0) {
-        // No chats left, create new one
-        const newId = crypto.randomUUID();
-        nextId = newId;
-        return {
-          [newId]: {
-            id: newId,
-            title: t("sidebar.newTask"),
-            messages: [],
-            updatedAt: Date.now(),
-          },
-        };
-      }
-      
-      if (activeChatId === id) {
-        // Deleted active chat, find next
-        const remaining = Object.values(newSessions) as ChatSession[];
-        const latest = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-        if (latest) {
-          nextId = latest.id;
-        }
-      }
-      
       return newSessions;
     });
-
-    if (nextId) {
-        navigate(`/chat/${nextId}`);
+    
+    // If deleted the active chat, navigate to /chat or another chat
+    if (activeChatId === id) {
+      const remainingSessions = Object.values(sessions).filter(s => s.id !== id) as ChatSession[];
+      
+      if (remainingSessions.length === 0) {
+        // No chats left, go to /chat
+        navigate('/chat');
+      } else {
+        // Navigate to the most recent chat
+        const latest = remainingSessions.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        if (latest) {
+          navigate(`/chat/${latest.id}`);
+        } else {
+          navigate('/chat');
+        }
+      }
     }
   };
 
@@ -944,16 +980,9 @@ export default function App() {
   };
 
   const handleClearAllChats = () => {
-    const newId = crypto.randomUUID();
-    setSessions({
-      [newId]: {
-        id: newId,
-        title: t("sidebar.newTask"),
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    });
-    setActiveChatId(newId);
+    // Clear all chats and navigate to /chat
+    setSessions({});
+    navigate('/chat');
     setPreviewContent(null);
   };
 
@@ -981,10 +1010,11 @@ export default function App() {
   }, [location.pathname]);
 
   return (
-    <Routes>
-      <Route path="/login" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
-      <Route path="/register" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
-      <Route path="/settings/:tab" element={isAuthenticated ? (
+    <>
+      <Routes>
+        <Route path="/login" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
+        <Route path="/register" element={!isAuthenticated ? <AuthPage onLogin={() => { setIsAuthenticated(true); }} /> : <Navigate to="/" />} />
+        <Route path="/settings/:tab" element={isAuthenticated ? (
         <AppLayout
           showSettings={true}
           isMobile={isMobile}
@@ -1064,8 +1094,58 @@ export default function App() {
           setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
         />
       ) : <Navigate to="/login" />} />
-      <Route path="/" element={isAuthenticated ? <Navigate to={`/chat/${activeChatId || (Object.keys(sessions).length > 0 ? Object.keys(sessions)[0] : "new")}`} replace /> : <Navigate to="/login" />} />
+      <Route path="/chat" element={isAuthenticated ? (
+        <AppLayout
+          showSettings={false}
+          isMobile={isMobile}
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          history={history}
+          activeChatId=""
+          handleNewChat={handleNewChat}
+          handleSelectChat={handleSelectChat}
+          onRequestDeleteChat={onRequestDeleteChat}
+          modelConfig={modelConfig}
+          handleProviderChange={handleProviderChange}
+          navigate={navigate}
+          setIsAuthenticated={setIsAuthenticated}
+          settingsTab={settingsTab}
+          setModelConfig={setModelConfig}
+          chatHistory={history}
+          handleClearAllChats={handleClearAllChats}
+          currentMessages={[]}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          handleSend={handleSend}
+          handleRegenerate={handleRegenerate}
+          handleEditUserMessage={handleEditUserMessage}
+          isLoading={isLoading}
+          isStreaming={isStreaming}
+          handleVersionChange={handleVersionChange}
+          isPreviewOpen={isPreviewOpen}
+          handlePreviewRequest={handlePreviewRequest}
+          setIsPreviewOpen={setIsPreviewOpen}
+          previewContent={previewContent}
+          chatToDelete={chatToDelete}
+          setChatToDelete={setChatToDelete}
+          t={t}
+          confirmDeleteChat={confirmDeleteChat}
+          isLangFlowConfigOpen={isLangFlowConfigOpen}
+          setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+        />
+      ) : <Navigate to="/login" />} />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/chat" replace /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+    
+    {/* Error Modal - Outside Routes */}
+    <ErrorModal
+      isOpen={showErrorModal}
+      onClose={() => setShowErrorModal(false)}
+      title={errorModalConfig.title}
+      message={errorModalConfig.message}
+      type={errorModalConfig.type}
+    />
+    </>
   );
 }

@@ -45,6 +45,8 @@ import {
   RefreshCw,
   ExternalLink,
   HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { ModelConfig, ChatSession, Agent } from "../types";
 import { useLanguage } from "../LanguageContext";
@@ -106,6 +108,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [editingAgentName, setEditingAgentName] = useState("");
   
+  // Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState<{
@@ -123,6 +128,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   
   // Clear All Chats Confirmation Modal
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const languageDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Clear Custom Name Confirmation
+  const [agentToClearName, setAgentToClearName] = useState<string | null>(null);
 
   // LangFlow State
   // Separate the input state from the committed configuration state to prevent iframe reload on every keystroke
@@ -188,6 +198,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       fetchAgentFlows();
     }
   }, [activeTab, modelConfig.langflowUrl, modelConfig.langflowApiKey]);
+
+  // Click outside handler for language dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showLanguageDropdown && languageDropdownRef.current && !languageDropdownRef.current.contains(event.target as Node)) {
+        setShowLanguageDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showLanguageDropdown]);
 
   const saveLangflowUrl = () => {
     const newConfig = { 
@@ -374,19 +398,87 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       
       console.log("Fetched flows:", flows.length);
       
-      // Map flows to agent format, all enabled by default
-      const newAgents: AgentFlow[] = flows.map((flow: any) => {
-        return {
-          id: flow.id,
-          name: flow.name, // Original name from LangFlow (used as FLOW_ID)
-          description: flow.description || "No description available",
-          enabled: true, // All enabled by default
-          customName: flow.name // Display name (same as original name)
-        };
-      });
+      // Load existing enabled/disabled state from localStorage
+      const savedAgents = localStorage.getItem('agent_flows');
+      let enabledMap: Record<string, boolean> = {};
+      let customNameMap: Record<string, string> = {};
+      let hasCustomNameMap: Record<string, boolean> = {}; // Track if user has set custom name
+      
+      if (savedAgents) {
+        try {
+          const parsed = JSON.parse(savedAgents);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((agent: any) => {
+              enabledMap[agent.id] = agent.enabled !== false; // Default to true if not specified
+              if (agent.customName && agent.customName !== agent.name) {
+                // Only preserve customName if it's different from the original name
+                customNameMap[agent.id] = agent.customName;
+                hasCustomNameMap[agent.id] = true;
+              }
+            });
+          }
+        } catch (e) {
+          console.error('Failed to parse saved agents:', e);
+        }
+      }
+      
+      // List of flow names to exclude
+      const excludedFlowNames = [
+        "Basic Prompt Chaining",
+        "Basic Prompting",
+        "Blog Writer",
+        "Custom Component Generator",
+        "Document Q&A",
+        "Financial Report Parser",
+        "Hybrid Search RAG",
+        "Image Sentiment Analysis",
+        "Instagram Copywriter",
+        "Invoice Summarizer",
+        "Knowledge Ingestion",
+        "Knowledge Retrieval",
+        "Market Research",
+        "Meeting Summary",
+        "Memory Chatbot",
+        "NVIDIA RTX Remix",
+        "News Aggregator",
+        "Pokédex Agent",
+        "Portfolio Website Code Generator",
+        "Price Deal Finder",
+        "Research Agent",
+        "Research Translation Loop",
+        "SaaS Pricing",
+        "SEO Keyword Generator",
+        "Search agent",
+        "Sequential Tasks Agents",
+        "Simple Agent",
+        "Social Media Agent",
+        "Text Sentiment Analysis",
+        "Travel Planning Agents",
+        "Twitter Thread Generator",
+        "Vector Store RAG",
+        "YouTube Analysis"
+      ];
+
+      // Map flows to agent format, preserving enabled state from localStorage
+      // Filter out flows with names matching the excluded list
+      const newAgents: AgentFlow[] = flows
+        .filter((flow: any) => !excludedFlowNames.includes(flow.name))
+        .map((flow: any) => {
+          // If user has set a custom name, keep it. Otherwise, use the current name from LangFlow
+          const displayName = hasCustomNameMap[flow.id] ? customNameMap[flow.id] : flow.name;
+          
+          return {
+            id: flow.id,
+            name: flow.name, // Original name from LangFlow (used as FLOW_ID)
+            description: flow.description || "No description available",
+            enabled: enabledMap[flow.id] === true, // Use saved state, default to false (disabled)
+            customName: displayName !== flow.name ? displayName : undefined // Only set customName if different
+          };
+        });
       
       setAgentFlows(newAgents);
-      // Don't save to localStorage - fetch fresh each time
+      // Save to localStorage to persist state
+      localStorage.setItem('agent_flows', JSON.stringify(newAgents));
       // Don't show success notification, only show errors
     } catch (error) {
       console.error("Failed to fetch agent flows:", error);
@@ -402,7 +494,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       agent.id === id ? { ...agent, enabled: !agent.enabled } : agent
     );
     setAgentFlows(updated);
-    // Don't save to localStorage
+    // Save to localStorage so ChatInterface can filter
+    localStorage.setItem('agent_flows', JSON.stringify(updated));
+    
+    // If disabling the currently selected model, switch to another available model
+    const disabledAgent = updated.find(agent => agent.id === id);
+    if (disabledAgent && !disabledAgent.enabled && modelConfig.modelId === id) {
+      // Find first enabled agent or fallback to preset model
+      const firstEnabledAgent = updated.find(agent => agent.enabled);
+      if (firstEnabledAgent) {
+        onModelConfigChange({
+          ...modelConfig,
+          modelId: firstEnabledAgent.id,
+          name: firstEnabledAgent.customName || firstEnabledAgent.name
+        });
+      } else {
+        // Fallback to first preset model
+        const presetModels = getPresetModels(t);
+        const firstPreset = presetModels.google[0];
+        onModelConfigChange({
+          ...modelConfig,
+          modelId: firstPreset.id,
+          name: firstPreset.name
+        });
+      }
+    }
   };
 
   const startEditingAgent = (agent: AgentFlow) => {
@@ -411,11 +527,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const saveAgentName = (id: string) => {
-    const updated = agentFlows.map(agent =>
-      agent.id === id ? { ...agent, customName: editingAgentName } : agent
-    );
+    const updated = agentFlows.map(agent => {
+      if (agent.id === id) {
+        // Set customName only if it's different from the original name
+        const newCustomName = editingAgentName !== agent.name ? editingAgentName : undefined;
+        return { ...agent, customName: newCustomName };
+      }
+      return agent;
+    });
     setAgentFlows(updated);
-    // Don't save to localStorage
+    // Save to localStorage so ChatInterface can use custom names
+    localStorage.setItem('agent_flows', JSON.stringify(updated));
     setEditingAgentId(null);
     setEditingAgentName("");
   };
@@ -423,6 +545,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const cancelEditingAgent = () => {
     setEditingAgentId(null);
     setEditingAgentName("");
+  };
+
+  const clearCustomName = (id: string) => {
+    const updated = agentFlows.map(agent => {
+      if (agent.id === id) {
+        return { ...agent, customName: undefined };
+      }
+      return agent;
+    });
+    setAgentFlows(updated);
+    localStorage.setItem('agent_flows', JSON.stringify(updated));
+    setAgentToClearName(null); // Close confirmation modal
+  };
+  
+  const confirmClearCustomName = () => {
+    if (agentToClearName) {
+      clearCustomName(agentToClearName);
+    }
   };
 
   // Keyboard shortcut for Ctrl+Q (support all keyboard layouts)
@@ -444,11 +584,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="flex h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 font-sans overflow-hidden transition-colors duration-200">
       {/* Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex flex-col transition-colors duration-200">
-        <div className="h-16 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800/50">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            {t("settings.title")}
-          </h1>
+      <div className={`border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex flex-col transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-16'}`}>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-zinc-800/50">
+          {isSidebarOpen && (
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+              {t("settings.title")}
+            </h1>
+          )}
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors ml-auto"
+            title={isSidebarOpen ? 'ปิด Sidebar' : 'เปิด Sidebar'}
+          >
+            {isSidebarOpen ? (
+              <PanelLeftClose className="w-4 h-4" />
+            ) : (
+              <PanelLeftOpen className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
@@ -471,11 +624,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   ? "text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-zinc-800/50"
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
               }`}
+              title={!isSidebarOpen ? item.label : undefined}
             >
               <item.icon
-                className={`w-4 h-4 ${activeTab === item.id ? (item.id === "langflow" || item.id === "agent" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
+                className={`w-4 h-4 flex-shrink-0 ${activeTab === item.id ? (item.id === "langflow" || item.id === "agent" ? "text-indigo-500 dark:text-indigo-400" : "text-indigo-500 dark:text-indigo-400") : ""}`}
               />
-              {item.label}
+              {isSidebarOpen && item.label}
             </button>
           ))}
         </nav>
@@ -483,10 +637,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium"
+            className={`flex items-center gap-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors text-sm font-medium ${!isSidebarOpen ? 'justify-center w-full' : ''}`}
+            title={!isSidebarOpen ? t("settings.back") : undefined}
           >
             <ArrowLeft className="w-4 h-4" />
-            {t("settings.back")}
+            {isSidebarOpen && t("settings.back")}
           </button>
         </div>
       </div>
@@ -537,7 +692,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               {/* Theme & Language Group */}
-              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-visible shadow-sm dark:shadow-none">
                 {/* Theme Row */}
                 <div className="p-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center gap-4">
@@ -594,14 +749,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     </div>
                   </div>
-                  <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value as "en" | "th")}
-                    className="bg-zinc-100 dark:bg-[#1e1e20] text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 min-w-[100px]"
-                  >
-                    <option value="en">English</option>
-                    <option value="th">ไทย</option>
-                  </select>
+                  <div className="relative min-w-[120px]" ref={languageDropdownRef}>
+                    <button
+                      onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                      className="w-full flex items-center justify-between bg-zinc-100 dark:bg-[#1e1e20] text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span>{language === 'en' ? 'English' : 'ไทย'}</span>
+                      <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ml-2 ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showLanguageDropdown && (
+                      <div className="absolute top-full right-0 mt-1 w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
+                        <button
+                          onClick={() => {
+                            setLanguage('en');
+                            setShowLanguageDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                            language === 'en'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <span>English</span>
+                          {language === 'en' && <Check className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setLanguage('th');
+                            setShowLanguageDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                            language === 'th'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium'
+                              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <span>ไทย</span>
+                          {language === 'th' && <Check className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -988,8 +1177,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                           ) : (
                             <>
-                              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
-                                {agent.customName || agent.name}
+                              <div className="flex items-center gap-2">
+                                <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                                  {agent.customName || agent.name}
+                                </div>
+                                {/* Show indicator if custom name is set */}
+                                {agent.customName && agent.customName !== agent.name && (
+                                  <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-700">
+                                    Custom
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
                                 {agent.description}
@@ -1036,12 +1233,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
                         {/* Edit Button */}
                         {editingAgentId !== agent.id && (
-                          <button
-                            onClick={() => startEditingAgent(agent)}
-                            className="p-2 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors text-zinc-500"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => startEditingAgent(agent)}
+                              className="p-2 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg transition-colors text-zinc-500"
+                              title={t("settings.editName") || "Edit name"}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            
+                            {/* Clear Custom Name Button - Only show if custom name is set */}
+                            {agent.customName && agent.customName !== agent.name && (
+                              <button
+                                onClick={() => setAgentToClearName(agent.id)}
+                                className="p-2 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-lg transition-colors text-zinc-500"
+                                title={t("settings.clearCustomName") || "Clear custom name"}
+                              >
+                                <RotateCw className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1076,17 +1287,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       {t("settings.configureLangflow")}
                     </button>
                   </div>
-                )}
-                
-                {/* Floating Config Button */}
-                {modelConfig.langflowUrl && (
-                  <button
-                    onClick={() => setShowLangflowConfigModal(true)}
-                    className="absolute bottom-6 right-6 p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
-                    title={t("settings.configureLangflow")}
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
                 )}
               </div>
           </div>
@@ -1309,6 +1509,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
                 >
                   {t("common.delete")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Custom Name Confirmation Modal */}
+      {agentToClearName && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setAgentToClearName(null)}
+        >
+          <div
+            className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+                <RotateCw className="w-6 h-6 text-orange-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+                {t("settings.clearCustomNameTitle") || "Clear Custom Name"}
+              </h3>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                {t("settings.clearCustomNameWarning") || "This will reset the agent name to the original name from LangFlow. The name will update automatically when changed in LangFlow."}
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setAgentToClearName(null)}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  onClick={confirmClearCustomName}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white transition-colors"
+                >
+                  {t("settings.clearName") || "Clear"}
                 </button>
               </div>
             </div>
