@@ -6,13 +6,13 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import { Sidebar } from "@/components/Sidebar";
-import { ChatInterface, getPresetModels } from "@/components/ChatInterface";
-import { PreviewWindow } from "@/components/PreviewWindow";
-import { SettingsView } from "@/components/SettingsView";
+import { Sidebar } from "@/features/sidebar";
+import { ChatInterface, getPresetModels } from "@/features/chat";
+import { PreviewWindow } from "@/features/preview";
+import { SettingsView } from "@/features/settings";
 import { ErrorModal } from "@/components/ErrorModal";
 import { LangFlowConfigModal } from "@/components/LangFlowConfigModal";
-import { AuthPage } from "@/components/AuthPage";
+import { AuthPage } from "@/features/auth";
 import {
   Message,
   ChatSession,

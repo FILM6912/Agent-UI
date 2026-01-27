@@ -40,20 +40,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
           : "light";
       }
 
-      console.log("🎨 Applying theme:", {
-        theme,
-        effectiveTheme,
-        isDark: effectiveTheme === "dark",
-      });
-
       if (effectiveTheme === "dark") {
         root.classList.add("dark");
         setIsDark(true);
-        console.log("✅ Added 'dark' class to <html>");
       } else {
         root.classList.remove("dark");
         setIsDark(false);
-        console.log("✅ Removed 'dark' class from <html>");
       }
     };
 
@@ -70,7 +62,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
   const value = {
     theme,
     setTheme: (newTheme: Theme) => {
-      console.log("🔄 Theme changing:", { from: theme, to: newTheme });
       setTheme(newTheme);
       localStorage.setItem("theme", newTheme);
     },
