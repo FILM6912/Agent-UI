@@ -71,7 +71,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         {isAssistant && (
-          <div className="w-6 h-6 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
             <Sparkles className="w-3 h-3 text-white" />
           </div>
         )}
@@ -97,24 +97,24 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       >
         {msg.role === "user" ? (
           isEditing ? (
-            <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-2xl p-3 border border-zinc-200 dark:border-zinc-700/50">
+            <div className="w-full bg-background dark:bg-zinc-900 rounded-2xl p-3 border border-border dark:border-zinc-700 shadow-sm">
               <textarea
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
-                className="w-full bg-transparent text-zinc-900 dark:text-zinc-200 resize-none outline-none text-sm leading-relaxed p-1"
+                className="w-full bg-transparent text-zinc-700 dark:text-zinc-100 resize-none outline-none text-sm leading-relaxed p-1"
                 rows={Math.max(2, editValue.split("\n").length)}
                 autoFocus
               />
-              <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700/50">
+              <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700">
                 <button
                   onClick={onCancelEdit}
-                  className="px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700/50 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   {t("chat.cancel")}
                 </button>
                 <button
                   onClick={() => onSubmitEdit(msg.id)}
-                  className="px-3 py-1.5 text-xs font-medium bg-black dark:bg-zinc-100 text-white dark:text-black hover:opacity-90 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium bg-linear-to-r from-[#1447E6] to-[#0d35b8] text-white hover:from-[#0d35b8] hover:to-[#082a8f] rounded-lg transition-colors shadow-sm"
                 >
                   {t("chat.saveSubmit")}
                 </button>
@@ -130,7 +130,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                       <div
                         key={i}
                         onClick={() => onViewImage(att.content)}
-                        className="group/img relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 cursor-zoom-in"
+                        className="group/img relative rounded-xl overflow-hidden border border-border bg-muted cursor-zoom-in"
                       >
                         <img
                           src={att.content}
@@ -141,9 +141,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     ) : (
                       <div
                         key={i}
-                        className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-xl text-xs text-zinc-700 dark:text-zinc-300"
+                        className="flex items-center gap-2 bg-muted border border-border px-3 py-2 rounded-xl text-xs text-foreground"
                       >
-                        <FileIcon className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                        <FileIcon className="w-3.5 h-3.5 text-[#1447E6] dark:text-blue-400" />
                         <span className="truncate max-w-[120px]">
                           {att.name}
                         </span>
@@ -154,7 +154,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               )}
 
               {msg.content && (
-                <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-3 rounded-2xl rounded-tr-sm shadow-sm dark:shadow-md border border-zinc-200 dark:border-zinc-700/30 whitespace-pre-wrap text-left relative group">
+                <div className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 text-zinc-700 dark:text-zinc-100 px-4 py-3 rounded-2xl rounded-tr-sm shadow-sm border border-blue-200 dark:border-blue-900/50 whitespace-pre-wrap text-left relative group">
                   {msg.content}
                 </div>
               )}

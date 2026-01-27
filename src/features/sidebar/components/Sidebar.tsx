@@ -225,7 +225,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-indigo-500" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
+                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
                   ></div>
                   <span className="truncate flex-1 font-medium">
                     {session.title}
@@ -271,7 +271,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : "justify-center w-9 h-9 hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
             }`}
           >
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/10 group-hover:scale-105 transition-transform flex-shrink-0 relative">
+            <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-transform flex-shrink-0 relative">
               <User className="w-5 h-5 text-white" />
               {!showExpanded && (
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-black rounded-full"></div>

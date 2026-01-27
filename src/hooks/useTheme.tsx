@@ -40,12 +40,26 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({
           : "light";
       }
 
-      if (effectiveTheme === "dark") {
-        root.classList.add("dark");
-        setIsDark(true);
+      const isDarkMode = effectiveTheme === "dark";
+
+      // Use View Transition API for smooth theme switching
+      const updateTheme = () => {
+        if (isDarkMode) {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        setIsDark(isDarkMode);
+      };
+
+      // Check if View Transition API is supported
+      if (
+        "startViewTransition" in document &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        (document as any).startViewTransition(updateTheme);
       } else {
-        root.classList.remove("dark");
-        setIsDark(false);
+        updateTheme();
       }
     };
 

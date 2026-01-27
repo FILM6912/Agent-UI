@@ -2,12 +2,32 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Smooth theme transitions */
-* {
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease,
-    border-color 0.3s ease;
+/* Smooth theme transitions using View Transition API */
+@supports (view-transition-name: none) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.5s;
+    animation-timing-function: ease-in-out;
+  }
+}
+
+/* Color scheme for native UI elements */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 @theme {
@@ -34,6 +54,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Custom brand color */
+  --color-brand: #1447e6;
+  --color-brand-light: #3d6ff7;
+  --color-brand-dark: #0d35b8;
 }
 
 /* Light Mode (Default) */

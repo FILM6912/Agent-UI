@@ -219,7 +219,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#09090b] relative transition-colors duration-200">
+    <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
       {/* Settings Button - Top Right */}
       {onOpenSettings && (
         <div className="relative" ref={settingsMenuRef}>

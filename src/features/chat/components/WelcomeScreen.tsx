@@ -13,11 +13,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="w-20 h-20 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/30 animate-in zoom-in duration-500">
+      <div className="w-20 h-20 rounded-full bg-linear-to-br from-[#1447E6] via-[#3d6ff7] to-[#0d35b8] flex items-center justify-center mb-6 shadow-2xl shadow-blue-500/30 animate-in zoom-in duration-500 ring-4 ring-blue-100 dark:ring-blue-900/30">
         <Sparkles className="w-10 h-10 text-white" />
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-3 text-center">
+      <h1 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent mb-3 text-center">
         {language === "th"
           ? "สวัสดี! ฉันคือ AI Agent"
           : "Hello! I'm your AI Agent"}
@@ -67,10 +67,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         ].map((item, idx) => (
           <div
             key={idx}
-            className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 cursor-default"
+            className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-xl hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-blue-500/10 hover:bg-blue-50/30 dark:hover:from-blue-950/20 dark:hover:to-blue-900/20 transition-all duration-200 cursor-default"
           >
             <div className="text-2xl mb-2">{item.icon}</div>
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1 group-hover:text-[#1447E6] dark:group-hover:text-blue-400 transition-colors">
               {item.title}
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
