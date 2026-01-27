@@ -1,5 +1,4 @@
-
-export type Language = 'en' | 'th';
+export type Language = "en" | "th";
 
 export const translations = {
   en: {
@@ -49,6 +48,9 @@ export const translations = {
       customModel: "Custom Model ID",
       apply: "Apply & Close",
       availableModels: "Available Models",
+      pinAgent: "Pin agent",
+      unpinAgent: "Unpin agent",
+      pinnedAgent: "Pinned",
       mcpTitle: "MCP Servers",
       mcpPlaceholder: "Server URL (e.g. ws://localhost:3000)",
       connect: "Connect",
@@ -68,9 +70,10 @@ export const translations = {
       agent: "Agent",
       langflow: "LangFlow",
       back: "Back",
-      
+
       // General
-      generalDesc: "Configure general application settings including language and theme",
+      generalDesc:
+        "Configure general application settings including language and theme",
       voiceDelay: "Voice Delay",
       voiceDelayDesc: "Wait time after speaking before auto-send",
       clearHistory: "Clear Chat History",
@@ -78,10 +81,11 @@ export const translations = {
       clearAll: "Clear All",
       systemPrompt: "System Prompt",
       systemPromptDesc: "Default instruction for all new chats",
-      
+
       // Manage Language
       manageLanguage: "Manage Language",
-      manageLanguageDesc: "Import CSV file to update translation or add new one Format: key,th,en,jp...",
+      manageLanguageDesc:
+        "Import CSV file to update translation or add new one Format: key,th,en,jp...",
       importCSV: "Import CSV",
       exportCSV: "Export CSV",
       resetDefaults: "Reset to Default",
@@ -95,7 +99,7 @@ export const translations = {
       confirmPassword: "Confirm New Password",
       saveChanges: "Save Changes",
       saved: "Saved!",
-      
+
       // Tools
       toolsDesc: "Manage external tools and MCP servers",
       addTool: "Add Tool (MCP)",
@@ -107,23 +111,28 @@ export const translations = {
       agentDesc: "Manage LangFlow agents and their configurations",
       fetchAgents: "Fetch Agents",
       loading: "Loading...",
-      noAgents: "No agents found. Click the button above to fetch agents from LangFlow.",
+      noAgents:
+        "No agents found. Click the button above to fetch agents from LangFlow.",
       fetchAgentsNow: "Fetch Agents Now",
       enabled: "Enabled",
       disabled: "Disabled",
       editName: "Edit name",
       clearCustomName: "Clear custom name",
       clearCustomNameTitle: "Clear Custom Name",
-      clearCustomNameWarning: "This will reset the agent name to the original name from LangFlow. The name will update automatically when changed in LangFlow.",
+      clearCustomNameWarning:
+        "This will reset the agent name to the original name from LangFlow. The name will update automatically when changed in LangFlow.",
       clearName: "Clear",
       configRequired: "Configuration Required",
-      configureLangflowFirst: "Please configure LangFlow URL first in the LangFlow tab",
+      configureLangflowFirst:
+        "Please configure LangFlow URL first in the LangFlow tab",
       authRequired: "Authentication Required",
-      authRequiredMessage: "API Key is required. Please press Ctrl+Q to configure your API Key.",
+      authRequiredMessage:
+        "API Key is required. Please press Ctrl+Q to configure your API Key.",
       fetchSuccess: "Success!",
       fetchSuccessMessage: "Successfully fetched {count} agents from LangFlow",
       fetchError: "Failed to Fetch",
-      fetchErrorMessage: "Failed to fetch agents from LangFlow. Please check the URL and try again.",
+      fetchErrorMessage:
+        "Failed to fetch agents from LangFlow. Please check the URL and try again.",
       importSuccess: "Import Successful",
       importSuccessMessage: "Language file imported successfully!",
 
@@ -135,7 +144,8 @@ export const translations = {
       configureLangflowDesc: "Set up your LangFlow connection and API key",
       langflowUrlHint: "Enter the base URL of your LangFlow instance",
       apiKey: "API Key",
-      apiKeyHint: "Optional: Required only if your LangFlow instance requires authentication",
+      apiKeyHint:
+        "Optional: Required only if your LangFlow instance requires authentication",
       optional: "optional",
       saveAndReload: "Save & Reload",
       configureLangflowUrl: "LangFlow Not Configured",
@@ -147,7 +157,8 @@ export const translations = {
       toClose: "to close",
       updateUrl: "Update",
       openExternal: "Open in New Tab",
-      embedWarning: "If you cannot login, try opening in a new tab. Browsers often block login cookies in iframes.",
+      embedWarning:
+        "If you cannot login, try opening in a new tab. Browsers often block login cookies in iframes.",
     },
     preview: {
       title: "Agent's Window",
@@ -169,19 +180,20 @@ export const translations = {
     },
     common: {
       deleteTitle: "Delete Chat?",
-      deleteWarning: "This action cannot be undone. This will permanently delete the conversation.",
+      deleteWarning:
+        "This action cannot be undone. This will permanently delete the conversation.",
       delete: "Delete",
       cancel: "Cancel",
       ok: "OK",
     },
     models: {
-      'gemini-3-flash-preview': 'Fast & efficient',
-      'gemini-3-pro-preview': 'Powerful reasoning',
-      'gemini-2.5-flash-lite-latest': 'Lightweight & fast',
-      'gpt-4o': 'Omni model',
-      'gpt-4-turbo': 'Reliable high performance',
-      'gpt-3.5-turbo': 'Quick & affordable'
-    }
+      "gemini-3-flash-preview": "Fast & efficient",
+      "gemini-3-pro-preview": "Powerful reasoning",
+      "gemini-2.5-flash-lite-latest": "Lightweight & fast",
+      "gpt-4o": "Omni model",
+      "gpt-4-turbo": "Reliable high performance",
+      "gpt-3.5-turbo": "Quick & affordable",
+    },
   },
   th: {
     sidebar: {
@@ -230,6 +242,9 @@ export const translations = {
       customModel: "Custom Model ID",
       apply: "ใช้งานและปิด",
       availableModels: "รุ่นโมเดลที่มี",
+      pinAgent: "ปักหมุดเอเจนต์",
+      unpinAgent: "ยกเลิกปักหมุด",
+      pinnedAgent: "ปักหมุดแล้ว",
       mcpTitle: "การเชื่อมต่อ MCP",
       mcpPlaceholder: "ที่อยู่ Server (เช่น ws://localhost:3000)",
       connect: "เชื่อมต่อ",
@@ -262,7 +277,8 @@ export const translations = {
 
       // Manage Language
       manageLanguage: "จัดการภาษา",
-      manageLanguageDesc: "นำเข้าไฟล์ CSV เพื่ออัปเดตค่าแปลหรือเพิ่มภาษาใหม่ รูปแบบ: key,th,en,jp...",
+      manageLanguageDesc:
+        "นำเข้าไฟล์ CSV เพื่ออัปเดตค่าแปลหรือเพิ่มภาษาใหม่ รูปแบบ: key,th,en,jp...",
       importCSV: "นำเข้า CSV",
       exportCSV: "ส่งออก CSV",
       resetDefaults: "รีเซ็ตเป็นค่าเริ่มต้น",
@@ -295,16 +311,20 @@ export const translations = {
       editName: "แก้ไขชื่อ",
       clearCustomName: "ล้างชื่อที่ตั้งเอง",
       clearCustomNameTitle: "ล้างชื่อที่ตั้งเอง",
-      clearCustomNameWarning: "การดำเนินการนี้จะรีเซ็ตชื่อเอเจนต์กลับไปเป็นชื่อเดิมจาก LangFlow ชื่อจะอัปเดตอัตโนมัติเมื่อมีการเปลี่ยนแปลงใน LangFlow",
+      clearCustomNameWarning:
+        "การดำเนินการนี้จะรีเซ็ตชื่อเอเจนต์กลับไปเป็นชื่อเดิมจาก LangFlow ชื่อจะอัปเดตอัตโนมัติเมื่อมีการเปลี่ยนแปลงใน LangFlow",
       clearName: "ล้าง",
       configRequired: "ต้องการการตั้งค่า",
-      configureLangflowFirst: "กรุณาตั้งค่า URL ของ LangFlow ในแท็บ LangFlow ก่อน",
+      configureLangflowFirst:
+        "กรุณาตั้งค่า URL ของ LangFlow ในแท็บ LangFlow ก่อน",
       authRequired: "ต้องการการยืนยันตัวตน",
-      authRequiredMessage: "ต้องใส่ API Key กรุณากด Ctrl+Q เพื่อตั้งค่า API Key",
+      authRequiredMessage:
+        "ต้องใส่ API Key กรุณากด Ctrl+Q เพื่อตั้งค่า API Key",
       fetchSuccess: "สำเร็จ!",
       fetchSuccessMessage: "ดึงข้อมูลเอเจนต์ {count} ตัวจาก LangFlow สำเร็จ",
       fetchError: "ดึงข้อมูลไม่สำเร็จ",
-      fetchErrorMessage: "ไม่สามารถดึงข้อมูลเอเจนต์จาก LangFlow ได้ กรุณาตรวจสอบ URL และลองอีกครั้ง",
+      fetchErrorMessage:
+        "ไม่สามารถดึงข้อมูลเอเจนต์จาก LangFlow ได้ กรุณาตรวจสอบ URL และลองอีกครั้ง",
       importSuccess: "นำเข้าสำเร็จ",
       importSuccessMessage: "นำเข้าไฟล์ภาษาสำเร็จ!",
 
@@ -316,7 +336,8 @@ export const translations = {
       configureLangflowDesc: "ตั้งค่าการเชื่อมต่อ LangFlow และ API key",
       langflowUrlHint: "ใส่ URL หลักของ LangFlow instance ของคุณ",
       apiKey: "API Key",
-      apiKeyHint: "ไม่บังคับ: จำเป็นเฉพาะเมื่อ LangFlow ของคุณต้องการการยืนยันตัวตน",
+      apiKeyHint:
+        "ไม่บังคับ: จำเป็นเฉพาะเมื่อ LangFlow ของคุณต้องการการยืนยันตัวตน",
       optional: "ไม่บังคับ",
       saveAndReload: "บันทึกและโหลดใหม่",
       configureLangflowUrl: "ยังไม่ได้ตั้งค่า LangFlow",
@@ -328,7 +349,8 @@ export const translations = {
       toClose: "เพื่อปิด",
       updateUrl: "อัปเดต",
       openExternal: "เปิดในแท็บใหม่",
-      embedWarning: "หาก Log in ไม่ได้ กรุณาเปิดในแท็บใหม่ หรือตั้งค่า Browser ให้รองรับ Third-party cookies",
+      embedWarning:
+        "หาก Log in ไม่ได้ กรุณาเปิดในแท็บใหม่ หรือตั้งค่า Browser ให้รองรับ Third-party cookies",
     },
     preview: {
       title: "หน้าต่าง Agent",
@@ -356,12 +378,12 @@ export const translations = {
       ok: "ตกลง",
     },
     models: {
-      'gemini-3-flash-preview': 'รวดเร็วและมีประสิทธิภาพ',
-      'gemini-3-pro-preview': 'การใช้เหตุผลขั้นสูง',
-      'gemini-2.5-flash-lite-latest': 'เบาและรวดเร็ว',
-      'gpt-4o': 'โมเดล Omni',
-      'gpt-4-turbo': 'ประสิทธิภาพสูงเชื่อถือได้',
-      'gpt-3.5-turbo': 'รวดเร็วและประหยัด'
-    }
-  }
+      "gemini-3-flash-preview": "รวดเร็วและมีประสิทธิภาพ",
+      "gemini-3-pro-preview": "การใช้เหตุผลขั้นสูง",
+      "gemini-2.5-flash-lite-latest": "เบาและรวดเร็ว",
+      "gpt-4o": "โมเดล Omni",
+      "gpt-4-turbo": "ประสิทธิภาพสูงเชื่อถือได้",
+      "gpt-3.5-turbo": "รวดเร็วและประหยัด",
+    },
+  },
 };

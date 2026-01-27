@@ -7,20 +7,15 @@ import {
   RotateCw,
   Sparkles,
   Settings,
-  Globe,
   X,
   Check,
   ChevronLeft,
   ChevronRight,
   File as FileIcon,
   Pencil,
-  ImageIcon,
   ChevronUp,
   ChevronDown,
-  Server,
-  Trash2,
   Plug,
-  Play,
   Mic,
   MicOff,
   Sun,
@@ -28,6 +23,8 @@ import {
   Laptop,
   Languages,
   LogOut,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
 import { ProcessStep } from "@/features/preview/components/ProcessStep";
@@ -143,6 +140,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [agentModels, setAgentModels] = useState<
     { id: string; name: string; desc: string }[]
   >([]);
+  const [pinnedAgentId, setPinnedAgentId] = useState<string | null>(null);
 
   // Store config in ref to avoid dependency array issues
   const langflowConfigRef = useRef({
@@ -221,6 +219,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }));
 
         setAgentModels(agents);
+
+        // Load pinned agent and auto-select if available
+        const savedPinnedId = localStorage.getItem("pinned_agent_id");
+        if (savedPinnedId) {
+          setPinnedAgentId(savedPinnedId);
+          const pinnedAgent = agents.find((a) => a.id === savedPinnedId);
+          if (pinnedAgent && modelConfig.modelId !== savedPinnedId) {
+            onModelConfigChange({
+              ...modelConfig,
+              modelId: pinnedAgent.id,
+              name: pinnedAgent.name,
+            });
+          }
+        }
       } catch (error) {
         console.error("Failed to load agent models:", error);
         setAgentModels([]);
@@ -304,11 +316,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         }
 
         if (finalTranscript) {
-          setInput((prev) => {
-            const trailingSpace =
-              prev.length > 0 && !prev.endsWith(" ") ? " " : "";
-            return prev + trailingSpace + finalTranscript;
-          });
+          const currentInput = input;
+          const trailingSpace =
+            currentInput.length > 0 && !currentInput.endsWith(" ") ? " " : "";
+          setInput(currentInput + trailingSpace + finalTranscript);
         }
       };
 
@@ -331,7 +342,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       recognitionRef.current = recognition;
     }
-  }, [setInput, language]);
+  }, [language, input, setInput]);
 
   // Update language for speech recognition if changed
   useEffect(() => {
@@ -497,6 +508,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const cancelEdit = () => {
     setEditingId(null);
     setEditValue("");
+  };
+
+  const handlePinAgent = (agentId: string) => {
+    if (pinnedAgentId === agentId) {
+      // Unpin
+      setPinnedAgentId(null);
+      localStorage.removeItem("pinned_agent_id");
+    } else {
+      // Pin
+      setPinnedAgentId(agentId);
+      localStorage.setItem("pinned_agent_id", agentId);
+    }
   };
 
   const MarkdownComponents = {
@@ -1364,33 +1387,63 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       <div className="p-1 max-h-60 overflow-y-auto">
                         {/* Agent Models */}
                         {agentModels.map((m) => (
-                          <button
+                          <div
                             key={m.id}
-                            onClick={() => {
-                              onModelConfigChange({
-                                ...modelConfig,
-                                modelId: m.id,
-                                name: m.name,
-                              });
-                              setShowModelMenu(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ${modelConfig.modelId === m.id ? "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100" : "text-zinc-600 dark:text-zinc-400"}`}
+                            className="group relative flex items-center gap-2"
                           >
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${modelConfig.modelId === m.id ? "bg-indigo-500" : "bg-zinc-400 dark:bg-zinc-700"}`}
-                            ></div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium truncate">
-                                {m.name}
-                              </span>
-                              <span className="text-[10px] opacity-60 truncate">
-                                {m.desc}
-                              </span>
-                            </div>
-                            {modelConfig.modelId === m.id && (
-                              <Check className="w-3 h-3 ml-auto text-emerald-500" />
-                            )}
-                          </button>
+                            <button
+                              onClick={() => {
+                                onModelConfigChange({
+                                  ...modelConfig,
+                                  modelId: m.id,
+                                  name: m.name,
+                                });
+                                setShowModelMenu(false);
+                              }}
+                              className={`flex-1 text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
+                                modelConfig.modelId === m.id
+                                  ? "bg-zinc-100 dark:bg-zinc-800/50"
+                                  : ""
+                              }`}
+                            >
+                              <div
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${modelConfig.modelId === m.id ? "bg-indigo-500" : "bg-zinc-400 dark:bg-zinc-700"}`}
+                              ></div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="font-medium truncate">
+                                  {m.name}
+                                </span>
+                                <span className="text-[10px] opacity-60 truncate">
+                                  {m.desc}
+                                </span>
+                              </div>
+                              {modelConfig.modelId === m.id && (
+                                <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePinAgent(m.id);
+                              }}
+                              className={`p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
+                                pinnedAgentId === m.id
+                                  ? "opacity-100! text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
+                                  : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                              }`}
+                              title={
+                                pinnedAgentId === m.id
+                                  ? t("chat.unpinAgent")
+                                  : t("chat.pinAgent")
+                              }
+                            >
+                              {pinnedAgentId === m.id ? (
+                                <Pin className="w-3.5 h-3.5 fill-current" />
+                              ) : (
+                                <PinOff className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
                         ))}
 
                         {/* Show message if no agents */}
@@ -1415,9 +1468,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     }`}
                     title={t("chat.modelSettings")}
                   >
-                    <div
-                      className={`w-2 h-2 rounded-full ${modelConfig.provider === "google" ? "bg-amber-500" : "bg-blue-500"}`}
-                    ></div>
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className={`w-2 h-2 rounded-full ${modelConfig.provider === "google" ? "bg-amber-500" : "bg-blue-500"}`}
+                      ></div>
+                      {pinnedAgentId === modelConfig.modelId && (
+                        <Pin className="w-3 h-3 text-amber-500 dark:text-amber-400 fill-current" />
+                      )}
+                    </div>
                     <span className="text-xs font-medium max-w-[100px] truncate">
                       {modelConfig.name}
                     </span>
