@@ -1,57 +1,17 @@
 import React, { useRef, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import {
-  Send,
-  Paperclip,
-  Copy,
-  RotateCw,
-  Sparkles,
-  Settings,
-  X,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  File as FileIcon,
-  Pencil,
-  ChevronUp,
-  ChevronDown,
-  Plug,
-  Mic,
-  MicOff,
-  Sun,
-  Moon,
-  Laptop,
-  Languages,
-  LogOut,
-  Pin,
-  PinOff,
-} from "lucide-react";
+import { Settings } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
-import { ProcessStep } from "@/features/preview/components/ProcessStep";
-import { CodeBlock } from "./CodeBlock";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useTheme } from "@/hooks/useTheme";
-
-interface ChatInterfaceProps {
-  messages: Message[];
-  input: string;
-  setInput: (value: string) => void;
-  onSend: (message: string, attachments: Attachment[]) => void;
-  onRegenerate: (messageId: string) => void;
-  onEdit?: (messageId: string, newContent: string) => void;
-  isLoading: boolean;
-  isStreaming?: boolean;
-  modelConfig: ModelConfig;
-  onModelConfigChange: (config: ModelConfig) => void;
-  onProviderChange?: (provider: AIProvider) => void;
-  onVersionChange?: (messageId: string, newIndex: number) => void;
-  isPreviewOpen?: boolean;
-  onPreviewRequest?: (content: string) => void;
-  onOpenSettings?: () => void;
-  onLogout?: () => void;
-}
+import { SettingsMenu } from "./SettingsMenu";
+import { WelcomeScreen } from "./WelcomeScreen";
+import { MessageItem } from "./MessageItem";
+import { LoadingIndicator } from "./LoadingIndicator";
+import { ImageLightbox } from "./ImageLightbox";
+import { ChatInput } from "./ChatInput";
+import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { useAgentModels } from "../hooks/useAgentModels";
+import { useFileHandling } from "../hooks/useFileHandling";
+import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
 
 export const getPresetModels = (
   t: (key: string) => string,
@@ -84,6 +44,25 @@ export const getPresetModels = (
   ],
 });
 
+interface ChatInterfaceProps {
+  messages: Message[];
+  input: string;
+  setInput: (value: string) => void;
+  onSend: (message: string, attachments: Attachment[]) => void;
+  onRegenerate: (messageId: string) => void;
+  onEdit?: (messageId: string, newContent: string) => void;
+  isLoading: boolean;
+  isStreaming?: boolean;
+  modelConfig: ModelConfig;
+  onModelConfigChange: (config: ModelConfig) => void;
+  onProviderChange?: (provider: AIProvider) => void;
+  onVersionChange?: (messageId: string, newIndex: number) => void;
+  isPreviewOpen?: boolean;
+  onPreviewRequest?: (content: string) => void;
+  onOpenSettings?: () => void;
+  onLogout?: () => void;
+}
+
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
   input,
@@ -95,15 +74,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isStreaming,
   modelConfig,
   onModelConfigChange,
-  onProviderChange,
   onVersionChange,
   isPreviewOpen = false,
   onPreviewRequest,
   onOpenSettings,
   onLogout,
 }) => {
-  const { t, language, setLanguage } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,11 +92,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const languageDropdownRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   // Dropdown States
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -129,125 +103,36 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Speech Recognition State
-  const [isListening, setIsListening] = useState(false);
-  const [speechError, setSpeechError] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
-
-  const PRESET_MODELS = getPresetModels(t);
-
-  // Load agent flows from API
-  const [agentModels, setAgentModels] = useState<
-    { id: string; name: string; desc: string }[]
-  >([]);
-  const [pinnedAgentId, setPinnedAgentId] = useState<string | null>(null);
-
-  // Store config in ref to avoid dependency array issues
-  const langflowConfigRef = useRef({
-    url: modelConfig.langflowUrl,
-    apiKey: modelConfig.langflowApiKey,
+  // Custom Hooks
+  const { isListening, speechError, toggleListening } = useSpeechRecognition({
+    language,
+    input,
+    setInput,
   });
 
-  useEffect(() => {
-    langflowConfigRef.current = {
-      url: modelConfig.langflowUrl,
-      apiKey: modelConfig.langflowApiKey,
-    };
-  }, [modelConfig.langflowUrl, modelConfig.langflowApiKey]);
+  const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
+    modelConfig,
+    onModelConfigChange,
+  });
 
-  useEffect(() => {
-    const loadAgentModels = async () => {
-      const { url, apiKey } = langflowConfigRef.current;
+  const {
+    attachments,
+    isDragging,
+    handleFileSelect,
+    handlePaste,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    removeAttachment,
+    clearAttachments,
+  } = useFileHandling();
 
-      // Fetch from LangFlow API instead of localStorage
-      if (!url || !apiKey) {
-        setAgentModels([]);
-        return;
-      }
+  const markdownComponents = useMarkdownComponents({
+    onPreviewRequest,
+    onViewImage: setViewingImage,
+  });
 
-      try {
-        const baseUrl = url.replace(/\/+$/, "");
-        const apiUrl = new URL(`${baseUrl}/api/v1/flows/`);
-        apiUrl.searchParams.append("remove_example_flows", "false");
-        apiUrl.searchParams.append("components_only", "false");
-        apiUrl.searchParams.append("get_all", "true");
-        apiUrl.searchParams.append("header_flows", "false");
-        apiUrl.searchParams.append("page", "1");
-        apiUrl.searchParams.append("size", "50");
-        apiUrl.searchParams.append("x-api-key", apiKey);
-
-        const response = await fetch(apiUrl.toString(), {
-          headers: { accept: "application/json" },
-        });
-
-        if (!response.ok) {
-          console.error("Failed to fetch agents:", response.status);
-          setAgentModels([]);
-          return;
-        }
-
-        const flows = await response.json();
-        if (!Array.isArray(flows)) {
-          setAgentModels([]);
-          return;
-        }
-
-        // Load enabled/disabled state from localStorage
-        const savedAgents = localStorage.getItem("agent_flows");
-        let enabledMap: Record<string, boolean> = {};
-
-        if (savedAgents) {
-          try {
-            const parsed = JSON.parse(savedAgents);
-            if (Array.isArray(parsed)) {
-              parsed.forEach((agent: any) => {
-                enabledMap[agent.id] = agent.enabled === true; // Default to false (disabled) if not specified
-              });
-            }
-          } catch (e) {
-            console.error("Failed to parse saved agents:", e);
-          }
-        }
-
-        // Filter only enabled agents
-        const agents = flows
-          .filter((flow: any) => enabledMap[flow.id] === true) // Show only if explicitly enabled
-          .map((flow: any) => ({
-            id: flow.id,
-            name: flow.name,
-            desc: flow.description || "LangFlow Agent",
-          }));
-
-        setAgentModels(agents);
-
-        // Load pinned agent and auto-select if available
-        const savedPinnedId = localStorage.getItem("pinned_agent_id");
-        if (savedPinnedId) {
-          setPinnedAgentId(savedPinnedId);
-          const pinnedAgent = agents.find((a) => a.id === savedPinnedId);
-          if (pinnedAgent && modelConfig.modelId !== savedPinnedId) {
-            onModelConfigChange({
-              ...modelConfig,
-              modelId: pinnedAgent.id,
-              name: pinnedAgent.name,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load agent models:", error);
-        setAgentModels([]);
-      }
-    };
-
-    loadAgentModels();
-
-    // Reload when window gains focus (after settings change)
-    const handleFocus = () => loadAgentModels();
-    window.addEventListener("focus", handleFocus);
-
-    return () => window.removeEventListener("focus", handleFocus);
-  }, []); // Empty dependency array, use ref for config
-
+  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -278,113 +163,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       ) {
         setShowSettingsMenu(false);
       }
-      if (
-        showLanguageDropdown &&
-        languageDropdownRef.current &&
-        !languageDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowLanguageDropdown(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showModelMenu, showMcpMenu, showSettingsMenu, showLanguageDropdown]);
-
-  // Initialize Speech Recognition
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
-    ) {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = language === "th" ? "th-TH" : "en-US";
-
-      recognition.onresult = (event: any) => {
-        let finalTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          const currentInput = input;
-          const trailingSpace =
-            currentInput.length > 0 && !currentInput.endsWith(" ") ? " " : "";
-          setInput(currentInput + trailingSpace + finalTranscript);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-        if (event.error === "network") {
-          setSpeechError("Network error: Check connection");
-        } else if (event.error === "not-allowed") {
-          setSpeechError("Microphone denied");
-        } else {
-          setSpeechError("Speech failed");
-        }
-        setTimeout(() => setSpeechError(null), 3000);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-  }, [language, input, setInput]);
-
-  // Update language for speech recognition if changed
-  useEffect(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = language === "th" ? "th-TH" : "en-US";
-    }
-  }, [language]);
-
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      setSpeechError("Speech recognition not supported");
-      setTimeout(() => setSpeechError(null), 3000);
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-        setSpeechError(null);
-      } catch (e) {
-        console.error(e);
-        setIsListening(false);
-      }
-    }
-  };
-
-  const autoResize = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
-    }
-  };
-
-  // Resize when input changes (including from speech)
-  useEffect(() => {
-    autoResize();
-  }, [input]);
+  }, [showModelMenu, showMcpMenu, showSettingsMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -392,103 +177,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const processFiles = async (files: File[]) => {
-    const newAttachments: Attachment[] = [];
-    for (const file of files) {
-      try {
-        if (file.type.startsWith("image/")) {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-          newAttachments.push({
-            name: file.name,
-            type: "image",
-            content: base64,
-            mimeType: file.type,
-          });
-        } else {
-          const text = await file.text();
-          newAttachments.push({
-            name: file.name,
-            type: "file",
-            content: text,
-            mimeType: file.type || "text/plain",
-          });
-        }
-      } catch (err) {
-        console.error("Failed to read file", file.name);
-      }
-    }
-    setAttachments((prev) => [...prev, ...newAttachments]);
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      await processFiles(Array.from(e.target.files));
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handlePaste = async (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === "file") {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
-      }
-    }
-    if (files.length > 0) {
-      e.preventDefault();
-      await processFiles(files);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processFiles(Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleSendClick = () => {
     if ((!input.trim() && attachments.length === 0) || isLoading || isStreaming)
       return;
 
     onSend(input, attachments);
-    setAttachments([]);
-    // Reset height and focus back to textarea
+    clearAttachments();
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      // Focus back after a short delay to ensure state updates
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 0);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendClick();
     }
   };
 
@@ -510,144 +209,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setEditValue("");
   };
 
-  const handlePinAgent = (agentId: string) => {
-    if (pinnedAgentId === agentId) {
-      // Unpin
-      setPinnedAgentId(null);
-      localStorage.removeItem("pinned_agent_id");
-    } else {
-      // Pin
-      setPinnedAgentId(agentId);
-      localStorage.setItem("pinned_agent_id", agentId);
-    }
-  };
-
-  const MarkdownComponents = {
-    // Paragraphs
-    p: ({ children }: any) => (
-      <p className="mb-3 last:mb-0 leading-relaxed text-zinc-700 dark:text-zinc-300">
-        {children}
-      </p>
-    ),
-
-    // Bold & Italics - Added to ensure they render correctly
-    strong: ({ children }: any) => (
-      <strong className="font-bold text-zinc-900 dark:text-zinc-50">
-        {children}
-      </strong>
-    ),
-    em: ({ children }: any) => (
-      <em className="italic text-zinc-800 dark:text-zinc-200">{children}</em>
-    ),
-
-    // Headings
-    h1: ({ children }: any) => (
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-4 mt-6 pb-2 border-b border-zinc-200 dark:border-zinc-800">
-        {children}
-      </h1>
-    ),
-    h2: ({ children }: any) => (
-      <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-3 mt-5">
-        {children}
-      </h2>
-    ),
-    h3: ({ children }: any) => (
-      <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-4">
-        {children}
-      </h3>
-    ),
-
-    // Lists
-    ul: ({ children }: any) => (
-      <ul className="list-disc pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500">
-        {children}
-      </ul>
-    ),
-    ol: ({ children }: any) => (
-      <ol className="list-decimal pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500">
-        {children}
-      </ol>
-    ),
-    li: ({ children }: any) => (
-      <li className="pl-1 leading-relaxed">{children}</li>
-    ),
-
-    // Links
-    a: ({ href, children }: any) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline transition-colors"
-      >
-        {children}
-      </a>
-    ),
-
-    // Images
-    img: ({ src, alt }: any) => (
-      <img
-        src={src}
-        alt={alt}
-        onClick={() => setViewingImage(src)}
-        className="max-w-full rounded-lg my-2 cursor-zoom-in border border-zinc-200 dark:border-zinc-800 hover:opacity-90 transition-opacity"
-      />
-    ),
-
-    // Blockquotes
-    blockquote: ({ children }: any) => (
-      <blockquote className="border-l-4 border-indigo-500/50 pl-4 py-2 my-4 italic text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900/50 rounded-r-lg">
-        {children}
-      </blockquote>
-    ),
-
-    // Horizontal Rule
-    hr: () => <hr className="border-zinc-200 dark:border-zinc-800 my-6" />,
-
-    // Tables
-    table: ({ children }: any) => (
-      <div className="overflow-x-auto my-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] shadow-sm">
-        <table className="w-full text-left text-sm border-collapse">
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ children }: any) => (
-      <thead className="bg-zinc-100 dark:bg-zinc-800/40 text-zinc-900 dark:text-zinc-200">
-        {children}
-      </thead>
-    ),
-    tbody: ({ children }: any) => (
-      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/40">
-        {children}
-      </tbody>
-    ),
-    tr: ({ children }: any) => (
-      <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors group">
-        {children}
-      </tr>
-    ),
-    th: ({ children }: any) => (
-      <th className="px-4 py-3 font-semibold text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
-        {children}
-      </th>
-    ),
-    td: ({ children }: any) => (
-      <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-zinc-200">
-        {children}
-      </td>
-    ),
-
-    // Code
-    code: ({ className, children, ...props }: any) => (
-      <CodeBlock
-        className={className}
-        onPreviewRequest={onPreviewRequest}
-        {...props}
-      >
-        {children}
-      </CodeBlock>
-    ),
+  const handleModelSelect = (modelId: string, modelName: string) => {
+    onModelConfigChange({
+      ...modelConfig,
+      modelId,
+      name: modelName,
+    });
+    setShowModelMenu(false);
   };
 
   return (
@@ -660,238 +228,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
               isPreviewOpen ? "right-4" : "right-12"
             } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
-            title="Settings"
+            title={t("settings.title")}
           >
             <Settings className="w-4 h-4" />
           </button>
 
-          {/* Settings Dropdown Menu */}
-          {showSettingsMenu && (
-            <div
-              className={`absolute top-14 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200 min-w-[280px] ${
-                isPreviewOpen ? "right-4" : "right-12"
-              }`}
-            >
-              {/* Theme Section */}
-              <div className="mb-3">
-                <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
-                  {t("sidebar.theme")}
-                </div>
-                <div className="flex bg-zinc-100 dark:bg-zinc-900 rounded-lg p-1 border border-zinc-200 dark:border-zinc-800">
-                  <button
-                    onClick={() => setTheme("light")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
-                      theme === "light"
-                        ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100"
-                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                    }`}
-                  >
-                    <Sun className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setTheme("dark")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
-                      theme === "dark"
-                        ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100"
-                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                    }`}
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setTheme("system")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-md transition-all text-xs font-medium ${
-                      theme === "system"
-                        ? "bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-zinc-100"
-                        : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                    }`}
-                  >
-                    <Laptop className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
-
-              {/* Language Dropdown */}
-              <div className="px-2 py-1" ref={languageDropdownRef}>
-                <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
-                  {t("sidebar.language")}
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() =>
-                      setShowLanguageDropdown(!showLanguageDropdown)
-                    }
-                    className="w-full flex items-center justify-between bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Languages className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                      <span>{language === "en" ? "English" : "ไทย"}</span>
-                    </div>
-                    <ChevronDown
-                      className={`w-4 h-4 text-zinc-500 transition-transform ${showLanguageDropdown ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {showLanguageDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                      <button
-                        onClick={() => {
-                          setLanguage("en");
-                          setShowLanguageDropdown(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
-                          language === "en"
-                            ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium"
-                            : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        <span className="flex-1 text-left">English</span>
-                        {language === "en" && <Check className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setLanguage("th");
-                          setShowLanguageDropdown(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${
-                          language === "th"
-                            ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium"
-                            : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        <span className="flex-1 text-left">ไทย</span>
-                        {language === "th" && <Check className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
-
-              {/* Go to Settings Page */}
-              <button
-                onClick={() => {
-                  setShowSettingsMenu(false);
-                  onOpenSettings();
-                }}
-                className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
-              >
-                <Settings className="w-4 h-4 flex-shrink-0 text-zinc-500 dark:text-zinc-400" />
-                <span className="flex-1 text-left">{t("settings.title")}</span>
-              </button>
-
-              {/* Logout Button */}
-              {onLogout && (
-                <button
-                  onClick={() => {
-                    setShowSettingsMenu(false);
-                    onLogout();
-                  }}
-                  className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
-                >
-                  <LogOut className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1 text-left">
-                    {t("sidebar.logout")}
-                  </span>
-                </button>
-              )}
-            </div>
-          )}
+          <SettingsMenu
+            isOpen={showSettingsMenu}
+            onClose={() => setShowSettingsMenu(false)}
+            onOpenSettings={onOpenSettings}
+            onLogout={onLogout}
+            isPreviewOpen={isPreviewOpen}
+            menuRef={settingsMenuRef as React.RefObject<HTMLDivElement>}
+            languageDropdownRef={
+              languageDropdownRef as React.RefObject<HTMLDivElement>
+            }
+          />
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
-          {/* Welcome Screen - Show when no messages */}
+          {/* Welcome Screen */}
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/30 animate-in zoom-in duration-500">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-
-              <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-3 text-center">
-                {language === "th"
-                  ? "สวัสดี! ฉันคือ AI Agent"
-                  : "Hello! I'm your AI Agent"}
-              </h1>
-
-              <p className="text-base md:text-lg text-zinc-600 dark:text-zinc-400 mb-8 text-center max-w-2xl">
-                {language === "th"
-                  ? "ฉันพร้อมช่วยเหลือคุณในการทำงานต่างๆ เริ่มต้นด้วยการพิมพ์คำถามหรือคำสั่งของคุณด้านล่าง"
-                  : "I'm here to help you with various tasks. Start by typing your question or command below."}
-              </p>
-
-              {/* Quick Action Suggestions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-                {[
-                  {
-                    icon: "💡",
-                    title: language === "th" ? "ถามคำถาม" : "Ask a Question",
-                    desc:
-                      language === "th"
-                        ? "ถามอะไรก็ได้ที่อยากรู้"
-                        : "Ask me anything you want to know",
-                  },
-                  {
-                    icon: "🔧",
-                    title: language === "th" ? "แก้ปัญหา" : "Solve Problems",
-                    desc:
-                      language === "th"
-                        ? "ช่วยวิเคราะห์และแก้ไขปัญหา"
-                        : "Help analyze and solve issues",
-                  },
-                  {
-                    icon: "📝",
-                    title: language === "th" ? "เขียนเนื้อหา" : "Write Content",
-                    desc:
-                      language === "th"
-                        ? "สร้างเนื้อหาและเอกสาร"
-                        : "Create content and documents",
-                  },
-                  {
-                    icon: "🎨",
-                    title: language === "th" ? "สร้างสรรค์" : "Create",
-                    desc:
-                      language === "th"
-                        ? "ออกแบบและพัฒนาไอเดีย"
-                        : "Design and develop ideas",
-                  },
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 cursor-default"
-                  >
-                    <div className="text-2xl mb-2">{item.icon}</div>
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {item.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Model Info */}
-              <div className="mt-8 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span>
-                  {language === "th" ? "ใช้งาน" : "Using"}{" "}
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                    {modelConfig.name}
-                  </span>
-                </span>
-              </div>
-            </div>
+            <WelcomeScreen language={language} modelConfig={modelConfig} />
           )}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
           {messages.length > 0 &&
             (() => {
-              // Check if current model is an agent
               const savedAgents = localStorage.getItem("agent_flows");
               let isAgentDisabled = false;
 
@@ -902,7 +267,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     const agent = parsed.find(
                       (a: any) => a.id === modelConfig.modelId,
                     );
-                    // If agent exists in saved list but is disabled, or if it's not in agentModels (filtered out)
                     if (agent && agent.enabled !== true) {
                       isAgentDisabled = true;
                     } else if (
@@ -921,7 +285,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 return (
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
-                      <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      <Settings className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
@@ -949,582 +313,82 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               return null;
             })()}
 
-          {messages.map((msg, index) => {
-            const isLastMessage = index === messages.length - 1;
-            const isAssistant = msg.role === "assistant";
-            const isGenerating =
-              isStreaming && isAssistant && (isLastMessage || !msg.content);
-            const hasVersions = msg.versions && msg.versions.length > 1;
-            const currentVersion = (msg.currentVersionIndex || 0) + 1;
-            const totalVersions = msg.versions?.length || 1;
-            const isEditing = editingId === msg.id;
+          {/* Messages */}
+          {messages.map((msg, index) => (
+            <MessageItem
+              key={msg.id}
+              message={msg}
+              isLastMessage={index === messages.length - 1}
+              isLoading={isLoading}
+              isStreaming={isStreaming || false}
+              copiedId={copiedId}
+              modelConfig={modelConfig}
+              onCopy={handleCopy}
+              onRegenerate={onRegenerate}
+              onEdit={onEdit}
+              onVersionChange={onVersionChange}
+              onViewImage={setViewingImage}
+              editingId={editingId}
+              editValue={editValue}
+              onStartEdit={startEditing}
+              onSubmitEdit={submitEdit}
+              onCancelEdit={cancelEdit}
+              setEditValue={setEditValue}
+              markdownComponents={markdownComponents}
+            />
+          ))}
 
-            return (
-              <div
-                key={msg.id}
-                className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.role === "user" ? "items-end" : "items-start"}`}
-              >
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  {isAssistant && (
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                      <Sparkles className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                  <span className="text-xs text-zinc-500 font-medium">
-                    {msg.role === "user"
-                      ? t("chat.you")
-                      : modelConfig.name.toUpperCase()}
-                  </span>
-                </div>
-
-                {isAssistant && msg.steps && (
-                  <div className="w-full mb-4 space-y-1">
-                    {msg.steps.map((step) => (
-                      <ProcessStep key={step.id} step={step} />
-                    ))}
-                  </div>
-                )}
-
-                <div
-                  className={`text-sm md:text-base leading-relaxed group relative ${
-                    msg.role === "user"
-                      ? "w-full flex flex-col items-end"
-                      : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
-                  }`}
-                >
-                  {msg.role === "user" ? (
-                    isEditing ? (
-                      <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-2xl p-3 border border-zinc-200 dark:border-zinc-700/50">
-                        <textarea
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="w-full bg-transparent text-zinc-900 dark:text-zinc-200 resize-none outline-none text-sm leading-relaxed p-1"
-                          rows={Math.max(2, editValue.split("\n").length)}
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700/50">
-                          <button
-                            onClick={cancelEdit}
-                            className="px-3 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700/50 rounded-lg transition-colors"
-                          >
-                            {t("chat.cancel")}
-                          </button>
-                          <button
-                            onClick={() => submitEdit(msg.id)}
-                            className="px-3 py-1.5 text-xs font-medium bg-black dark:bg-zinc-100 text-white dark:text-black hover:opacity-90 rounded-lg transition-colors"
-                          >
-                            {t("chat.saveSubmit")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-end gap-1 w-full">
-                        {/* Attachments Display */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="flex flex-wrap justify-end gap-2 mb-1 w-full">
-                            {msg.attachments.map((att, i) =>
-                              att.type === "image" ? (
-                                <div
-                                  key={i}
-                                  onClick={() => setViewingImage(att.content)}
-                                  className="group/img relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 cursor-zoom-in"
-                                >
-                                  <img
-                                    src={att.content}
-                                    alt={att.name}
-                                    className="max-w-[150px] max-h-[150px] object-cover hover:scale-105 transition-transform duration-300"
-                                  />
-                                </div>
-                              ) : (
-                                <div
-                                  key={i}
-                                  className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 rounded-xl text-xs text-zinc-700 dark:text-zinc-300"
-                                >
-                                  <FileIcon className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                                  <span className="truncate max-w-[120px]">
-                                    {att.name}
-                                  </span>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        )}
-
-                        {msg.content && (
-                          <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-3 rounded-2xl rounded-tr-sm shadow-sm dark:shadow-md border border-zinc-200 dark:border-zinc-700/30 whitespace-pre-wrap text-left relative group">
-                            {msg.content}
-                          </div>
-                        )}
-
-                        {/* User Message Controls (Edit / Versions) */}
-                        <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1">
-                          {hasVersions && onVersionChange && (
-                            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-800">
-                              <button
-                                onClick={() =>
-                                  onVersionChange(
-                                    msg.id,
-                                    (msg.currentVersionIndex || 0) - 1,
-                                  )
-                                }
-                                disabled={(msg.currentVersionIndex || 0) === 0}
-                                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
-                              >
-                                <ChevronLeft className="w-3 h-3" />
-                              </button>
-                              <span className="text-[10px] font-medium text-zinc-500 px-1 min-w-[24px] text-center">
-                                {currentVersion} / {totalVersions}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  onVersionChange(
-                                    msg.id,
-                                    (msg.currentVersionIndex || 0) + 1,
-                                  )
-                                }
-                                disabled={currentVersion === totalVersions}
-                                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
-                              >
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
-                          <button
-                            onClick={() => startEditing(msg)}
-                            className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                            title={t("chat.edit")}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleCopy(msg.id, msg.content)}
-                            className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                            title={t("chat.copy")}
-                          >
-                            {copiedId === msg.id ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <>
-                      {msg.content ? (
-                        <Markdown
-                          remarkPlugins={[remarkGfm]}
-                          components={MarkdownComponents as any}
-                        >
-                          {msg.content}
-                        </Markdown>
-                      ) : (
-                        // Show dots animation when content is empty (e.g. during regeneration or initial load)
-                        <div className="flex space-x-1.5 py-2 h-6 items-center">
-                          <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                          <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                          <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce"></div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Assistant Message Controls */}
-                {isAssistant && !isGenerating && (
-                  <div className="flex items-center gap-4 mt-3 pl-1 select-none">
-                    {hasVersions && onVersionChange && (
-                      <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-800">
-                        <button
-                          onClick={() =>
-                            onVersionChange(
-                              msg.id,
-                              (msg.currentVersionIndex || 0) - 1,
-                            )
-                          }
-                          disabled={(msg.currentVersionIndex || 0) === 0}
-                          className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-[10px] font-medium text-zinc-500 px-1 min-w-[30px] text-center">
-                          {currentVersion} / {totalVersions}
-                        </span>
-                        <button
-                          onClick={() =>
-                            onVersionChange(
-                              msg.id,
-                              (msg.currentVersionIndex || 0) + 1,
-                            )
-                          }
-                          disabled={currentVersion === totalVersions}
-                          className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleCopy(msg.id, msg.content)}
-                        className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                        title={t("chat.copy")}
-                      >
-                        {copiedId === msg.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => onRegenerate(msg.id)}
-                        disabled={isLoading || isStreaming}
-                        className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-                        title={t("chat.regenerate")}
-                      >
-                        <RotateCw className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {isLoading && (
-            <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 items-start">
-              <div className="mb-2 flex items-center gap-2 px-1">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
-                <span className="text-xs text-zinc-500 font-medium">
-                  {modelConfig.name.toUpperCase()}
-                </span>
-              </div>
-              <div className="pl-4 py-2">
-                <div className="flex space-x-1.5">
-                  <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce"></div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Loading Indicator */}
+          {isLoading && <LoadingIndicator modelConfig={modelConfig} />}
         </div>
       </div>
 
-      {/* Image Lightbox - Portaled */}
-      {viewingImage &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-            onClick={() => setViewingImage(null)}
-          >
-            <button
-              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white bg-zinc-800/50 hover:bg-zinc-800 rounded-full transition-colors"
-              onClick={() => setViewingImage(null)}
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <img
-              src={viewingImage}
-              alt="Full size preview"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>,
-          document.body,
-        )}
+      {/* Image Lightbox */}
+      <ImageLightbox
+        imageUrl={viewingImage}
+        onClose={() => setViewingImage(null)}
+      />
 
       {/* Input Area */}
-      <div className="absolute bottom-6 left-0 w-full px-4 z-20 pointer-events-none">
-        <div className="max-w-5xl mx-auto pointer-events-auto">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            multiple
-          />
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`bg-white/95 dark:bg-[#18181b]/95 backdrop-blur-md border rounded-2xl shadow-2xl transition-all relative ${
-              isDragging
-                ? "border-indigo-500 border-2 border-dashed bg-indigo-50/50 dark:bg-indigo-900/20"
-                : "border-zinc-200 dark:border-zinc-700/80 focus-within:border-zinc-400 dark:focus-within:border-zinc-500 focus-within:ring-1"
-            }`}
-          >
-            {/* Overlay for drag state */}
-            {isDragging && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-white/50 dark:bg-black/50 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-2 text-indigo-600 dark:text-indigo-400 animate-bounce">
-                  <Paperclip className="w-8 h-8" />
-                  <span className="font-semibold">Drop files here</span>
-                </div>
-              </div>
-            )}
-
-            {/* Attachments List */}
-            {attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 px-4 pt-4 pb-1 max-h-32 overflow-y-auto custom-scrollbar">
-                {attachments.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg pl-2 pr-2 py-1.5 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-300 animate-in fade-in zoom-in-95 group relative overflow-hidden"
-                  >
-                    {file.type === "image" ? (
-                      <div className="relative w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-zinc-300 dark:border-zinc-600">
-                        <img
-                          src={file.content}
-                          alt={file.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <FileIcon className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                    )}
-                    <span className="max-w-[150px] truncate">{file.name}</span>
-                    <button
-                      onClick={() => removeAttachment(index)}
-                      className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-zinc-500 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                autoResize();
-              }}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder={t("chat.placeholder")}
-              className="w-full bg-transparent text-zinc-900 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 px-4 py-4 pr-12 outline-none resize-none max-h-[30vh] min-h-[56px] text-sm leading-relaxed"
-              rows={1}
-              disabled={isLoading || isStreaming}
-            />
-
-            <div className="flex justify-between items-center px-3 pb-3 pt-1">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-
-                {/* MCP Quick Select Dropdown */}
-                <div className="relative" ref={mcpMenuRef}>
-                  {showMcpMenu && (
-                    <div className="absolute bottom-full mb-2 left-0 w-64 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50 flex flex-col animate-in slide-in-from-bottom-2 fade-in duration-200">
-                      <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex justify-between items-center">
-                        <span>{t("chat.mcpTitle")}</span>
-                        <span className="bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-1.5 rounded-sm">
-                          {modelConfig.mcpServers?.length || 0}
-                        </span>
-                      </div>
-                      <div className="p-2 max-h-48 overflow-y-auto">
-                        {!modelConfig.mcpServers ||
-                        modelConfig.mcpServers.length === 0 ? (
-                          <div className="text-xs text-zinc-500 text-center py-4 italic">
-                            No servers connected
-                          </div>
-                        ) : (
-                          modelConfig.mcpServers.map((server) => (
-                            <div
-                              key={server}
-                              className="flex items-center gap-2 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
-                            >
-                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></div>
-                              <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate flex-1">
-                                {server}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setShowMcpMenu(!showMcpMenu)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-                      showMcpMenu ||
-                      (modelConfig.mcpServers &&
-                        modelConfig.mcpServers.length > 0)
-                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-zinc-800 text-emerald-700 dark:text-emerald-400"
-                        : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-                    }`}
-                    title={t("chat.mcpTitle")}
-                  >
-                    <Plug className="w-3.5 h-3.5" />
-                    {modelConfig.mcpServers &&
-                      modelConfig.mcpServers.length > 0 && (
-                        <span className="text-xs font-bold">
-                          {modelConfig.mcpServers.length}
-                        </span>
-                      )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Model Selector Dropdown */}
-                <div className="relative" ref={modelMenuRef}>
-                  {showModelMenu && (
-                    <div className="absolute bottom-full mb-2 left-0 w-64 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden z-50 flex flex-col animate-in slide-in-from-bottom-2 fade-in duration-200">
-                      <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                        {t("chat.availableModels")}
-                      </div>
-                      <div className="p-1 max-h-60 overflow-y-auto">
-                        {/* Agent Models */}
-                        {agentModels.map((m) => (
-                          <div
-                            key={m.id}
-                            className="group relative flex items-center gap-2"
-                          >
-                            <button
-                              onClick={() => {
-                                onModelConfigChange({
-                                  ...modelConfig,
-                                  modelId: m.id,
-                                  name: m.name,
-                                });
-                                setShowModelMenu(false);
-                              }}
-                              className={`flex-1 text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
-                                modelConfig.modelId === m.id
-                                  ? "bg-zinc-100 dark:bg-zinc-800/50"
-                                  : ""
-                              }`}
-                            >
-                              <div
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${modelConfig.modelId === m.id ? "bg-indigo-500" : "bg-zinc-400 dark:bg-zinc-700"}`}
-                              ></div>
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <span className="font-medium truncate">
-                                  {m.name}
-                                </span>
-                                <span className="text-[10px] opacity-60 truncate">
-                                  {m.desc}
-                                </span>
-                              </div>
-                              {modelConfig.modelId === m.id && (
-                                <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                              )}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePinAgent(m.id);
-                              }}
-                              className={`p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
-                                pinnedAgentId === m.id
-                                  ? "opacity-100! text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
-                                  : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                              }`}
-                              title={
-                                pinnedAgentId === m.id
-                                  ? t("chat.unpinAgent")
-                                  : t("chat.pinAgent")
-                              }
-                            >
-                              {pinnedAgentId === m.id ? (
-                                <Pin className="w-3.5 h-3.5 fill-current" />
-                              ) : (
-                                <PinOff className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        ))}
-
-                        {/* Show message if no agents */}
-                        {agentModels.length === 0 && (
-                          <div className="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
-                            <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                            <p className="mb-1">No agents available</p>
-                            <p className="text-[10px]">
-                              Configure agents in Settings
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setShowModelMenu(!showModelMenu)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-                      showModelMenu
-                        ? "bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-                        : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                    }`}
-                    title={t("chat.modelSettings")}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className={`w-2 h-2 rounded-full ${modelConfig.provider === "google" ? "bg-amber-500" : "bg-blue-500"}`}
-                      ></div>
-                      {pinnedAgentId === modelConfig.modelId && (
-                        <Pin className="w-3 h-3 text-amber-500 dark:text-amber-400 fill-current" />
-                      )}
-                    </div>
-                    <span className="text-xs font-medium max-w-[100px] truncate">
-                      {modelConfig.name}
-                    </span>
-                    <ChevronUp
-                      className={`w-3 h-3 text-zinc-500 ml-1 transition-transform ${showModelMenu ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                </div>
-
-                <div className="relative">
-                  {speechError && (
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-500 text-white text-[10px] px-2 py-1 rounded-md shadow-lg animate-in fade-in slide-in-from-bottom-1 z-50 pointer-events-none font-medium">
-                      {speechError}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-500"></div>
-                    </div>
-                  )}
-                  <button
-                    onClick={toggleListening}
-                    className={`p-2 rounded-xl transition-all ${
-                      isListening
-                        ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/20"
-                        : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
-                    }`}
-                    title={isListening ? "Stop recording" : "Start recording"}
-                  >
-                    {isListening ? (
-                      <MicOff className="w-4 h-4" />
-                    ) : (
-                      <Mic className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-
-                <button
-                  onClick={handleSendClick}
-                  disabled={
-                    (!input.trim() && attachments.length === 0) ||
-                    isLoading ||
-                    isStreaming
-                  }
-                  className={`p-2 rounded-xl transition-all ${(input.trim() || attachments.length > 0) && !isLoading && !isStreaming ? "bg-black dark:bg-zinc-100 text-white dark:text-black hover:opacity-90" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 opacity-50"}`}
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        className="hidden"
+        multiple
+      />
+      <ChatInput
+        input={input}
+        setInput={setInput}
+        attachments={attachments}
+        onRemoveAttachment={removeAttachment}
+        onSend={handleSendClick}
+        onFileSelect={() => fileInputRef.current?.click()}
+        onPaste={handlePaste}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        isDragging={isDragging}
+        isLoading={isLoading}
+        isStreaming={isStreaming || false}
+        isListening={isListening}
+        speechError={speechError}
+        onToggleListening={toggleListening}
+        textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
+        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+        showModelMenu={showModelMenu}
+        setShowModelMenu={setShowModelMenu}
+        modelConfig={modelConfig}
+        agentModels={agentModels}
+        pinnedAgentId={pinnedAgentId}
+        onModelSelect={handleModelSelect}
+        onPinAgent={handlePinAgent}
+        modelMenuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
+        showMcpMenu={showMcpMenu}
+        setShowMcpMenu={setShowMcpMenu}
+        mcpServers={modelConfig.mcpServers || []}
+        mcpMenuRef={mcpMenuRef as React.RefObject<HTMLDivElement>}
+      />
     </div>
   );
 };

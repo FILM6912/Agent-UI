@@ -51,6 +51,12 @@ export const translations = {
       pinAgent: "Pin agent",
       unpinAgent: "Unpin agent",
       pinnedAgent: "Pinned",
+      noAgents: "No agents available",
+      configureAgents: "Configure agents in Settings",
+      noServers: "No servers connected",
+      dropFiles: "Drop files here",
+      startRecording: "Start recording",
+      stopRecording: "Stop recording",
       mcpTitle: "MCP Servers",
       mcpPlaceholder: "Server URL (e.g. ws://localhost:3000)",
       connect: "Connect",
@@ -159,6 +165,14 @@ export const translations = {
       openExternal: "Open in New Tab",
       embedWarning:
         "If you cannot login, try opening in a new tab. Browsers often block login cookies in iframes.",
+      langflowAuthRequired: "LangFlow v1.5+ Authentication Required",
+      langflowAuthDesc:
+        "Since LangFlow v1.5, authentication is required. You need to configure your LangFlow server to skip authentication for iframe embedding.",
+      langflowSetupSteps: "Setup Steps",
+      langflowStep1: "Stop your LangFlow server",
+      langflowStep2:
+        "Set environment variable (add to .env or docker-compose.yml)",
+      langflowStep3: "Restart LangFlow server",
     },
     preview: {
       title: "Agent's Window",
@@ -245,6 +259,12 @@ export const translations = {
       pinAgent: "ปักหมุดเอเจนต์",
       unpinAgent: "ยกเลิกปักหมุด",
       pinnedAgent: "ปักหมุดแล้ว",
+      noAgents: "ไม่มีเอเจนต์",
+      configureAgents: "ตั้งค่าเอเจนต์ในการตั้งค่า",
+      noServers: "ไม่มีเซิร์ฟเวอร์เชื่อมต่อ",
+      dropFiles: "วางไฟล์ที่นี่",
+      startRecording: "เริ่มบันทึกเสียง",
+      stopRecording: "หยุดบันทึกเสียง",
       mcpTitle: "การเชื่อมต่อ MCP",
       mcpPlaceholder: "ที่อยู่ Server (เช่น ws://localhost:3000)",
       connect: "เชื่อมต่อ",
@@ -351,6 +371,14 @@ export const translations = {
       openExternal: "เปิดในแท็บใหม่",
       embedWarning:
         "หาก Log in ไม่ได้ กรุณาเปิดในแท็บใหม่ หรือตั้งค่า Browser ให้รองรับ Third-party cookies",
+      langflowAuthRequired: "LangFlow v1.5+ ต้องการการยืนยันตัวตน",
+      langflowAuthDesc:
+        "ตั้งแต่ LangFlow v1.5 เป็นต้นไป จำเป็นต้องมีการยืนยันตัวตน คุณต้องตั้งค่าเซิร์ฟเวอร์ LangFlow ให้ข้ามการยืนยันตัวตนสำหรับการฝัง iframe",
+      langflowSetupSteps: "ขั้นตอนการตั้งค่า",
+      langflowStep1: "หยุดเซิร์ฟเวอร์ LangFlow ของคุณ",
+      langflowStep2:
+        "ตั้งค่าตัวแปรสภาพแวดล้อม (เพิ่มใน .env หรือ docker-compose.yml)",
+      langflowStep3: "รีสตาร์ทเซิร์ฟเวอร์ LangFlow",
     },
     preview: {
       title: "หน้าต่าง Agent",

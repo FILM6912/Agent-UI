@@ -89,11 +89,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               key={item.id}
               onClick={() => handleTabChange(item.id as SettingsTab)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 outline-none focus:outline-none focus-visible:outline-none active:outline-none ${
                 activeTab === item.id
                   ? item.id === "langflow" || item.id === "agent"
                     ? "bg-indigo-50 dark:bg-[#27272a] text-indigo-600 dark:text-indigo-400 font-medium shadow-sm"
-                    : "bg-white dark:bg-[#27272a] text-zinc-900 dark:text-white font-medium shadow-sm border border-zinc-200 dark:border-transparent"
+                    : "bg-white dark:bg-[#27272a] text-zinc-900 dark:text-white font-medium shadow-sm"
                   : item.id === "langflow" || item.id === "agent"
                     ? "text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-zinc-800/50"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
