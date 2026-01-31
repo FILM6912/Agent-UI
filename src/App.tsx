@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Routes,
   Route,
@@ -69,6 +69,7 @@ interface AppLayoutProps {
   confirmDeleteChat: () => void;
   isLangFlowConfigOpen: boolean;
   setIsLangFlowConfigOpen: (open: boolean) => void;
+  chatInputRef: React.RefObject<HTMLTextAreaElement>;
 }
 
 // AppLayout component extracted outside to prevent recreation
@@ -110,6 +111,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     confirmDeleteChat,
     isLangFlowConfigOpen,
     setIsLangFlowConfigOpen,
+    chatInputRef,
   }) => (
     <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden font-sans relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
@@ -177,6 +179,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
                 setIsAuthenticated(false);
                 navigate("/login");
               }}
+              textareaRef={chatInputRef}
             />
 
             {!isPreviewOpen && (
@@ -260,6 +263,7 @@ export default function App() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync URL to State
   useEffect(() => {
@@ -723,6 +727,12 @@ export default function App() {
     };
 
     setInputValue("");
+    // Focus back to textarea after clearing input
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        chatInputRef.current?.focus();
+      });
+    });
     const historyBeforeNewMessage = [...currentMessages];
 
     setSessions((prev) => {
@@ -1111,6 +1121,7 @@ export default function App() {
                 confirmDeleteChat={confirmDeleteChat}
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+                chatInputRef={chatInputRef}
               />
             ) : (
               <Navigate to="/login" />
@@ -1158,6 +1169,7 @@ export default function App() {
                 confirmDeleteChat={confirmDeleteChat}
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+                chatInputRef={chatInputRef}
               />
             ) : (
               <Navigate to="/login" />
@@ -1205,6 +1217,7 @@ export default function App() {
                 confirmDeleteChat={confirmDeleteChat}
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
+                chatInputRef={chatInputRef}
               />
             ) : (
               <Navigate to="/login" />
