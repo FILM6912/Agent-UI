@@ -550,12 +550,18 @@ export async function fetchHistoryFromLangFlow(
 }
 
 export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise<ChatSession[]> {
-  if (!config.langflowUrl || !config.modelId) return [];
+  console.log('>>> fetchAllSessionsFromLangFlow called', config);
+  if (!config.langflowUrl || !config.modelId) {
+    console.warn('>>> Missing config for fetchAllSessionsFromLangFlow');
+    return [];
+  }
 
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
+
+    console.log('>>> Fetching sessions from:', `${baseUrl}/api/v1/monitor/messages?order_by=timestamp`);
 
     // Fetch ALL messages (monitor endpoint)
     // Note: LangFlow might paginate. For now, assuming standard endpoint returns recent messages.
