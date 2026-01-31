@@ -67,7 +67,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   return (
     <div
-      className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.role === "user" ? "items-end" : "items-start"}`}
+      className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 group ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         {isAssistant && (
@@ -89,11 +89,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
 
       <div
-        className={`text-sm md:text-base leading-relaxed group relative ${
-          msg.role === "user"
-            ? "w-full flex flex-col items-end"
-            : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
-        }`}
+        className={`text-sm md:text-base leading-relaxed group relative ${msg.role === "user"
+          ? "w-full flex flex-col items-end"
+          : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
+          }`}
       >
         {msg.role === "user" ? (
           isEditing ? (
@@ -162,7 +161,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               {/* User Message Controls (Edit / Versions) */}
               <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1">
                 {hasVersions && onVersionChange && (
-                  <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-800">
+                  <div className="flex items-center gap-1 p-0.5">
                     <button
                       onClick={() =>
                         onVersionChange(
@@ -238,7 +237,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       {isAssistant && !isGenerating && (
         <div className="flex items-center gap-4 mt-3 pl-1 select-none">
           {hasVersions && onVersionChange && (
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-1 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() =>
                   onVersionChange(msg.id, (msg.currentVersionIndex || 0) - 1)
@@ -263,7 +262,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onCopy(msg.id, msg.content)}
               className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
