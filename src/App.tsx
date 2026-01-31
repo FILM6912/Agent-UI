@@ -325,7 +325,12 @@ export default function App() {
   });
 
   useEffect(() => {
-    localStorage.setItem("chat_sessions", JSON.stringify(sessions));
+    try {
+      localStorage.setItem("chat_sessions", JSON.stringify(sessions));
+    } catch (e) {
+      console.error("Failed to save chat sessions (likely quota exceeded):", e);
+      // Optional: Logic to clear old sessions or warn user
+    }
   }, [sessions]);
 
   const [activeChatId, setActiveChatId] = useState<string>(() => {
