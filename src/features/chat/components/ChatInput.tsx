@@ -30,7 +30,6 @@ interface ChatInputProps {
   speechError: string | null;
   onToggleListening: () => void;
   textareaRef: React.RefObject<HTMLTextAreaElement>;
-  fileInputRef: React.RefObject<HTMLInputElement>;
 
   // Model Selector Props
   showModelMenu: boolean;
@@ -67,7 +66,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   speechError,
   onToggleListening,
   textareaRef,
-  fileInputRef,
   showModelMenu,
   setShowModelMenu,
   modelConfig,
@@ -86,8 +84,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const autoResize = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
+      const newHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = newHeight + "px";
+
+      // Manage overflow to avoid scrollbar when not needed
+      // Force hidden in single-line mode (found by checking isModeMulti state)
+      // Note: isModeMulti is defined later but available when this is called
+      if (!isModeMulti) {
+        textareaRef.current.style.overflowY = "hidden";
+      } else {
+        if (newHeight > textareaRef.current.clientHeight) {
+          textareaRef.current.style.overflowY = "auto";
+        } else {
+          textareaRef.current.style.overflowY = "hidden";
+        }
+      }
     }
   };
 
@@ -95,8 +106,50 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       onSend();
+      // Keep focus on textarea after sending
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
     }
   };
+
+  // Persistent state for layout mode to prevent flickering
+  const [isModeMulti, setModeMulti] = React.useState(false);
+  const isModeMultiRef = React.useRef(isModeMulti);
+
+  // Sync ref
+  React.useEffect(() => {
+    isModeMultiRef.current = isModeMulti;
+  }, [isModeMulti]);
+
+  // Check layout on input change
+  React.useEffect(() => {
+    if (!textareaRef.current) return;
+
+    // Use ref to check current mode to avoid adding isModeMulti to dependency array
+    // This prevents the "Maximum update depth exceeded" error loop
+    const currentMode = isModeMultiRef.current;
+    const hasNewline = input.includes("\n");
+
+    // We check scrollHeight. Note: styling affects scrollHeight.
+    // In single-line mode, padding is now px-4 py-4.
+    // Base height is min-h-[56px].
+    // If scrollHeight > 76 (allowing for some buffer), it means wrapping.
+    const isOverflowing = textareaRef.current.scrollHeight > 76;
+
+    if (!currentMode) {
+      // Currently in Single-line mode
+      if (hasNewline || isOverflowing) {
+        setModeMulti(true);
+      }
+    } else {
+      // Currently in Multi-line mode
+      // Switch back ONLY if empty to prevent flickering due to width differences
+      if (input.trim().length === 0) {
+        setModeMulti(false);
+      }
+    }
+  }, [input]); // Only depend on input changing
 
   // Cosmic CSS Styles
   const cosmicStyles = `
@@ -336,26 +389,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 </div>
               )}
 
-              {/* Text Input Area */}
-              <div className="relative w-full flex items-start">
-                {/* Left Actions */}
-                <div className="pl-3 py-3 flex items-center gap-2 self-end mb-[2px]">
-                  <button
-                    onClick={onFileSelect}
-                    className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
-                    title={t("chat.attachFile") || "Attach File"}
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </button>
-                  <MCPServerList
-                    isOpen={showMcpMenu}
-                    onToggle={() => setShowMcpMenu(!showMcpMenu)}
-                    servers={mcpServers}
-                    menuRef={mcpMenuRef}
-                  />
-                </div>
+              {/* Input Area */}
+              <div className={`w-full flex ${isModeMulti ? "flex-col" : "items-start"}`}>
 
-                {/* Textarea */}
+                {/* Left Actions - Rendered first in Single Line mode, or inside wrapper in Multi Line */}
+                {!isModeMulti && (
+                  <div className="flex items-center gap-2 self-end mb-[2px] py-3 pl-3">
+                    <button
+                      onClick={onFileSelect}
+                      className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
+                      title={t("chat.attachFile") || "Attach File"}
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <MCPServerList
+                      isOpen={showMcpMenu}
+                      onToggle={() => setShowMcpMenu(!showMcpMenu)}
+                      servers={mcpServers}
+                      menuRef={mcpMenuRef}
+                    />
+                  </div>
+                )}
+
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -366,84 +421,187 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   onKeyDown={handleKeyDown}
                   onPaste={onPaste}
                   placeholder={t("chat.placeholder")}
-                  className="w-full bg-transparent text-zinc-700 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-3 py-5 outline-none resize-none min-h-[56px] max-h-[30vh] text-base leading-relaxed"
+                  className={`w-full bg-transparent text-zinc-700 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 outline-none resize-none min-h-[56px] max-h-[30vh] text-base leading-relaxed px-4 py-4`}
                   rows={1}
-                  disabled={isLoading || isStreaming}
                 />
 
-                {/* Right Actions */}
-                <div className="pr-3 py-3 flex items-center gap-2 self-end mb-[2px]">
-                  <ModelSelector
-                    isOpen={showModelMenu}
-                    onToggle={() => setShowModelMenu(!showModelMenu)}
-                    modelConfig={modelConfig}
-                    agentModels={agentModels}
-                    pinnedAgentId={pinnedAgentId}
-                    onModelSelect={onModelSelect}
-                    onPinAgent={onPinAgent}
-                    menuRef={modelMenuRef}
-                  />
+                {/* Right Actions - Rendered last in Single Line mode */}
+                {!isModeMulti && (
+                  <div className="flex items-center gap-2 self-end mb-[2px] pr-3 py-3">
+                    <ModelSelector
+                      isOpen={showModelMenu}
+                      onToggle={() => setShowModelMenu(!showModelMenu)}
+                      modelConfig={modelConfig}
+                      agentModels={agentModels}
+                      pinnedAgentId={pinnedAgentId}
+                      onModelSelect={onModelSelect}
+                      onPinAgent={onPinAgent}
+                      menuRef={modelMenuRef}
+                    />
 
-                  {/* Speech Button */}
-                  <div className="relative">
-                    {speechError && (
-                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-500/90 text-white text-[10px] px-2 py-1 rounded border border-red-400 backdrop-blur-sm z-50">
-                        {speechError}
-                      </div>
-                    )}
-                    <button
-                      onClick={onToggleListening}
-                      className={`p-2 rounded-xl transition-all duration-300 ${
-                        isListening
+                    {/* Speech Button */}
+                    <div className="relative">
+                      {speechError && (
+                        <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-500/90 text-white text-[10px] px-2 py-1 rounded border border-red-400 backdrop-blur-sm z-50">
+                          {speechError}
+                        </div>
+                      )}
+                      <button
+                        onClick={onToggleListening}
+                        className={`p-2 rounded-xl transition-all duration-300 ${isListening
                           ? "bg-red-500/20 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse border border-red-500/50"
                           : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                      }`}
-                      title={
-                        isListening
-                          ? t("chat.stopRecording") || "Stop recording"
-                          : t("chat.startRecording") || "Start recording"
-                      }
-                    >
-                      {isListening ? (
-                        <MicOff className="w-5 h-5" />
-                      ) : (
-                        <Mic className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Wormhole Send Button */}
-                  <div className="relative w-10 h-10 flex items-center justify-center">
-                    <div
-                      className={`absolute inset-0 rounded-xl overflow-hidden pointer-events-none transition-opacity duration-300 ${
-                        (input.trim() || attachments.length > 0) && !isLoading
-                          ? "opacity-100"
-                          : "opacity-0"
-                      }`}
-                    >
-                      <div className="wormhole-spin w-full h-full relative"></div>
+                          }`}
+                        title={
+                          isListening
+                            ? t("chat.stopRecording") || "Stop recording"
+                            : t("chat.startRecording") || "Start recording"
+                        }
+                      >
+                        {isListening ? (
+                          <MicOff className="w-5 h-5" />
+                        ) : (
+                          <Mic className="w-5 h-5" />
+                        )}
+                      </button>
                     </div>
 
-                    <button
-                      onClick={onSend}
-                      disabled={
-                        (!input.trim() && attachments.length === 0) ||
-                        isLoading ||
-                        isStreaming
-                      }
-                      className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${
-                        (input.trim() || attachments.length > 0) &&
-                        !isLoading &&
-                        !isStreaming
+                    {/* Wormhole Send Button */}
+                    <div className="relative w-10 h-10 flex items-center justify-center">
+                      <div
+                        className={`absolute inset-0 rounded-xl overflow-hidden pointer-events-none transition-opacity duration-300 ${(input.trim() || attachments.length > 0) && !isLoading
+                          ? "opacity-100"
+                          : "opacity-0"
+                          }`}
+                      >
+                        <div className="wormhole-spin w-full h-full relative"></div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          onSend();
+                          // Keep focus on textarea after clicking send
+                          setTimeout(() => {
+                            textareaRef.current?.focus();
+                          }, 0);
+                        }}
+                        disabled={
+                          (!input.trim() && attachments.length === 0) ||
+                          isLoading ||
+                          isStreaming
+                        }
+                        className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
+                          !isLoading &&
+                          !isStreaming
                           ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
-                      }`}
-                      title={t("chat.send") || "Send"}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
+                          }`}
+                        title={t("chat.send") || "Send"}
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Multi-line Action Bar (Bottom) */}
+                {isModeMulti && (
+                  <div className="flex items-center justify-between px-3 pb-3">
+                    {/* Left Actions Group */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={onFileSelect}
+                        className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
+                        title={t("chat.attachFile") || "Attach File"}
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </button>
+                      <MCPServerList
+                        isOpen={showMcpMenu}
+                        onToggle={() => setShowMcpMenu(!showMcpMenu)}
+                        servers={mcpServers}
+                        menuRef={mcpMenuRef}
+                      />
+                    </div>
+
+                    {/* Right Actions Group */}
+                    <div className="flex items-center gap-2">
+                      <ModelSelector
+                        isOpen={showModelMenu}
+                        onToggle={() => setShowModelMenu(!showModelMenu)}
+                        modelConfig={modelConfig}
+                        agentModels={agentModels}
+                        pinnedAgentId={pinnedAgentId}
+                        onModelSelect={onModelSelect}
+                        onPinAgent={onPinAgent}
+                        menuRef={modelMenuRef}
+                      />
+
+                      {/* Speech Button */}
+                      <div className="relative">
+                        {speechError && (
+                          <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-500/90 text-white text-[10px] px-2 py-1 rounded border border-red-400 backdrop-blur-sm z-50">
+                            {speechError}
+                          </div>
+                        )}
+                        <button
+                          onClick={onToggleListening}
+                          className={`p-2 rounded-xl transition-all duration-300 ${isListening
+                            ? "bg-red-500/20 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse border border-red-500/50"
+                            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                            }`}
+                          title={
+                            isListening
+                              ? t("chat.stopRecording") || "Stop recording"
+                              : t("chat.startRecording") || "Start recording"
+                          }
+                        >
+                          {isListening ? (
+                            <MicOff className="w-5 h-5" />
+                          ) : (
+                            <Mic className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Wormhole Send Button */}
+                      <div className="relative w-10 h-10 flex items-center justify-center">
+                        <div
+                          className={`absolute inset-0 rounded-xl overflow-hidden pointer-events-none transition-opacity duration-300 ${(input.trim() || attachments.length > 0) && !isLoading
+                            ? "opacity-100"
+                            : "opacity-0"
+                            }`}
+                        >
+                          <div className="wormhole-spin w-full h-full relative"></div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            onSend();
+                            // Keep focus on textarea after clicking send
+                            setTimeout(() => {
+                              textareaRef.current?.focus();
+                            }, 0);
+                          }}
+                          disabled={
+                            (!input.trim() && attachments.length === 0) ||
+                            isLoading ||
+                            isStreaming
+                          }
+                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
+                            !isLoading &&
+                            !isStreaming
+                            ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
+                            }`}
+                          title={t("chat.send") || "Send"}
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

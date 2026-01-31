@@ -61,6 +61,7 @@ interface ChatInterfaceProps {
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
   onLogout?: () => void;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -79,11 +80,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onPreviewRequest,
   onOpenSettings,
   onLogout,
+  textareaRef: externalTextareaRef,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = externalTextareaRef || internalTextareaRef;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusRef = useRef(false);
 
   // Menu Refs for click outside handling
   const mcpMenuRef = useRef<HTMLDivElement>(null);
@@ -139,6 +143,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [messages, isLoading, isStreaming, editingId, input]);
 
+  // Auto-focus textarea after sending message
+  useEffect(() => {
+    if (shouldFocusRef.current && textareaRef.current) {
+      // Use requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          shouldFocusRef.current = false;
+        });
+      });
+    }
+  });
+
   // Click outside handler for menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -181,13 +198,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if ((!input.trim() && attachments.length === 0) || isLoading || isStreaming)
       return;
 
+    console.log("🚀 Sending message, will focus after render");
+    shouldFocusRef.current = true;
     onSend(input, attachments);
     clearAttachments();
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 0);
     }
   };
 
@@ -225,9 +241,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="relative" ref={settingsMenuRef}>
           <button
             onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
-              isPreviewOpen ? "right-4" : "right-12"
-            } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
+            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${isPreviewOpen ? "right-4" : "right-12"
+              } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
             title={t("settings.title")}
           >
             <Settings className="w-4 h-4" />
@@ -375,7 +390,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
         showModelMenu={showModelMenu}
         setShowModelMenu={setShowModelMenu}
         modelConfig={modelConfig}
