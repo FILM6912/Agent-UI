@@ -266,7 +266,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
           {/* Welcome Screen */}
           {messages.length === 0 && (
-            <WelcomeScreen language={language} />
+            <WelcomeScreen
+              language={language}
+              onSuggestionClick={(prompt) => onSend(prompt, [])}
+            />
           )}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
