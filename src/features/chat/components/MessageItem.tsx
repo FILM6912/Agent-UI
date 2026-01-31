@@ -122,10 +122,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 {thinkBlocks.map((block, idx) => (
                   <details
                     key={idx}
-                    className="group/think bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg overflow-hidden"
+                    className="group/think bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-300 dark:border-zinc-800/50 rounded-lg overflow-hidden shadow-sm"
                     open={!block.isComplete && isStreaming} // Auto-open if streaming and incomplete
                   >
-                    <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none">
+                    <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none">
                       <div className={`w-1.5 h-1.5 rounded-full transition-colors ${!block.isComplete && isStreaming ? 'bg-blue-500 animate-pulse' : 'bg-zinc-400 group-open/think:bg-blue-500'}`} />
                       {t("chat.thoughtProcess") || "Thought Process"}
                       {!block.isComplete && isStreaming && <span className="opacity-50 ml-1">...</span>}
@@ -142,8 +142,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Main Content */}
           <div className={`leading-relaxed group relative ${msg.role === "user"
-              ? "w-full flex flex-col items-end"
-              : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
+            ? "w-full flex flex-col items-end"
+            : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
             }`}>
             {(() => {
               // Remove <think>... </think> (closed)
