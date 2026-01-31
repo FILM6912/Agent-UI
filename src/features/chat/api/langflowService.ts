@@ -51,7 +51,6 @@ const getEffectiveBaseUrl = (url: string | undefined): string => {
   const cleanUrl = url.replace(/\/+$/, '');
   // If user configured localhost:7860, use relative path to trigger Vite proxy
   if (cleanUrl.includes('localhost:7860') || cleanUrl.includes('127.0.0.1:7860')) {
-    console.log('Using proxy for LangFlow URL:', cleanUrl);
     return '';
   }
   return cleanUrl;
@@ -70,7 +69,6 @@ async function getChatInputId(baseUrl: string, flowId: string, apiKey?: string):
     const data = await response.json();
     const nodes = data.data?.nodes || [];
     const chatInput = nodes.find((n: any) => n.data?.type === 'ChatInput');
-    console.log('ChatInput ID resolution:', { found: !!chatInput, id: chatInput?.id });
     return chatInput?.id || null;
   } catch (e) {
     console.warn("Failed to fetch flow details:", e);
@@ -96,8 +94,6 @@ async function uploadFileToLangFlow(
     const formData = new FormData();
     formData.append('file', blob, 'image.png'); // Default name
 
-    console.log(`Uploading file to ${baseUrl}/api/v1/files/upload/${flowId}...`);
-
     const uploadResponse = await fetch(`${baseUrl}/api/v1/files/upload/${flowId}`, {
       method: 'POST',
       headers,
@@ -110,7 +106,6 @@ async function uploadFileToLangFlow(
     }
 
     const data = await uploadResponse.json();
-    console.log('File upload success:', data);
     return data.file_path || null;
   } catch (e) {
     console.error("Failed to upload file:", e);
@@ -126,11 +121,6 @@ async function* streamFromLangFlow(
   config: ModelConfig,
   attachments: Attachment[] = []
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
-  console.log('>>> ENTERING streamFromLangFlow', {
-    message: newMessage,
-    attachmentCount: attachments.length,
-    configUrl: config.langflowUrl
-  });
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
     const flowId = config.modelId; // Flow ID
@@ -148,14 +138,12 @@ async function* streamFromLangFlow(
 
     // Handle Attachments (Images)
     let tweaks: any = {};
-    console.log('Processing attachments:', { count: attachments.length, baseUrl, flowId });
 
     if (attachments.length > 0 && flowId) {
       // 1. Upload files FIRST (as requested by user)
       const uploadedFilePaths: string[] = [];
       for (const attachment of attachments) {
         if (attachment.type === 'image') {
-          console.log('Starting file upload for attachment...');
           const filePath = await uploadFileToLangFlow(baseUrl, flowId, attachment.content, config.langflowApiKey);
           if (filePath) {
             uploadedFilePaths.push(filePath);
@@ -166,7 +154,6 @@ async function* streamFromLangFlow(
       // 2. Resolve ChatInput ID
       if (uploadedFilePaths.length > 0) {
         const chatInputId = await getChatInputId(baseUrl, flowId, config.langflowApiKey);
-        console.log('Retrieved ChatInput ID:', chatInputId);
 
         if (chatInputId) {
           tweaks[chatInputId] = {
@@ -200,18 +187,6 @@ async function* streamFromLangFlow(
     // User curl didn't show session_id in the body, only in specific fields? Actually user didn't show session_id.
     // We'll add session_id to payload just in case, as it's standard.
     (payload as any).session_id = sessionId;
-
-    console.log('LangFlow Request:', {
-      url: `${baseUrl}/api/v1/run/${flowId}?stream=true`,
-      flowId,
-      sessionId,
-      hasApiKey: !!config.langflowApiKey,
-      hasTweaks: Object.keys(tweaks).length > 0
-    });
-
-    console.log('Sending LangFlow Body:', JSON.stringify(body, null, 2));
-
-    console.log('Sending LangFlow Body:', JSON.stringify(body, null, 2));
 
     // Use /run endpoint with proper format
     const response = await fetch(`${baseUrl}/api/v1/run/${flowId}?stream=true`, {
@@ -250,7 +225,6 @@ async function* streamFromLangFlow(
           // Handle add_message event with content_blocks (tool usage)
           if (json.event === 'add_message' && json.data?.content_blocks) {
             const contentBlocks = json.data.content_blocks;
-            console.log('Content blocks received:', contentBlocks);
 
             if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
               const steps: ProcessStep[] = [];
@@ -346,7 +320,6 @@ async function* streamFromLangFlow(
 
             // Skip duplicate content
             if (content === lastContent) {
-              console.log('Skipping duplicate chunk:', content);
               continue;
             }
 
