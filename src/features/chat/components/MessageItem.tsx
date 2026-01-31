@@ -14,6 +14,7 @@ import { ProcessStep } from "@/features/preview/components/ProcessStep";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLanguage } from "@/hooks/useLanguage";
+import { CachedImage } from "./CachedImage";
 
 interface MessageItemProps {
   message: Message;
@@ -211,7 +212,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                           onClick={() => onViewImage(att.content)}
                           className="group/img relative rounded-xl overflow-hidden border border-border bg-muted cursor-zoom-in"
                         >
-                          <img
+                          <CachedImage
                             src={att.content}
                             alt={att.name}
                             className="max-w-[150px] max-h-[150px] object-cover hover:scale-105 transition-transform duration-300"
