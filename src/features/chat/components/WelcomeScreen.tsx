@@ -1,15 +1,13 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
-import { ModelConfig } from "@/types";
+
 
 interface WelcomeScreenProps {
   language: string;
-  modelConfig: ModelConfig;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   language,
-  modelConfig,
 }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -81,15 +79,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
 
       {/* Model Info */}
-      <div className="mt-8 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-        <span>
-          {language === "th" ? "ใช้งาน" : "Using"}{" "}
-          <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-            {modelConfig.name}
-          </span>
-        </span>
-      </div>
+
     </div>
   );
 };
