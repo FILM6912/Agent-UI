@@ -25,7 +25,7 @@ import {
   streamMessageFromGemini,
   generateChatTitle,
   generateSuggestions,
-} from "@/features/chat/api/geminiService";
+} from "@/features/chat/api/langflowService";
 import { PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";

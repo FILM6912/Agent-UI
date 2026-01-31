@@ -3,5 +3,5 @@ export { CodeBlock } from "./components/CodeBlock";
 export {
   streamMessageFromGemini,
   generateChatTitle,
-} from "./api/geminiService";
+} from "./api/langflowService";
 export type * from "./types";
