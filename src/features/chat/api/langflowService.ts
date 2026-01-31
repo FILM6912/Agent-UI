@@ -1,4 +1,4 @@
-import { Message, ProcessStep, ModelConfig, Attachment } from "../types";
+import { Message, ProcessStep, ModelConfig, Attachment, ChatSession } from "../../../types";
 
 const generateMockSteps = (prompt: string): ProcessStep[] => {
   const lowercasePrompt = prompt.toLowerCase();
@@ -119,7 +119,8 @@ async function* streamFromLangFlow(
   history: Message[],
   newMessage: string,
   config: ModelConfig,
-  attachments: Attachment[] = []
+  attachments: Attachment[] = [],
+  chatId?: string
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
@@ -166,7 +167,8 @@ async function* streamFromLangFlow(
     }
 
     // Generate session ID
-    const sessionId = `chat-${Date.now()}`;
+    // Use valid UUID from chat ID if available, otherwise generate one
+    const sessionId = chatId || `chat-${Date.now()}`;
 
     // Construct Body matching User's CURL example (wrapped in input_request)
     const payload = {
@@ -371,7 +373,8 @@ export async function* streamMessageFromGemini(
   history: Message[],
   newMessage: string,
   config: ModelConfig,
-  attachments: Attachment[] = []
+  attachments: Attachment[] = [],
+  chatId?: string
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
   // Check if this is a LangFlow agent (has langflowUrl configured)
   if (config.langflowUrl && config.modelId) {
@@ -382,7 +385,7 @@ export async function* streamMessageFromGemini(
       await new Promise(resolve => setTimeout(resolve, 600));
     }
 
-    yield* streamFromLangFlow(history, newMessage, config, attachments);
+    yield* streamFromLangFlow(history, newMessage, config, attachments, chatId);
     return;
   }
 
@@ -462,6 +465,188 @@ Constraints:
 
   } catch (error) {
     console.warn("Failed to generate suggestions:", error);
+    return [];
+  }
+}
+
+// LangFlow Message Interface
+interface LangFlowMessage {
+  id: string;
+  flow_id: string;
+  timestamp: string;
+  sender: string;
+  sender_name: string;
+  session_id: string;
+  text: string;
+  files: string; // JSON string of file paths
+  content_blocks: any[];
+  properties: any;
+}
+
+export async function fetchHistoryFromLangFlow(
+  config: ModelConfig,
+  chatId: string
+): Promise<Message[]> {
+  if (!config.langflowUrl || !config.modelId) return [];
+
+  try {
+    const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
+
+    // Fetch messages for this session
+    const response = await fetch(`${baseUrl}/api/v1/monitor/messages?session_id=${chatId}&order_by=timestamp`, { headers });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch history: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    // API returns { data: [...] } or just [...] depending on version. User example suggests array.
+    const messages: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
+
+    return messages
+      .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions if they somehow sneak in
+      .map(msg => {
+        const isUser = msg.sender === 'User';
+        const role = isUser ? 'user' : 'assistant';
+
+        // Parse Files
+        const attachments: Attachment[] = [];
+        try {
+          const filesArray = JSON.parse(msg.files || '[]');
+          if (Array.isArray(filesArray)) {
+            filesArray.forEach((filePath: string) => {
+              // Construct Image URL: /api/v1/files/images/{flow_id}/{file_name}
+              const fileName = filePath.split('/').pop();
+              if (fileName) {
+                const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
+                attachments.push({
+                  type: 'image',
+                  content: imageUrl, // Use URL as content for now
+                  name: fileName
+                });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to parse files JSON:', e);
+        }
+
+        return {
+          id: msg.id,
+          role: role,
+          content: msg.text,
+          timestamp: new Date(msg.timestamp).getTime(),
+          attachments: attachments.length > 0 ? attachments : undefined
+        };
+      });
+
+  } catch (error) {
+    console.warn("Error fetching LangFlow history:", error);
+    return [];
+  }
+}
+
+export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise<ChatSession[]> {
+  if (!config.langflowUrl || !config.modelId) return [];
+
+  try {
+    const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
+
+    // Fetch ALL messages (monitor endpoint)
+    // Note: LangFlow might paginate. For now, assuming standard endpoint returns recent messages.
+    // If we need all, we might need a limit param?
+    const response = await fetch(`${baseUrl}/api/v1/monitor/messages?order_by=timestamp`, { headers });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch sessions: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const allMessages: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
+
+    // Group by Session ID
+    const sessionsMap = new Map<string, LangFlowMessage[]>();
+
+    allMessages.forEach(msg => {
+      // Filter suggestions
+      if (msg.session_id.startsWith('suggestion-')) return;
+
+      const existing = sessionsMap.get(msg.session_id) || [];
+      existing.push(msg);
+      sessionsMap.set(msg.session_id, existing);
+    });
+
+    // Convert to ChatSession
+    const sessions: ChatSession[] = [];
+
+    sessionsMap.forEach((msgs, sessionId) => {
+      if (msgs.length === 0) return;
+
+      // Sort messages by timestamp
+      msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      const lastMsg = msgs[msgs.length - 1];
+      const firstUserMsg = msgs.find(m => m.sender === 'User');
+
+      const title = firstUserMsg ? firstUserMsg.text.substring(0, 30) : `Chat ${sessionId.substring(0, 6)}`;
+
+      sessions.push({
+        id: sessionId,
+        title: title,
+        messages: [], // We don't load full messages here to save performance, or we could? 
+        // App expects messages in session? 
+        // Actually App uses `sessions[id].messages`. 
+        // So we SHOULD populate them or App needs refactor.
+        // Given the App architecture, let's map them now.
+        updatedAt: new Date(lastMsg.timestamp).getTime()
+      });
+
+      // Populate messages for this session
+      // We can reuse the mapping logic from fetchHistoryFromLangFlow but applied locally
+      const mappedMessages = msgs.map(msg => {
+        const isUser = msg.sender === 'User';
+        const role = isUser ? 'user' : 'assistant';
+
+        let attachments: Attachment[] = [];
+        try {
+          const filesArray = JSON.parse(msg.files || '[]');
+          if (Array.isArray(filesArray)) {
+            filesArray.forEach((filePath: string) => {
+              const fileName = filePath.split('/').pop();
+              if (fileName) {
+                const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
+                attachments.push({
+                  type: 'image',
+                  content: imageUrl,
+                  name: fileName
+                });
+              }
+            });
+          }
+        } catch (e) { }
+
+        return {
+          id: msg.id,
+          role: role as 'user' | 'assistant',
+          content: msg.text,
+          timestamp: new Date(msg.timestamp).getTime(),
+          attachments: attachments.length > 0 ? attachments : undefined
+        };
+      });
+
+      sessions[sessions.length - 1].messages = mappedMessages;
+    });
+
+    return sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+
+  } catch (error) {
+    console.warn("Failed to fetch sessions from LangFlow:", error);
     return [];
   }
 }
