@@ -5,6 +5,7 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  NavigateFunction,
 } from "react-router-dom";
 import { Sidebar } from "@/features/sidebar";
 import { ChatInterface, getPresetModels } from "@/features/chat";
@@ -24,9 +25,13 @@ import {
 import {
   streamMessageFromGemini,
   generateChatTitle,
-} from "@/features/chat/api/geminiService";
-import { PanelLeft, PanelRight, Trash2 } from "lucide-react";
+  generateSuggestions,
+  fetchHistoryFromLangFlow,
+  fetchAllSessionsFromLangFlow,
+} from "@/features/chat/api/langflowService";
+import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
 
 // Define AppLayout props interface
 interface AppLayoutProps {
@@ -41,10 +46,10 @@ interface AppLayoutProps {
   onRequestDeleteChat: (id: string) => void;
   modelConfig: ModelConfig;
   handleProviderChange: (provider: AIProvider) => void;
-  navigate: (path: string | number) => void;
+  navigate: NavigateFunction;
   setIsAuthenticated: (auth: boolean) => void;
   settingsTab: "general" | "account" | "tools" | "agent" | "langflow";
-  setModelConfig: (config: ModelConfig) => void;
+  setModelConfig: React.Dispatch<React.SetStateAction<ModelConfig>>;
   chatHistory: ChatSession[];
   handleClearAllChats: () => void;
   currentMessages: Message[];
@@ -69,7 +74,7 @@ interface AppLayoutProps {
   confirmDeleteChat: () => void;
   isLangFlowConfigOpen: boolean;
   setIsLangFlowConfigOpen: (open: boolean) => void;
-  chatInputRef: React.RefObject<HTMLTextAreaElement>;
+  chatInputRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 // AppLayout component extracted outside to prevent recreation
@@ -269,8 +274,10 @@ export default function App() {
   useEffect(() => {
     const match = location.pathname.match(/\/chat\/([^/]+)/);
     if (match) {
-      const id = match[1];
+      const id = decodeURIComponent(match[1]);
       if (id !== activeChatId) {
+        console.log('>>> URL Sync: Decoded Chat ID:', id);
+        console.log('>>> Current Sessions Keys:', Object.keys(sessions));
         setActiveChatId(id);
       }
     } else if (location.pathname === "/chat") {
@@ -292,39 +299,22 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  const initialId = crypto.randomUUID();
-  const [sessions, setSessions] = useState<Record<string, ChatSession>>(() => {
-    const saved = localStorage.getItem("chat_sessions");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Ensure sessions is valid
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          Object.keys(parsed).length > 0
-        ) {
-          return parsed;
-        }
-      } catch (error) {
-        console.error("Failed to parse chat sessions:", error);
-      }
-    }
-    // Create initial session
-    const newId = crypto.randomUUID();
-    return {
-      [newId]: {
-        id: newId,
-        title: "New Task",
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    };
-  });
+  // Sessions now start empty, populated via API
+  const [sessions, setSessions] = useState<Record<string, ChatSession>>({});
 
+  // No longer saving sessions to localStorage (User Request: LangFlow source of truth)
+  /*
   useEffect(() => {
-    localStorage.setItem("chat_sessions", JSON.stringify(sessions));
+    try {
+      localStorage.setItem("chat_sessions", JSON.stringify(sessions));
+    } catch (e) {
+      // Quota exceeded is common with large images
+      console.warn("Local storage is full. Old data might not be persisted.");
+    }
   }, [sessions]);
+  */
+
+
 
   const [activeChatId, setActiveChatId] = useState<string>(() => {
     // Get first session ID from sessions
@@ -344,6 +334,7 @@ export default function App() {
     type: "error" as "error" | "warning",
   });
 
+
   // View State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLangFlowConfigOpen, setIsLangFlowConfigOpen] = useState(false);
@@ -357,7 +348,7 @@ export default function App() {
   // Responsive State
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Initialize responsive state
   useEffect(() => {
@@ -373,7 +364,7 @@ export default function App() {
     const initialMobile = window.innerWidth < 1024;
     setIsMobile(initialMobile);
     setIsSidebarOpen(!initialMobile);
-    setIsPreviewOpen(!initialMobile);
+    setIsPreviewOpen(false); // Default to closed
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -423,6 +414,132 @@ export default function App() {
       return updated;
     });
   }, [t]);
+
+  // Fetch ALL sessions on mount/config change (Replaces local storage logic)
+  // Fetch ALL sessions on mount/config change (Replaces local storage logic)
+  useEffect(() => {
+    console.log('>>> App.tsx: useEffect [modelConfig] triggered', modelConfig);
+
+    // Initial load check: ensure we have URL
+    if (!modelConfig.langflowUrl) {
+      console.warn('>>> App.tsx: Missing LangFlow URL, skipping fetch.');
+      return;
+    }
+
+    if (!modelConfig.modelId) {
+      console.warn('>>> App.tsx: Missing Model ID, skipping fetch.');
+      return;
+    }
+
+    const loadSessions = async () => {
+      console.log('>>> App.tsx: loadSessions starting...');
+      const fetchedSessions = await fetchAllSessionsFromLangFlow(modelConfig);
+      console.log('>>> App.tsx: fetchedSessions count:', fetchedSessions.length);
+
+      if (fetchedSessions.length > 0) {
+        const newSessionsMap: Record<string, ChatSession> = {};
+        fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
+
+        // PRESERVE LOCAL-ONLY SESSIONS
+        if (activeChatId && sessions[activeChatId] && !newSessionsMap[activeChatId]) {
+          newSessionsMap[activeChatId] = sessions[activeChatId];
+        }
+
+        setSessions(newSessionsMap);
+
+        // If active chat is empty or not in list, select latest
+        if (!activeChatId || !newSessionsMap[activeChatId]) {
+          if (fetchedSessions.length > 0) {
+            setActiveChatId(fetchedSessions[0].id);
+          }
+        }
+      } else {
+        // No sessions from API. 
+        // If we have nothing locally either, create new.
+        if (Object.keys(sessions).length === 0) {
+          const newId = crypto.randomUUID();
+          setSessions({
+            [newId]: {
+              id: newId,
+              title: "New Task",
+              messages: [],
+              updatedAt: Date.now()
+            }
+          });
+          setActiveChatId(newId);
+        }
+      }
+    };
+
+    loadSessions();
+  }, [modelConfig]); // OFF: activeChatId
+
+  // Fetch History from LangFlow (Existing one, maybe redundant now?)
+
+  // Fetch History from LangFlow (Existing one, maybe redundant now?)
+  // Actually, fetchAllSessionsFromLangFlow gets the *list* and *messages* (if we implemented it to populate messages).
+  // My implementation of fetchAllSessionsFromLangFlow DOES populate messages.
+  // So the per-chat fetch might be redundant OR useful for refreshing just one chat.
+  // The per-chat fetch is triggered by activeChatId change.
+  // Let's KEPP it for now to ensure we get fresh messages when switching, 
+  // although fetchAllSessions already got them. 
+  // Actually, fetchAllSessions is heavy. 
+  // Maybe we should ONLY fetch headers in fetchAllSessions? 
+  // Current implementation fetches ALL messages and groups them. 
+  // So we have the data.
+  // But the existing `fetchHistoryFromLangFlow` hook (below) updates `sessions` again.
+  // That's fine, it acts as a "refresh on select".
+  useEffect(() => {
+    if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
+
+    const loadHistory = async () => {
+      // Create a local variable or ref to avoid race conditions if needed
+      // For now, simpler is better.
+      const messages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
+
+      setSessions(prev => {
+        const currentSession = prev[activeChatId];
+
+        // If session doesn't exist in our map yet, and we got no messages, ignore.
+        if (!currentSession && messages.length === 0) return prev;
+
+        // If session exists locally but we got nothing from server, it might be a new chat.
+        // We generally shouldn't overwrite a local session with empty list unless we are sure.
+        // But if the server returns [], it means empty on server. 
+        // If local has messages and server has 0, we risk wiping local unsynced messages? 
+        // No, local messages are only "optimistic" steps or user input. 
+        // Usually we want server truth. 
+        // EXCEPT for "New Chat" which starts with empty messages locally anyway.
+        // So safe to return prev if both empty.
+
+        if (currentSession && currentSession.messages.length === 0 && messages.length === 0) {
+          return prev;
+        }
+
+        if (messages.length > 0) {
+          return {
+            ...prev,
+            [activeChatId]: {
+              ...(currentSession || {
+                id: activeChatId,
+                title: "Chat",
+                updatedAt: Date.now()
+              }),
+              messages: messages,
+              updatedAt: Date.now()
+              // Updating timestamp here keeps it fresh in sort order? 
+              // Maybe preserve original updatedAt if not changed. 
+              // But fetching history usually means we viewed it.
+            }
+          };
+        }
+
+        return prev;
+      });
+    };
+
+    loadHistory();
+  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
 
   const history = useMemo(() => {
     return (Object.values(sessions) as ChatSession[]).sort(
@@ -493,6 +610,7 @@ export default function App() {
         prompt,
         modelConfig,
         attachments,
+        sessionId
       );
       let isFirstChunk = true;
 
@@ -598,6 +716,44 @@ export default function App() {
           });
         }
       }
+
+      // Add suggestions after streaming is complete
+      const language = localStorage.getItem("language") === "th" ? "th" : "en";
+      let suggestions: string[] = [];
+
+      try {
+        // Try AI generation first
+        suggestions = await generateSuggestions(historyToUse, prompt, accumulatedContent, modelConfig);
+      } catch (e) {
+        console.warn("AI generation failed, falling back to random", e);
+      }
+
+      // Fallback to random if empty
+      if (suggestions.length === 0) {
+        const pool = FOLLOW_UPS[language];
+        suggestions = [...pool].sort(() => 0.5 - Math.random()).slice(0, 3);
+      }
+
+      setSessions((prev) => {
+        const session = prev[sessionId];
+        if (!session) return prev;
+
+        const updatedMessages = session.messages.map((msg) => {
+          if (msg.id === assistantMsgId) {
+            return { ...msg, suggestions };
+          }
+          return msg;
+        });
+
+        return {
+          ...prev,
+          [sessionId]: {
+            ...session,
+            messages: updatedMessages,
+          },
+        };
+      });
+
     } catch (error: any) {
       console.error("Error in chat loop:", error);
 
@@ -766,7 +922,7 @@ export default function App() {
             };
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     await executeChatRequest(
@@ -964,8 +1120,35 @@ export default function App() {
   };
 
   const handleNewChat = () => {
-    // Navigate to /chat without ID
-    navigate("/chat");
+    const newId = crypto.randomUUID();
+
+    // Explicitly create incomplete/empty session locally so the user lands on it.
+    // This will be "optimistic" state. 
+    // If the API fetch runs, it should merge or we should ensure local new sessions aren't wiped.
+    // Actually, if we just set it here, the useEffect polling might wipe it if it's not on server.
+    // However, the useEffect logic `if (fetchedSessions.length > 0)` replaces the whole map.
+    // We should probably merge instead of replace, OR we should rely on the fact that
+    // `activeChatId` logic handles the "empty" case.
+
+    // Better approach: Just create it in state. 
+    // If the next polling cycle doesn't see it, it might vanish IF we replace *all* sessions.
+    // But our syncing logic does `setSessions(newSessionsMap)`. This is destructive.
+    // We should modify the sync logic to preserve sessions that are empty (local only).
+
+    // Step 1: Create local session
+    setSessions(prev => ({
+      ...prev,
+      [newId]: {
+        id: newId,
+        title: "New Task",
+        messages: [],
+        updatedAt: Date.now()
+      }
+    }));
+
+    // Step 2: Navigate to it
+    navigate(`/chat/${newId}`);
+
     setPreviewContent(null);
     setIsSettingsOpen(false);
     if (isMobile) {

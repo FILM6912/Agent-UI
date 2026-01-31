@@ -20,7 +20,18 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({
   children,
 }) => {
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("language");
+      return (saved === "en" || saved === "th" ? saved : "en") as Language;
+    }
+    return "en";
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem("language", lang);
+  };
   const [translations, setTranslations] = useState(initialTranslations);
 
   const t = (path: string): string => {

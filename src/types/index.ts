@@ -44,6 +44,7 @@ export interface MessageVersion {
   content: string;
   attachments?: Attachment[];
   steps?: ProcessStep[];
+  suggestions?: string[];
   timestamp: number;
 }
 
@@ -56,6 +57,7 @@ export interface Message {
   steps?: ProcessStep[];
   versions?: MessageVersion[];
   currentVersionIndex?: number;
+  suggestions?: string[];
 }
 
 export interface ChatSession {

@@ -1,16 +1,34 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
-import { ModelConfig } from "@/types";
+import { RotateCw, Sparkles } from "lucide-react";
+import { SUGGESTIONS, Suggestion } from "../data/suggestions";
 
 interface WelcomeScreenProps {
   language: string;
-  modelConfig: ModelConfig;
+  onSuggestionClick: (prompt: string) => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   language,
-  modelConfig,
+  onSuggestionClick,
 }) => {
+  const [randomSuggestions, setRandomSuggestions] = React.useState<Suggestion[]>([]);
+  const [isShuffling, setIsShuffling] = React.useState(false);
+
+  const shuffleSuggestions = React.useCallback(() => {
+    setIsShuffling(true);
+    // Select correct language pool, fallback to 'en' if not 'th'
+    const pool = language === "th" ? SUGGESTIONS.th : SUGGESTIONS.en;
+    // Shuffle and pick 4
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    setRandomSuggestions(shuffled.slice(0, 4));
+
+    setTimeout(() => setIsShuffling(false), 500);
+  }, [language]);
+
+  React.useEffect(() => {
+    shuffleSuggestions();
+  }, [shuffleSuggestions]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="w-20 h-20 rounded-full bg-linear-to-br from-[#1447E6] via-[#3d6ff7] to-[#0d35b8] flex items-center justify-center mb-6 shadow-2xl shadow-blue-500/30 animate-in zoom-in duration-500 ring-4 ring-blue-100 dark:ring-blue-900/30">
@@ -30,66 +48,40 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </p>
 
       {/* Quick Action Suggestions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-        {[
-          {
-            icon: "💡",
-            title: language === "th" ? "ถามคำถาม" : "Ask a Question",
-            desc:
-              language === "th"
-                ? "ถามอะไรก็ได้ที่อยากรู้"
-                : "Ask me anything you want to know",
-          },
-          {
-            icon: "🔧",
-            title: language === "th" ? "แก้ปัญหา" : "Solve Problems",
-            desc:
-              language === "th"
-                ? "ช่วยวิเคราะห์และแก้ไขปัญหา"
-                : "Help analyze and solve issues",
-          },
-          {
-            icon: "📝",
-            title: language === "th" ? "เขียนเนื้อหา" : "Write Content",
-            desc:
-              language === "th"
-                ? "สร้างเนื้อหาและเอกสาร"
-                : "Create content and documents",
-          },
-          {
-            icon: "🎨",
-            title: language === "th" ? "ออกแบบ" : "Design",
-            desc:
-              language === "th"
-                ? "ออกแบบและพัฒนาไอเดีย"
-                : "Design and develop ideas",
-          },
-        ].map((item, idx) => (
-          <div
-            key={idx}
-            className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-xl hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-blue-500/10 hover:bg-blue-50/30 dark:hover:from-blue-950/20 dark:hover:to-blue-900/20 transition-all duration-200 cursor-default"
+      <div className="w-full max-w-2xl relative">
+        <div className="absolute -top-12 right-0">
+          <button
+            onClick={shuffleSuggestions}
+            className={`p-2 rounded-full text-zinc-400 hover:text-[#1447E6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ${isShuffling ? "animate-spin text-[#1447E6]" : ""}`}
+            title={language === "th" ? "เปลี่ยนหัวข้อใหม่" : "Shuffle suggestions"}
           >
-            <div className="text-2xl mb-2">{item.icon}</div>
-            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1 group-hover:text-[#1447E6] dark:group-hover:text-blue-400 transition-colors">
-              {item.title}
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {item.desc}
-            </p>
-          </div>
-        ))}
+            <RotateCw className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+          {randomSuggestions.map((item, idx) => (
+            <button
+              key={idx + item.title}
+              onClick={() => onSuggestionClick(item.prompt)}
+              className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-xl hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-blue-500/10 hover:bg-blue-50/30 dark:hover:from-blue-950/20 dark:hover:to-blue-900/20 transition-all duration-200 cursor-pointer text-left animate-in fade-in zoom-in-95 duration-300 fill-mode-both"
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
+              <div className="text-2xl mb-2">{item.icon}</div>
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1 group-hover:text-[#1447E6] dark:group-hover:text-blue-400 transition-colors">
+                {item.title}
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                {item.desc}
+              </p>
+            </button>
+          ))}
+        </div>
       </div>
 
+
       {/* Model Info */}
-      <div className="mt-8 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-        <span>
-          {language === "th" ? "ใช้งาน" : "Using"}{" "}
-          <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-            {modelConfig.name}
-          </span>
-        </span>
-      </div>
+
     </div>
   );
 };

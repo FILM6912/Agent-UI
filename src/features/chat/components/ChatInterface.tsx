@@ -11,7 +11,9 @@ import { ChatInput } from "./ChatInput";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAgentModels } from "../hooks/useAgentModels";
 import { useFileHandling } from "../hooks/useFileHandling";
+
 import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
+
 
 export const getPresetModels = (
   t: (key: string) => string,
@@ -61,7 +63,7 @@ interface ChatInterfaceProps {
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
   onLogout?: () => void;
-  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -234,6 +236,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowModelMenu(false);
   };
 
+  const handleSendClickWrapper = (text: string) => {
+    onSend(text, []);
+    shouldFocusRef.current = true;
+  };
+
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
       {/* Settings Button - Top Right */}
@@ -266,7 +273,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
           {/* Welcome Screen */}
           {messages.length === 0 && (
-            <WelcomeScreen language={language} modelConfig={modelConfig} />
+            <WelcomeScreen
+              language={language}
+              onSuggestionClick={(prompt) => onSend(prompt, [])}
+            />
           )}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
@@ -350,6 +360,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onCancelEdit={cancelEdit}
               setEditValue={setEditValue}
               markdownComponents={markdownComponents}
+              onSuggestionClick={(prompt) => handleSendClickWrapper(prompt)}
             />
           ))}
 
