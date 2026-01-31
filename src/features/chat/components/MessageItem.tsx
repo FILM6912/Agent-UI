@@ -34,6 +34,7 @@ interface MessageItemProps {
   onCancelEdit: () => void;
   setEditValue: (value: string) => void;
   markdownComponents: any;
+  onSuggestionClick?: (suggestion: string) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -55,6 +56,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onCancelEdit,
   setEditValue,
   markdownComponents,
+  onSuggestionClick,
 }) => {
   const { t } = useLanguage();
   const isAssistant = msg.role === "assistant";
@@ -283,6 +285,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <RotateCw className="w-3.5 h-3.5" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Suggestion Chips */}
+      {isAssistant && isLastMessage && msg.suggestions && msg.suggestions.length > 0 && !isStreaming && !isLoading && (
+        <div className="flex flex-wrap gap-2 mt-2 pl-1 animate-in fade-in slide-in-from-top-1 duration-500 delay-300 fill-mode-both">
+          {msg.suggestions.map((suggestion, idx) => (
+            <button
+              key={idx}
+              onClick={() => onSuggestionClick && onSuggestionClick(suggestion)}
+              className="text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 px-3 py-1.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer shadow-sm hover:shadow-md"
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       )}
     </div>

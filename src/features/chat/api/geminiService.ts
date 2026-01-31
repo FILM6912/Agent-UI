@@ -47,7 +47,7 @@ export async function generateChatTitle(userPrompt: string, config?: ModelConfig
     if (config?.langflowUrl) {
       return userPrompt.substring(0, 30);
     }
-    
+
     if (!process.env.API_KEY) return userPrompt.substring(0, 30);
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -70,28 +70,28 @@ async function* streamFromLangFlow(
   try {
     const baseUrl = config.langflowUrl?.replace(/\/+$/, '');
     const flowId = config.modelId; // Flow ID
-    
+
     // Build headers
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'accept': 'application/json'
     };
-    
+
     // Add API key if provided
     if (config.langflowApiKey) {
       headers['x-api-key'] = config.langflowApiKey;
     }
-    
+
     // Generate session ID (you can make this persistent per chat if needed)
     const sessionId = `chat-${Date.now()}`;
-    
+
     console.log('LangFlow Request:', {
       url: `${baseUrl}/api/v1/run/${flowId}?stream=true`,
       flowId,
       sessionId,
       hasApiKey: !!config.langflowApiKey
     });
-    
+
     // Use /run endpoint with proper format
     const response = await fetch(`${baseUrl}/api/v1/run/${flowId}?stream=true`, {
       method: 'POST',
@@ -104,11 +104,11 @@ async function* streamFromLangFlow(
         tweaks: {}
       })
     });
-    
+
     if (!response.ok) {
       throw new Error(`LangFlow API Error: ${response.status} ${response.statusText}`);
     }
-    
+
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Failed to read stream");
 
@@ -119,7 +119,7 @@ async function* streamFromLangFlow(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      
+
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
@@ -128,18 +128,18 @@ async function* streamFromLangFlow(
         // LangFlow uses _19 as delimiter, clean it
         const cleanLine = line.replace(/^_19/, '').replace(/^data: /, '').trim();
         if (!cleanLine || cleanLine === '[DONE]') continue;
-        
+
         try {
           const json = JSON.parse(cleanLine);
-          
+
           // Handle add_message event with content_blocks (tool usage)
           if (json.event === 'add_message' && json.data?.content_blocks) {
             const contentBlocks = json.data.content_blocks;
             console.log('Content blocks received:', contentBlocks);
-            
+
             if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
               const steps: ProcessStep[] = [];
-              
+
               for (const block of contentBlocks) {
                 // Check if block has "contents" array (new LangFlow format)
                 if (block.contents && Array.isArray(block.contents)) {
@@ -150,7 +150,7 @@ async function* streamFromLangFlow(
                       const toolInput = content.tool_input ? JSON.stringify(content.tool_input, null, 2) : '';
                       const toolOutput = content.output || '';
                       const duration = content.duration ? `${content.duration}s` : '';
-                      
+
                       steps.push({
                         id: crypto.randomUUID(),
                         type: 'command',
@@ -160,12 +160,12 @@ async function* streamFromLangFlow(
                         isExpanded: false
                       });
                     }
-                    
+
                     // Parse text type (Input/Output)
                     if (content.type === 'text' && content.header?.title) {
                       const headerTitle = content.header.title;
                       const text = content.text || '';
-                      
+
                       // Only show thinking/reasoning steps, skip Input/Output
                       if (headerTitle !== 'Input' && headerTitle !== 'Output' && text) {
                         steps.push({
@@ -180,7 +180,7 @@ async function* streamFromLangFlow(
                     }
                   }
                 }
-                
+
                 // Fallback: Old format support
                 // Parse tool_use blocks (old format)
                 if (block.type === 'tool_use') {
@@ -188,7 +188,7 @@ async function* streamFromLangFlow(
                   const toolInput = block.input ? JSON.stringify(block.input, null, 2) : '';
                   const toolOutput = block.output || '';
                   const duration = block.duration || '';
-                  
+
                   steps.push({
                     id: block.id || crypto.randomUUID(),
                     type: 'command',
@@ -198,7 +198,7 @@ async function* streamFromLangFlow(
                     isExpanded: false
                   });
                 }
-                
+
                 // Parse thinking blocks (old format)
                 if (block.type === 'thinking' || block.type === 'text') {
                   const content = block.content || block.text || '';
@@ -214,56 +214,56 @@ async function* streamFromLangFlow(
                   }
                 }
               }
-              
+
               if (steps.length > 0) {
                 yield { type: 'steps', steps };
               }
             }
             continue;
           }
-          
+
           // Handle LangFlow /run endpoint format
           if (json.event === 'token' && json.data?.chunk) {
             const content = json.data.chunk;
-            
+
             // Skip empty content
             if (!content) continue;
-            
+
             // Skip duplicate content
             if (content === lastContent) {
               console.log('Skipping duplicate chunk:', content);
               continue;
             }
-            
+
             lastContent = content;
             yield { type: 'text', content };
             continue;
           }
-          
+
           // Handle end event (optional, contains full message)
           if (json.event === 'end' && json.data?.result?.message) {
             // We already streamed all tokens, so we can skip this
             continue;
           }
-          
+
           // Fallback: Handle delta format (old responses endpoint)
           if (json.delta && json.delta.content) {
             const content = json.delta.content;
             if (!content) continue;
             if (content === lastContent) continue;
-            
+
             lastContent = content;
             yield { type: 'text', content };
             continue;
           }
-          
+
           // Fallback: Handle full response
           const responseContent = json.output_text || json.output || json.text || json.content;
           if (responseContent) {
             yield { type: 'text', content: responseContent };
             continue;
           }
-          
+
           // Fallback: Handle chunk format
           if (json.chunk) {
             yield { type: 'text', content: json.chunk };
@@ -293,7 +293,7 @@ export async function* streamMessageFromGemini(
       yield { type: 'steps', steps: mockSteps };
       await new Promise(resolve => setTimeout(resolve, 600));
     }
-    
+
     yield* streamFromLangFlow(history, newMessage, config);
     return;
   }
@@ -309,11 +309,11 @@ export async function* streamMessageFromGemini(
 
   if (config.provider === 'google') {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
+
     // Construct history with attachments
     const recentHistory = history.slice(-10).map(msg => {
       const parts: any[] = [];
-      
+
       if (msg.attachments) {
         msg.attachments.forEach(att => {
           if (att.type === 'image') {
@@ -346,10 +346,10 @@ export async function* streamMessageFromGemini(
     });
 
     const chat = ai.chats.create({ model: config.modelId, history: recentHistory });
-    
+
     // Construct current message parts
     const currentParts: any[] = [];
-    
+
     attachments.forEach(att => {
       if (att.type === 'image') {
         const base64Data = att.content.split(',')[1];
@@ -363,7 +363,7 @@ export async function* streamMessageFromGemini(
         currentParts.push({ text: `\n\n--- FILE: ${att.name} ---\n${att.content}\n--- END FILE ---` });
       }
     });
-    
+
     currentParts.push({ text: newMessage });
 
     const result = await chat.sendMessageStream({ message: currentParts });
@@ -415,5 +415,51 @@ export async function* streamMessageFromGemini(
         }
       }
     }
+  }
+}
+
+export async function generateSuggestions(
+  history: Message[],
+  lastResponse: string,
+  config: ModelConfig
+): Promise<string[]> {
+  try {
+    // If no API key and not using LangFlow (or even if using LangFlow, we might want to use Google for suggestions if available)
+    // For now, if no Google API key, return empty array to fallback to random
+    if (!process.env.API_KEY) return [];
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Use gemini-1.5-flash for reliability and speed
+    const modelId = 'gemini-1.5-flash';
+
+    // Construct a simple prompt context
+    const recentMessages = history.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
+    const prompt = `
+Conversation History:
+${recentMessages}
+Assistant: ${lastResponse}
+
+Task: Generate 3 short, relevant follow-up questions or actions (max 6 words each) that the USER might want to send next.
+Respond ONLY with the 3 suggestions, one per line. Do not number them.
+    `.trim();
+
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        maxOutputTokens: 100,
+      }
+    });
+
+    const text = response.text || "";
+    return text.split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .slice(0, 3);
+
+  } catch (error) {
+    console.warn("Failed to generate suggestions:", error);
+    return [];
   }
 }

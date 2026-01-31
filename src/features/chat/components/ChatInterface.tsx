@@ -11,7 +11,9 @@ import { ChatInput } from "./ChatInput";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAgentModels } from "../hooks/useAgentModels";
 import { useFileHandling } from "../hooks/useFileHandling";
+
 import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
+
 
 export const getPresetModels = (
   t: (key: string) => string,
@@ -234,6 +236,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowModelMenu(false);
   };
 
+  const handleSendClickWrapper = (text: string) => {
+    onSend(text, []);
+    shouldFocusRef.current = true;
+  };
+
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
       {/* Settings Button - Top Right */}
@@ -353,6 +360,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onCancelEdit={cancelEdit}
               setEditValue={setEditValue}
               markdownComponents={markdownComponents}
+              onSuggestionClick={(prompt) => handleSendClickWrapper(prompt)}
             />
           ))}
 

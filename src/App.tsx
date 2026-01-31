@@ -24,9 +24,11 @@ import {
 import {
   streamMessageFromGemini,
   generateChatTitle,
+  generateSuggestions,
 } from "@/features/chat/api/geminiService";
 import { PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
 
 // Define AppLayout props interface
 interface AppLayoutProps {
@@ -598,6 +600,44 @@ export default function App() {
           });
         }
       }
+
+      // Add suggestions after streaming is complete
+      const language = localStorage.getItem("language") === "th" ? "th" : "en";
+      let suggestions: string[] = [];
+
+      try {
+        // Try AI generation first
+        suggestions = await generateSuggestions(historyToUse, accumulatedContent, modelConfig);
+      } catch (e) {
+        console.warn("AI generation failed, falling back to random", e);
+      }
+
+      // Fallback to random if empty
+      if (suggestions.length === 0) {
+        const pool = FOLLOW_UPS[language];
+        suggestions = [...pool].sort(() => 0.5 - Math.random()).slice(0, 3);
+      }
+
+      setSessions((prev) => {
+        const session = prev[sessionId];
+        if (!session) return prev;
+
+        const updatedMessages = session.messages.map((msg) => {
+          if (msg.id === assistantMsgId) {
+            return { ...msg, suggestions };
+          }
+          return msg;
+        });
+
+        return {
+          ...prev,
+          [sessionId]: {
+            ...session,
+            messages: updatedMessages,
+          },
+        };
+      });
+
     } catch (error: any) {
       console.error("Error in chat loop:", error);
 

@@ -60,3 +60,26 @@ export const SUGGESTIONS = {
         { icon: "📚", title: "Book Study", desc: "Literary analysis", prompt: "What are the main themes in '1984' by George Orwell?" },
     ]
 };
+
+export const FOLLOW_UPS = {
+    th: [
+        "อธิบายเพิ่มเติมหน่อย",
+        "ช่วยยกตัวอย่างให้ดูหน่อย",
+        "สรุปให้สั้นๆ หน่อย",
+        "มีข้อดีข้อเสียอะไรบ้าง?",
+        "ทำไมถึงเป็นแบบนั้น?",
+        "มีวิธีอื่นอีกไหม?",
+        "แปลเป็นภาษาอังกฤษให้หน่อย",
+        "ขอรายละเอียดเชิงลึกกว่านี้"
+    ],
+    en: [
+        "Tell me more about that",
+        "Can you give me an example?",
+        "Please summarize this",
+        "What are the pros and cons?",
+        "Why is that the case?",
+        "Are there any alternatives?",
+        "Translate this to Thai",
+        "Explain in more detail"
+    ]
+};
