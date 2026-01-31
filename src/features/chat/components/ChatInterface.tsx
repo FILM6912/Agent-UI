@@ -241,9 +241,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="relative" ref={settingsMenuRef}>
           <button
             onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${
-              isPreviewOpen ? "right-4" : "right-12"
-            } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
+            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${isPreviewOpen ? "right-4" : "right-12"
+              } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
             title={t("settings.title")}
           >
             <Settings className="w-4 h-4" />
@@ -391,7 +390,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
         showModelMenu={showModelMenu}
         setShowModelMenu={setShowModelMenu}
         modelConfig={modelConfig}
