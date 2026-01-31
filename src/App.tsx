@@ -25,6 +25,8 @@ import {
   streamMessageFromGemini,
   generateChatTitle,
   generateSuggestions,
+  fetchHistoryFromLangFlow,
+  fetchAllSessionsFromLangFlow,
 } from "@/features/chat/api/langflowService";
 import { PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -295,35 +297,11 @@ export default function App() {
   }, [isAuthenticated]);
 
   const initialId = crypto.randomUUID();
-  const [sessions, setSessions] = useState<Record<string, ChatSession>>(() => {
-    const saved = localStorage.getItem("chat_sessions");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Ensure sessions is valid
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          Object.keys(parsed).length > 0
-        ) {
-          return parsed;
-        }
-      } catch (error) {
-        console.error("Failed to parse chat sessions:", error);
-      }
-    }
-    // Create initial session
-    const newId = crypto.randomUUID();
-    return {
-      [newId]: {
-        id: newId,
-        title: "New Task",
-        messages: [],
-        updatedAt: Date.now(),
-      },
-    };
-  });
+  // Sessions now start empty, populated via API
+  const [sessions, setSessions] = useState<Record<string, ChatSession>>({});
 
+  // No longer saving sessions to localStorage (User Request: LangFlow source of truth)
+  /*
   useEffect(() => {
     try {
       localStorage.setItem("chat_sessions", JSON.stringify(sessions));
@@ -332,6 +310,9 @@ export default function App() {
       console.warn("Local storage is full. Old data might not be persisted.");
     }
   }, [sessions]);
+  */
+
+
 
   const [activeChatId, setActiveChatId] = useState<string>(() => {
     // Get first session ID from sessions
@@ -350,6 +331,7 @@ export default function App() {
     message: "",
     type: "error" as "error" | "warning",
   });
+
 
   // View State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -431,6 +413,94 @@ export default function App() {
     });
   }, [t]);
 
+  // Fetch ALL sessions on mount/config change (Replaces local storage logic)
+  useEffect(() => {
+    if (!modelConfig.langflowUrl || !modelConfig.modelId) return;
+
+    const loadSessions = async () => {
+      setIsLoading(true);
+      const fetchedSessions = await fetchAllSessionsFromLangFlow(modelConfig);
+      setIsLoading(false);
+
+      if (fetchedSessions.length > 0) {
+        const newSessionsMap: Record<string, ChatSession> = {};
+        fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
+        setSessions(newSessionsMap);
+
+        // If active chat is empty or not in list (and we have sessions), select latest
+        // But activeChatId might be initialized from URL. 
+        // If URL has ID, we keep it (fetchedSessions should contain it if valid).
+        // If URL has no ID, we might select first.
+        if (!activeChatId || !newSessionsMap[activeChatId]) {
+          // Wait, if URL has ID but it's not in fetched sessions, maybe it's a new one or invalid?
+          // If invalid/missing, fallback to first available.
+          if (fetchedSessions.length > 0) {
+            setActiveChatId(fetchedSessions[0].id);
+          }
+        }
+      } else {
+        // No sessions from API.
+        if (Object.keys(sessions).length === 0) {
+          const newId = crypto.randomUUID();
+          setSessions({
+            [newId]: {
+              id: newId,
+              title: "New Task",
+              messages: [],
+              updatedAt: Date.now()
+            }
+          });
+          setActiveChatId(newId);
+        }
+      }
+    };
+
+    loadSessions();
+  }, [modelConfig, activeChatId]); // Added activeChatId to dep array to be safe, though mainly config matters
+
+  // Fetch History from LangFlow (Existing one, maybe redundant now?)
+  // Actually, fetchAllSessionsFromLangFlow gets the *list* and *messages* (if we implemented it to populate messages).
+  // My implementation of fetchAllSessionsFromLangFlow DOES populate messages.
+  // So the per-chat fetch might be redundant OR useful for refreshing just one chat.
+  // The per-chat fetch is triggered by activeChatId change.
+  // Let's KEPP it for now to ensure we get fresh messages when switching, 
+  // although fetchAllSessions already got them. 
+  // Actually, fetchAllSessions is heavy. 
+  // Maybe we should ONLY fetch headers in fetchAllSessions? 
+  // Current implementation fetches ALL messages and groups them. 
+  // So we have the data.
+  // But the existing `fetchHistoryFromLangFlow` hook (below) updates `sessions` again.
+  // That's fine, it acts as a "refresh on select".
+  useEffect(() => {
+    if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
+
+    const loadHistory = async () => {
+      // Create a local variable or ref to avoid race conditions if needed
+      // For now, simpler is better.
+      const messages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
+
+      if (messages.length > 0) {
+        setSessions(prev => {
+          const currentSession = prev[activeChatId];
+          if (!currentSession) return prev;
+
+          // Avoid loop if content is identical? 
+          // For now, let's assume we want latest always.
+          return {
+            ...prev,
+            [activeChatId]: {
+              ...currentSession,
+              messages: messages,
+              updatedAt: Date.now()
+            }
+          };
+        });
+      }
+    };
+
+    loadHistory();
+  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+
   const history = useMemo(() => {
     return (Object.values(sessions) as ChatSession[]).sort(
       (a: ChatSession, b: ChatSession) => b.updatedAt - a.updatedAt,
@@ -500,6 +570,7 @@ export default function App() {
         prompt,
         modelConfig,
         attachments,
+        sessionId
       );
       let isFirstChunk = true;
 
