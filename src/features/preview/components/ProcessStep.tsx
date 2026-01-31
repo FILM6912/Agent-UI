@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  Terminal,
+
   Brain,
   FileEdit,
   CheckCircle2,
@@ -53,7 +53,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
 
     switch (step.type) {
       case "command":
-        return "Tool Execution";
+        return t("process.toolExecution");
       case "edit":
         return t("process.edit");
       default:
@@ -69,7 +69,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
     return step.content;
   };
 
-  const isCommand = step.type === "command";
+
 
   return (
     <div className="mb-2 last:mb-0 rounded-xl bg-zinc-50 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200">
@@ -97,7 +97,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
           {/* Show preview snippet always to preserve position */}
           {step.content && (
             <div className="flex-1 min-w-0 ml-2">
-              <div className="text-xs text-zinc-500 dark:text-zinc-500 truncate max-w-[200px]">
+              <div className="text-xs text-blue-600 dark:text-blue-400 truncate max-w-[200px] font-medium">
                 {step.content.split("\n")[0].replace(/\*\*/g, "")}
               </div>
             </div>
