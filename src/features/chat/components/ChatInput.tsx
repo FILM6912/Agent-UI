@@ -95,6 +95,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       onSend();
+      // Keep focus on textarea after sending
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -368,7 +372,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   placeholder={t("chat.placeholder")}
                   className="w-full bg-transparent text-zinc-700 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-3 py-5 outline-none resize-none min-h-[56px] max-h-[30vh] text-base leading-relaxed"
                   rows={1}
-                  disabled={isLoading || isStreaming}
                 />
 
                 {/* Right Actions */}
@@ -425,7 +428,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     </div>
 
                     <button
-                      onClick={onSend}
+                      onClick={() => {
+                        onSend();
+                        // Keep focus on textarea after clicking send
+                        setTimeout(() => {
+                          textareaRef.current?.focus();
+                        }, 0);
+                      }}
                       disabled={
                         (!input.trim() && attachments.length === 0) ||
                         isLoading ||
