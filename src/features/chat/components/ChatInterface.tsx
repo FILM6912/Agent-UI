@@ -61,6 +61,7 @@ interface ChatInterfaceProps {
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
   onLogout?: () => void;
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -79,11 +80,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onPreviewRequest,
   onOpenSettings,
   onLogout,
+  textareaRef: externalTextareaRef,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = externalTextareaRef || internalTextareaRef;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusRef = useRef(false);
 
   // Menu Refs for click outside handling
   const mcpMenuRef = useRef<HTMLDivElement>(null);
@@ -139,6 +143,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [messages, isLoading, isStreaming, editingId, input]);
 
+  // Auto-focus textarea after sending message
+  useEffect(() => {
+    if (shouldFocusRef.current && textareaRef.current) {
+      // Use requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          shouldFocusRef.current = false;
+        });
+      });
+    }
+  });
+
   // Click outside handler for menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -181,13 +198,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if ((!input.trim() && attachments.length === 0) || isLoading || isStreaming)
       return;
 
+    console.log("🚀 Sending message, will focus after render");
+    shouldFocusRef.current = true;
     onSend(input, attachments);
     clearAttachments();
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 0);
     }
   };
 
