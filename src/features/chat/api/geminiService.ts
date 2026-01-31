@@ -420,28 +420,76 @@ export async function* streamMessageFromGemini(
 
 export async function generateSuggestions(
   history: Message[],
+  userPrompt: string,
   lastResponse: string,
   config: ModelConfig
 ): Promise<string[]> {
   try {
-    // If no API key and not using LangFlow (or even if using LangFlow, we might want to use Google for suggestions if available)
-    // For now, if no Google API key, return empty array to fallback to random
-    if (!process.env.API_KEY) return [];
-
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Use gemini-1.5-flash for reliability and speed
-    const modelId = 'gemini-1.5-flash';
 
     // Construct a simple prompt context
     const recentMessages = history.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n');
     const prompt = `
 Conversation History:
 ${recentMessages}
+User: ${userPrompt}
 Assistant: ${lastResponse}
 
-Task: Generate 3 short, relevant follow-up questions or actions (max 6 words each) that the USER might want to send next.
-Respond ONLY with the 3 suggestions, one per line. Do not number them.
+Task: Generate 3 short, relevant follow-up questions that the USER would ask the Assistant next.
+Constraints:
+1. Phrasing must be from the USER's perspective (e.g., "Tell me more", "How do I...", "Explain X").
+2. Respond ONLY with the 3 suggestions, one per line.
+3. Do not number them.
+4. Do not include quotes.
+5. Respond in the SAME LANGUAGE as the "User" message above.
     `.trim();
+
+    // If LangFlow is configured, use it
+    if (config.langflowUrl && config.modelId) {
+      try {
+        const baseUrl = config.langflowUrl.replace(/\/+$/, '');
+        const flowId = config.modelId;
+        const suggestionSessionId = `suggestion-${Date.now()}`;
+
+        const response = await fetch(`${baseUrl}/api/v1/run/${flowId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+            ...(config.langflowApiKey ? { 'x-api-key': config.langflowApiKey } : {})
+          },
+          body: JSON.stringify({
+            input_value: prompt,
+            input_type: "chat",
+            output_type: "chat",
+            session_id: suggestionSessionId,
+            tweaks: {}
+          })
+        });
+
+        if (!response.ok) throw new Error(`LangFlow API Error: ${response.status}`);
+
+        const data = await response.json();
+        const outputText = data.outputs?.[0]?.outputs?.[0]?.results?.message?.data?.text ||
+          data.outputs?.[0]?.outputs?.[0]?.messages?.[0]?.message ||
+          "";
+
+        return outputText.split('\n')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
+          .slice(0, 3);
+      } catch (error) {
+        console.warn("LangFlow suggestion generation failed:", error);
+        // Fallback to Google if available, otherwise return empty
+        if (!process.env.API_KEY) return [];
+      }
+    }
+
+    // Default to Google GenAI
+    if (!process.env.API_KEY) return [];
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Use gemini-1.5-flash for reliability and speed
+    const modelId = 'gemini-1.5-flash';
 
     const response = await ai.models.generateContent({
       model: modelId,
