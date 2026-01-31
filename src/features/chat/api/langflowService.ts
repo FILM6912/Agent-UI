@@ -45,14 +45,94 @@ export async function generateChatTitle(userPrompt: string, config?: ModelConfig
   return userPrompt.substring(0, 30);
 }
 
+// Helper to normalize URL for proxy usage
+const getEffectiveBaseUrl = (url: string | undefined): string => {
+  if (!url) return '';
+  const cleanUrl = url.replace(/\/+$/, '');
+  // If user configured localhost:7860, use relative path to trigger Vite proxy
+  if (cleanUrl.includes('localhost:7860') || cleanUrl.includes('127.0.0.1:7860')) {
+    console.log('Using proxy for LangFlow URL:', cleanUrl);
+    return '';
+  }
+  return cleanUrl;
+};
+
+// Stream from LangFlow using OpenAI SDK format
+// Helper to find ChatInput ID
+async function getChatInputId(baseUrl: string, flowId: string, apiKey?: string): Promise<string | null> {
+  try {
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
+
+    const response = await fetch(`${baseUrl}/api/v1/flows/${flowId}`, { headers });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const nodes = data.data?.nodes || [];
+    const chatInput = nodes.find((n: any) => n.data?.type === 'ChatInput');
+    console.log('ChatInput ID resolution:', { found: !!chatInput, id: chatInput?.id });
+    return chatInput?.id || null;
+  } catch (e) {
+    console.warn("Failed to fetch flow details:", e);
+    return null;
+  }
+}
+
+// Helper to upload file to LangFlow
+async function uploadFileToLangFlow(
+  baseUrl: string,
+  flowId: string,
+  dataURI: string,
+  apiKey?: string
+): Promise<string | null> {
+  try {
+    const headers: HeadersInit = {};
+    if (apiKey) headers['x-api-key'] = apiKey;
+
+    // Convert Data URI to Blob
+    const response = await fetch(dataURI);
+    const blob = await response.blob();
+
+    const formData = new FormData();
+    formData.append('file', blob, 'image.png'); // Default name
+
+    console.log(`Uploading file to ${baseUrl}/api/v1/files/upload/${flowId}...`);
+
+    const uploadResponse = await fetch(`${baseUrl}/api/v1/files/upload/${flowId}`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      console.error('File upload failed:', await uploadResponse.text());
+      return null;
+    }
+
+    const data = await uploadResponse.json();
+    console.log('File upload success:', data);
+    return data.file_path || null;
+  } catch (e) {
+    console.error("Failed to upload file:", e);
+    return null;
+  }
+}
+
+// Stream from LangFlow using OpenAI SDK format
 // Stream from LangFlow using OpenAI SDK format
 async function* streamFromLangFlow(
   history: Message[],
   newMessage: string,
-  config: ModelConfig
+  config: ModelConfig,
+  attachments: Attachment[] = []
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
+  console.log('>>> ENTERING streamFromLangFlow', {
+    message: newMessage,
+    attachmentCount: attachments.length,
+    configUrl: config.langflowUrl
+  });
   try {
-    const baseUrl = config.langflowUrl?.replace(/\/+$/, '');
+    const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
     const flowId = config.modelId; // Flow ID
 
     // Build headers
@@ -66,27 +146,78 @@ async function* streamFromLangFlow(
       headers['x-api-key'] = config.langflowApiKey;
     }
 
-    // Generate session ID (you can make this persistent per chat if needed)
+    // Handle Attachments (Images)
+    let tweaks: any = {};
+    console.log('Processing attachments:', { count: attachments.length, baseUrl, flowId });
+
+    if (attachments.length > 0 && flowId) {
+      // 1. Upload files FIRST (as requested by user)
+      const uploadedFilePaths: string[] = [];
+      for (const attachment of attachments) {
+        if (attachment.type === 'image') {
+          console.log('Starting file upload for attachment...');
+          const filePath = await uploadFileToLangFlow(baseUrl, flowId, attachment.content, config.langflowApiKey);
+          if (filePath) {
+            uploadedFilePaths.push(filePath);
+          }
+        }
+      }
+
+      // 2. Resolve ChatInput ID
+      if (uploadedFilePaths.length > 0) {
+        const chatInputId = await getChatInputId(baseUrl, flowId, config.langflowApiKey);
+        console.log('Retrieved ChatInput ID:', chatInputId);
+
+        if (chatInputId) {
+          tweaks[chatInputId] = {
+            files: uploadedFilePaths
+          };
+        } else {
+          console.warn('Files uploaded but ChatInput ID not found. Tweaks will not be applied.');
+        }
+      }
+    }
+
+    // Generate session ID
     const sessionId = `chat-${Date.now()}`;
+
+    // Construct Body matching User's CURL example (wrapped in input_request)
+    const payload = {
+      input_value: newMessage,
+      input_type: "chat",
+      output_type: "chat",
+      tweaks: tweaks
+      // session_id is often part of query params or body, but user example didn't show it in body. 
+      // We will keep it flexible or add it if needed, but user's curl didn't have it in the JSON body.
+      // Wait, user curl: "input_request": { "input_value": ... }
+    };
+
+    const body: any = {
+      input_request: payload
+    };
+
+    // Some versions need session_id at top level or inside input_request? 
+    // User curl didn't show session_id in the body, only in specific fields? Actually user didn't show session_id.
+    // We'll add session_id to payload just in case, as it's standard.
+    (payload as any).session_id = sessionId;
 
     console.log('LangFlow Request:', {
       url: `${baseUrl}/api/v1/run/${flowId}?stream=true`,
       flowId,
       sessionId,
-      hasApiKey: !!config.langflowApiKey
+      hasApiKey: !!config.langflowApiKey,
+      hasTweaks: Object.keys(tweaks).length > 0
     });
+
+    console.log('Sending LangFlow Body:', JSON.stringify(body, null, 2));
+
+    console.log('Sending LangFlow Body:', JSON.stringify(body, null, 2));
 
     // Use /run endpoint with proper format
     const response = await fetch(`${baseUrl}/api/v1/run/${flowId}?stream=true`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        input_value: newMessage,
-        input_type: "chat",
-        output_type: "chat",
-        session_id: sessionId,
-        tweaks: {}
-      })
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -207,7 +338,7 @@ async function* streamFromLangFlow(
           }
 
           // Handle LangFlow /run endpoint format
-          if (json.event === 'token' && json.data?.chunk) {
+          if ((json.event === 'token' || json.event === 'message') && json.data?.chunk) {
             const content = json.data.chunk;
 
             // Skip empty content
@@ -278,7 +409,7 @@ export async function* streamMessageFromGemini(
       await new Promise(resolve => setTimeout(resolve, 600));
     }
 
-    yield* streamFromLangFlow(history, newMessage, config);
+    yield* streamFromLangFlow(history, newMessage, config, attachments);
     return;
   }
 
@@ -314,7 +445,7 @@ Constraints:
     // If LangFlow is configured, use it
     if (config.langflowUrl && config.modelId) {
       try {
-        const baseUrl = config.langflowUrl.replace(/\/+$/, '');
+        const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
         const flowId = config.modelId;
         const suggestionSessionId = `suggestion-${Date.now()}`;
 
