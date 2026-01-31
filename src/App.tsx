@@ -607,7 +607,7 @@ export default function App() {
 
       try {
         // Try AI generation first
-        suggestions = await generateSuggestions(historyToUse, accumulatedContent, modelConfig);
+        suggestions = await generateSuggestions(historyToUse, prompt, accumulatedContent, modelConfig);
       } catch (e) {
         console.warn("AI generation failed, falling back to random", e);
       }
