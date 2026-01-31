@@ -94,8 +94,8 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
             {getTitle()}
           </span>
 
-          {/* If collapsed, show a preview snippet */}
-          {!expanded && step.content && (
+          {/* Show preview snippet always to preserve position */}
+          {step.content && (
             <div className="flex-1 min-w-0 ml-2">
               <div className="text-xs text-zinc-500 dark:text-zinc-500 truncate max-w-[200px]">
                 {step.content.split("\n")[0].replace(/\*\*/g, "")}
@@ -133,8 +133,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                 const content = step.content;
                 const lines = content.split("\n");
 
-                // Extract tool name from first line (just the tool name without any prefix)
-                const toolName = lines[0]?.trim() || "Tool";
+
 
                 // Find Input and Output sections
                 const inputIndex = lines.findIndex(
@@ -170,23 +169,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
 
                 return (
                   <>
-                    {/* Tool Name */}
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                      <Markdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ children }) => <span>{children}</span>,
-                          strong: ({ children }) => (
-                            <strong className="font-bold text-blue-600 dark:text-blue-400">
-                              {children}
-                            </strong>
-                          ),
-                        }}
-                      >
-                        {toolName}
-                      </Markdown>
-                    </div>
+
 
                     {/* Input Section */}
                     {inputContent && (
