@@ -418,9 +418,10 @@ export default function App() {
     if (!modelConfig.langflowUrl || !modelConfig.modelId) return;
 
     const loadSessions = async () => {
-      setIsLoading(true);
+      // Don't set isLoading(true) here as it triggers the "Agent is typing" UI
+      // causing the "ghost AI" effect on refresh.
+      // We can fail silently or show a different loading state if needed.
       const fetchedSessions = await fetchAllSessionsFromLangFlow(modelConfig);
-      setIsLoading(false);
 
       if (fetchedSessions.length > 0) {
         const newSessionsMap: Record<string, ChatSession> = {};
