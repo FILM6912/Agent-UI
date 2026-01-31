@@ -67,6 +67,7 @@ export const translations = {
       chats: "Conversations",
       messages: "messages",
       lastUpdated: "Last updated",
+      thoughtProcess: "Thought Process",
     },
     settings: {
       title: "Settings",
@@ -276,6 +277,7 @@ export const translations = {
       chats: "รายการสนทนา",
       messages: "ข้อความ",
       lastUpdated: "อัปเดตล่าสุด",
+      thoughtProcess: "กระบวนการคิด",
     },
     settings: {
       title: "การตั้งค่า",

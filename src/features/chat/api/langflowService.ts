@@ -473,7 +473,10 @@ Constraints:
           data.outputs?.[0]?.outputs?.[0]?.messages?.[0]?.message ||
           "";
 
-        return outputText.split('\n')
+        // Remove <think> tags
+        const cleanOutput = outputText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+        return cleanOutput.split('\n')
           .map((s: string) => s.trim())
           .filter((s: string) => s.length > 0)
           .slice(0, 3);
@@ -501,7 +504,10 @@ Constraints:
     });
 
     const text = response.text || "";
-    return text.split('\n')
+    // Remove <think> tags from the output before processing
+    const cleanText = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+    return cleanText.split('\n')
       .map(s => s.trim())
       .filter(s => s.length > 0)
       .slice(0, 3);
