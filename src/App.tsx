@@ -328,8 +328,8 @@ export default function App() {
     try {
       localStorage.setItem("chat_sessions", JSON.stringify(sessions));
     } catch (e) {
-      console.error("Failed to save chat sessions (likely quota exceeded):", e);
-      // Optional: Logic to clear old sessions or warn user
+      // Quota exceeded is common with large images
+      console.warn("Local storage is full. Old data might not be persisted.");
     }
   }, [sessions]);
 
