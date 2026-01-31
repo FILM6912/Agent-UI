@@ -72,7 +72,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
   const isCommand = step.type === "command";
 
   return (
-    <div className="mb-2 last:mb-0 rounded-xl border border-zinc-200 dark:border-zinc-800/40 bg-zinc-50 dark:bg-[#0c0c0e] overflow-hidden group hover:border-zinc-300 dark:hover:border-zinc-700/50 transition-all duration-200 shadow-sm dark:shadow-none">
+    <div className="mb-2 last:mb-0 rounded-xl bg-zinc-50 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200">
       <div
         className="flex items-center gap-3 p-3 min-h-[44px] cursor-pointer select-none"
         onClick={() => setExpanded(!expanded)}
@@ -97,7 +97,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
           {/* If collapsed, show a preview snippet */}
           {!expanded && step.content && (
             <div className="flex-1 min-w-0 ml-2">
-              <div className="bg-zinc-100 dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400 truncate max-w-[200px]">
+              <div className="text-xs text-zinc-500 dark:text-zinc-500 truncate max-w-[200px]">
                 {step.content.split("\n")[0].replace(/\*\*/g, "")}
               </div>
             </div>
@@ -194,7 +194,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                         <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           Input
                         </div>
-                        <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 text-xs font-mono overflow-x-auto">
+                        <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
                           <pre className="whitespace-pre-wrap break-words">
                             {(() => {
                               try {
@@ -266,7 +266,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                         <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           Output
                         </div>
-                        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg p-3 text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto prose prose-sm dark:prose-invert max-w-none">
+                        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto prose prose-sm dark:prose-invert max-w-none">
                           <Markdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -311,7 +311,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
           )}
 
           {step.type !== "thinking" && step.type !== "command" && (
-            <div className="text-xs font-mono text-zinc-600 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-900/30 p-2 rounded border border-zinc-200 dark:border-zinc-800/30 break-all whitespace-pre-wrap animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="text-xs font-mono text-zinc-600 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-900/30 p-2 rounded break-all whitespace-pre-wrap animate-in fade-in slide-in-from-top-1 duration-200">
               {step.content}
             </div>
           )}
