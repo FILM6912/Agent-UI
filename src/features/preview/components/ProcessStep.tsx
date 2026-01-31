@@ -72,7 +72,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
 
 
   return (
-    <div className="mb-2 last:mb-0 rounded-xl bg-zinc-50 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200">
+    <div className="mb-2 last:mb-0 rounded-xl bg-zinc-50 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200 border border-black/10 dark:border-white/10">
       <div
         className="flex items-center gap-3 p-3 min-h-[44px] cursor-pointer select-none"
         onClick={() => setExpanded(!expanded)}
@@ -90,7 +90,9 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
             {getIcon()}
           </div>
 
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 whitespace-nowrap flex-shrink-0">
+          <span
+            className="text-sm font-medium whitespace-nowrap flex-shrink-0 text-zinc-800 dark:text-zinc-200"
+          >
             {getTitle()}
           </span>
 
