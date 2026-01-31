@@ -63,7 +63,7 @@ interface ChatInterfaceProps {
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
   onLogout?: () => void;
-  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
