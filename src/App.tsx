@@ -357,7 +357,7 @@ export default function App() {
   // Responsive State
   const [isMobile, setIsMobile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Initialize responsive state
   useEffect(() => {
@@ -373,7 +373,7 @@ export default function App() {
     const initialMobile = window.innerWidth < 1024;
     setIsMobile(initialMobile);
     setIsSidebarOpen(!initialMobile);
-    setIsPreviewOpen(!initialMobile);
+    setIsPreviewOpen(false); // Default to closed
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -766,7 +766,7 @@ export default function App() {
             };
           });
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     await executeChatRequest(
