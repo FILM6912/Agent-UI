@@ -1,4 +1,5 @@
 import { Message, ProcessStep, ModelConfig, Attachment, ChatSession } from "../../../types";
+import { generateUUID } from "@/lib/utils";
 
 const generateMockSteps = (prompt: string): ProcessStep[] => {
   const lowercasePrompt = prompt.toLowerCase();
@@ -11,7 +12,7 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
   const steps: ProcessStep[] = [];
   if (isTechRequest) {
     steps.push({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       type: 'thinking',
       title: 'Deep Thinking',
       content: `Analyzing technical requirements for: "${prompt.substring(0, 30)}..."`,
@@ -20,7 +21,7 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
       isExpanded: false
     });
     steps.push({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       type: 'command',
       content: 'Initializing environment...',
       status: 'completed',
@@ -28,7 +29,7 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
     });
   } else if (isThinkingRequest) {
     steps.push({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       type: 'thinking',
       title: 'Reasoning',
       content: `Deconstructing the problem...`,
@@ -243,7 +244,7 @@ async function* streamFromLangFlow(
                       const duration = content.duration ? `${content.duration}s` : '';
 
                       steps.push({
-                        id: crypto.randomUUID(),
+                        id: generateUUID(),
                         type: 'command',
                         content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
                         duration: duration,
@@ -260,7 +261,7 @@ async function* streamFromLangFlow(
                       // Only show thinking/reasoning steps, skip Input/Output
                       if (headerTitle !== 'Input' && headerTitle !== 'Output' && text) {
                         steps.push({
-                          id: crypto.randomUUID(),
+                          id: generateUUID(),
                           type: 'thinking',
                           title: headerTitle,
                           content: text,
@@ -281,7 +282,7 @@ async function* streamFromLangFlow(
                   const duration = block.duration || '';
 
                   steps.push({
-                    id: block.id || crypto.randomUUID(),
+                    id: block.id || generateUUID(),
                     type: 'command',
                     content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
                     duration: duration,
@@ -295,7 +296,7 @@ async function* streamFromLangFlow(
                   const content = block.content || block.text || '';
                   if (content) {
                     steps.push({
-                      id: block.id || crypto.randomUUID(),
+                      id: block.id || generateUUID(),
                       type: 'thinking',
                       title: 'Reasoning',
                       content: content,
