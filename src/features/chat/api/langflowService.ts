@@ -657,3 +657,28 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
     return [];
   }
 }
+
+export async function deleteSession(config: ModelConfig, sessionId: string): Promise<boolean> {
+  if (!config.langflowUrl) return false;
+
+  try {
+    const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
+
+    const response = await fetch(`${baseUrl}/api/v1/monitor/messages/session/${sessionId}`, {
+      method: 'DELETE',
+      headers
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to delete session: ${response.status}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting session:", error);
+    return false;
+  }
+}
