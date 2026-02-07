@@ -1183,34 +1183,8 @@ export default function App() {
   };
 
   const handleNewChat = () => {
-    const newId = crypto.randomUUID();
-
-    // Explicitly create incomplete/empty session locally so the user lands on it.
-    // This will be "optimistic" state. 
-    // If the API fetch runs, it should merge or we should ensure local new sessions aren't wiped.
-    // Actually, if we just set it here, the useEffect polling might wipe it if it's not on server.
-    // However, the useEffect logic `if (fetchedSessions.length > 0)` replaces the whole map.
-    // We should probably merge instead of replace, OR we should rely on the fact that
-    // `activeChatId` logic handles the "empty" case.
-
-    // Better approach: Just create it in state. 
-    // If the next polling cycle doesn't see it, it might vanish IF we replace *all* sessions.
-    // But our syncing logic does `setSessions(newSessionsMap)`. This is destructive.
-    // We should modify the sync logic to preserve sessions that are empty (local only).
-
-    // Step 1: Create local session
-    setSessions(prev => ({
-      ...prev,
-      [newId]: {
-        id: newId,
-        title: "New Task",
-        messages: [],
-        updatedAt: Date.now()
-      }
-    }));
-
-    // Step 2: Navigate to it
-    navigate(`/chat/${newId}`);
+    // Navigate to root chat path
+    navigate("/chat");
 
     setPreviewContent(null);
     setIsSettingsOpen(false);
