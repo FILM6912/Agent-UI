@@ -420,6 +420,12 @@ export default function App() {
   }, [t]);
 
   // Fetch ALL sessions on mount/config change (Replaces local storage logic)
+  // Ref for checking streaming status in useEffects without dependency
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
   // Fetch ALL sessions on mount/config change (Replaces local storage logic)
   useEffect(() => {
     console.log('>>> App.tsx: useEffect [modelConfig] triggered', modelConfig);
@@ -437,46 +443,64 @@ export default function App() {
 
     const loadSessions = async () => {
       console.log('>>> App.tsx: loadSessions starting...');
+      // If we are currently streaming, we might not want to fetch right now to avoid state clobbering
+      // or we should be very careful about merging.
+      // Ideally, we shouldn't act on stale fetches if streaming started.
+
       const fetchedSessions = await fetchAllSessionsFromLangFlow(modelConfig);
       console.log('>>> App.tsx: fetchedSessions count:', fetchedSessions.length);
 
       if (fetchedSessions.length > 0) {
-        const newSessionsMap: Record<string, ChatSession> = {};
-        fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
+        setSessions(prev => {
+          const newSessionsMap: Record<string, ChatSession> = {};
+          fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
 
-        // PRESERVE LOCAL-ONLY SESSIONS
-        if (activeChatId && sessions[activeChatId] && !newSessionsMap[activeChatId]) {
-          newSessionsMap[activeChatId] = sessions[activeChatId];
-        }
+          // If streaming, PRESERVE the active session from local state entirely
+          if (isStreamingRef.current && activeChatId && prev[activeChatId]) {
+            console.log('>>> App.tsx: Streaming in progress, preserving active session', activeChatId);
+            newSessionsMap[activeChatId] = prev[activeChatId];
+          }
+          // Also preserve local-only sessions (optimistic ones)
+          else if (activeChatId && prev[activeChatId] && !newSessionsMap[activeChatId]) {
+            newSessionsMap[activeChatId] = prev[activeChatId];
+          }
 
-        setSessions(newSessionsMap);
+          return newSessionsMap;
+        });
 
         // If active chat is empty or not in list, select latest
-        if (!activeChatId || !newSessionsMap[activeChatId]) {
+        // This relies on state update which hasn't happened yet, so we use fetchedSessions
+        if (!activeChatId || !fetchedSessions.find(s => s.id === activeChatId)) {
           if (fetchedSessions.length > 0) {
+            // We should probably wait for sessions to update?
+            // Or just set it.
             setActiveChatId(fetchedSessions[0].id);
           }
         }
       } else {
-        // No sessions from API. 
+        // No sessions from API.
         // If we have nothing locally either, create new.
-        if (Object.keys(sessions).length === 0) {
-          const newId = generateUUID();
-          setSessions({
-            [newId]: {
-              id: newId,
-              title: "New Task",
-              messages: [],
-              updatedAt: Date.now()
-            }
-          });
-          setActiveChatId(newId);
-        }
+        setSessions(prev => {
+          if (Object.keys(prev).length === 0) {
+            const newId = generateUUID();
+            // Schedule activeChatId update
+            setTimeout(() => setActiveChatId(newId), 0);
+            return {
+              [newId]: {
+                id: newId,
+                title: "New Task",
+                messages: [],
+                updatedAt: Date.now()
+              }
+            };
+          }
+          return prev;
+        });
       }
     };
 
     loadSessions();
-  }, [modelConfig]); // OFF: activeChatId
+  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
 
   // Fetch History from LangFlow (Existing one, maybe redundant now?)
 
