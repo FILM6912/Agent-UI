@@ -478,7 +478,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       </div>
 
                       <button
-                        onClick={() => {
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
                           onSend();
                           // Keep focus on textarea after clicking send
                           setTimeout(() => {
