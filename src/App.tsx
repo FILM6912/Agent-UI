@@ -28,6 +28,7 @@ import {
   generateSuggestions,
   fetchHistoryFromLangFlow,
   fetchAllSessionsFromLangFlow,
+  deleteSession,
 } from "@/features/chat/api/langflowService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -273,16 +274,18 @@ export default function App() {
 
   // Sync URL to State
   useEffect(() => {
+    console.log('>>> URL Sync: pathname changed:', location.pathname);
     const match = location.pathname.match(/\/chat\/([^/]+)/);
     if (match) {
       const id = decodeURIComponent(match[1]);
+      console.log('>>> URL Sync: Matched ID:', id, 'Current activeChatId:', activeChatId);
       if (id !== activeChatId) {
-        console.log('>>> URL Sync: Decoded Chat ID:', id);
-        console.log('>>> Current Sessions Keys:', Object.keys(sessions));
+        console.log('>>> URL Sync: Updating activeChatId to:', id);
         setActiveChatId(id);
       }
     } else if (location.pathname === "/chat") {
       // On /chat without ID, clear activeChatId
+      console.log('>>> URL Sync: /chat detected, clearing activeChatId');
       setActiveChatId("");
     }
   }, [location.pathname]);
@@ -827,6 +830,10 @@ export default function App() {
     )
       return;
 
+    console.log('>>> handleSend: called with message:', message);
+
+
+
     // Check if model is selected before sending
     if (!modelConfig.modelId) {
       setErrorModalConfig({
@@ -839,36 +846,94 @@ export default function App() {
     }
 
     const currentPrompt = message;
-    const isFirstUserMessage = currentMessages.length === 0;
+    const isAtChatRoot = window.location.pathname === "/chat" || window.location.pathname === "/";
+    const isFirstUserMessage = currentMessages.length === 0 || isAtChatRoot;
 
     // Create new chat ID if this is the first message and no active chat
     let chatId = activeChatId;
-    if (isFirstUserMessage && (!activeChatId || !sessions[activeChatId])) {
-      chatId = crypto.randomUUID();
 
-      // Create new session
+    if (isFirstUserMessage && (isAtChatRoot || !activeChatId || !sessions[activeChatId])) {
+      chatId = generateUUID();
+      console.log('>>> handleSend: New Chat ID generated:', chatId);
+
+      const userMsg: Message = {
+        id: generateUUID(),
+        role: "user",
+        content: currentPrompt,
+        attachments: attachments,
+        timestamp: Date.now(),
+        versions: [
+          {
+            content: currentPrompt,
+            attachments: attachments,
+            timestamp: Date.now(),
+          },
+        ],
+        currentVersionIndex: 0,
+      };
+
+      // Create new session AND add message atomically
       setSessions((prev) => ({
         ...prev,
         [chatId]: {
           id: chatId,
           title: currentPrompt.substring(0, 30),
-          messages: [],
+          messages: [userMsg],
           updatedAt: Date.now(),
         },
       }));
 
       // Navigate to new chat URL with ID
+      console.log('>>> handleSend: Navigating to new chat:', chatId);
+      // DEBUG: Alert before navigation
+
+
+      setActiveChatId(chatId);
       navigate(`/chat/${chatId}`);
+
+      // Fallback: Force navigation again after a short delay if URL hasn't changed
+      setTimeout(() => {
+        if (!window.location.pathname.includes(chatId)) {
+          console.warn('>>> handleSend: Navigation fallback triggered for:', chatId);
+          navigate(`/chat/${chatId}`);
+        }
+      }, 100);
+
+      setInputValue("");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          chatInputRef.current?.focus();
+        });
+      });
+
+      // Generate Title Async
+      generateChatTitle(currentPrompt, modelConfig)
+        .then((aiTitle) => {
+          setSessions((prev) => {
+            if (!prev[chatId]) return prev;
+            return {
+              ...prev,
+              [chatId]: { ...prev[chatId], title: aiTitle },
+            };
+          });
+        })
+        .catch(() => { });
+
+      // Execute Request (history is empty for new chat)
+      await executeChatRequest(
+        currentPrompt,
+        [],
+        undefined,
+        attachments,
+        chatId,
+      );
+
+      return; // Exit here for new chat flow
     }
 
-    // Ensure active session exists
-    if (!sessions[chatId] && chatId !== activeChatId) {
-      // Session was just created, wait for state update
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-
+    // Existing Chat Flow
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       content: currentPrompt,
       attachments: attachments,
@@ -903,9 +968,6 @@ export default function App() {
         ...prev,
         [chatId]: {
           ...currentSession,
-          title: isFirstUserMessage
-            ? currentPrompt.substring(0, 30)
-            : currentSession.title,
           messages: [...currentSession.messages, userMsg],
           updatedAt: Date.now(),
         },
@@ -1157,12 +1219,16 @@ export default function App() {
     }
   };
 
-  const confirmDeleteChat = () => {
+  const confirmDeleteChat = async () => {
+
     if (!chatToDelete) return;
     const id = chatToDelete;
 
     // Close the modal immediately
     setChatToDelete(null);
+
+    // Call API to delete from server
+    await deleteSession(modelConfig, id);
 
     setSessions((prev) => {
       const newSessions = { ...prev };
