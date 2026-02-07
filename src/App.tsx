@@ -653,7 +653,7 @@ export default function App() {
           setSessions((prev) => {
             // Ensure session exists before updating
             if (!prev[sessionId]) {
-              console.error(`Session ${sessionId} not found`);
+              console.error(`Session ${sessionId} not found in first chunk handler`);
               return prev;
             }
 
@@ -680,6 +680,11 @@ export default function App() {
 
           setSessions((prev) => {
             const session = prev[sessionId];
+            if (!session) {
+              console.warn(`[Stream Update] Session ${sessionId} vanished during streaming.`);
+              return prev;
+            }
+
             const updatedMessages = session.messages.map((msg) => {
               if (msg.id === assistantMsgId) {
                 const updatedVersions = msg.versions ? [...msg.versions] : [];
@@ -1015,6 +1020,8 @@ export default function App() {
 
     setSessions((prev) => {
       const session = prev[activeChatId];
+      if (!session) return prev;
+
       const updatedMessages = session.messages.map((msg) => {
         if (msg.id === messageId) {
           const currentVersions = msg.versions || [
@@ -1093,6 +1100,8 @@ export default function App() {
 
     setSessions((prev) => {
       const session = prev[activeChatId];
+      if (!session) return prev;
+
       const updatedMessages = session.messages.map((msg) => {
         if (msg.id === messageId) {
           const currentVersions = msg.versions || [
@@ -1139,6 +1148,8 @@ export default function App() {
   const handleVersionChange = (messageId: string, newIndex: number) => {
     setSessions((prev) => {
       const session = prev[activeChatId];
+      if (!session) return prev;
+
       const msgIndex = session.messages.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return prev;
 
