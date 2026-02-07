@@ -32,6 +32,7 @@ import {
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
+import { generateUUID } from "@/lib/utils";
 
 // Define AppLayout props interface
 interface AppLayoutProps {
@@ -319,7 +320,7 @@ export default function App() {
   const [activeChatId, setActiveChatId] = useState<string>(() => {
     // Get first session ID from sessions
     const sessionIds = Object.keys(sessions);
-    return sessionIds.length > 0 ? sessionIds[0] : crypto.randomUUID();
+    return sessionIds.length > 0 ? sessionIds[0] : generateUUID();
   });
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -457,7 +458,7 @@ export default function App() {
         // No sessions from API. 
         // If we have nothing locally either, create new.
         if (Object.keys(sessions).length === 0) {
-          const newId = crypto.randomUUID();
+          const newId = generateUUID();
           setSessions({
             [newId]: {
               id: newId,
@@ -586,7 +587,7 @@ export default function App() {
 
     setIsStreaming(true);
 
-    let assistantMsgId = targetMessageId || crypto.randomUUID();
+    let assistantMsgId = targetMessageId || generateUUID();
     let messageInitialized = !!targetMessageId;
     let accumulatedContent = "";
 
