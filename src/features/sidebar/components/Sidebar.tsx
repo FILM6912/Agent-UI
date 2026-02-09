@@ -238,13 +238,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </button>
 
-                {/* Delete Button - Appears on hover */}
+                {/* Delete Button - Always Visible and Red */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteChat(session.id);
                   }}
-                  className="absolute right-2 p-1.5 text-zinc-400 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/10"
+                  className="absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/20"
                   title={t("sidebar.deleteChat")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />

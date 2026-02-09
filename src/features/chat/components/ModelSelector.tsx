@@ -68,9 +68,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     e.stopPropagation();
                     onPinAgent(m.id);
                   }}
-                  className={`p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
+                  className={`p-2 rounded-lg transition-all ${
                     pinnedAgentId === m.id
-                      ? "opacity-100! text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
+                      ? "text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
                       : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   }`}
                   title={

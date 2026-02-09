@@ -57,6 +57,27 @@ const getEffectiveBaseUrl = (url: string | undefined): string => {
   return cleanUrl;
 };
 
+// Helper to ensure content is a string
+const ensureString = (content: any): string => {
+  if (typeof content === 'string') return content;
+  if (content === null || content === undefined) return '';
+  if (typeof content === 'object') {
+    // Try to find a text field first
+    if (content.text) return ensureString(content.text);
+    if (content.content) return ensureString(content.content);
+    if (content.output) return ensureString(content.output);
+    if (content.chunk) return ensureString(content.chunk);
+    
+    // Fallback to JSON stringify
+    try {
+      return JSON.stringify(content, null, 2);
+    } catch (e) {
+      return String(content);
+    }
+  }
+  return String(content);
+};
+
 // Stream from LangFlow using OpenAI SDK format
 // Helper to find ChatInput ID
 async function getChatInputId(baseUrl: string, flowId: string, apiKey?: string): Promise<string | null> {
@@ -122,7 +143,7 @@ async function* streamFromLangFlow(
   config: ModelConfig,
   attachments: Attachment[] = [],
   chatId?: string
-): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
+): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
     const flowId = config.modelId; // Flow ID
@@ -207,7 +228,9 @@ async function* streamFromLangFlow(
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let accumulatedText = ''; // Track full text to compare with end event
     let lastContent = ''; // Track last content to detect duplicates
+    let hasStreamedTokens = false; // Track if we have streamed any tokens
 
     while (true) {
       const { done, value } = await reader.read();
@@ -239,8 +262,8 @@ async function* streamFromLangFlow(
                     // Parse tool_use type
                     if (content.type === 'tool_use') {
                       const toolName = content.name || 'Unknown Tool';
-                      const toolInput = content.tool_input ? JSON.stringify(content.tool_input, null, 2) : '';
-                      const toolOutput = content.output || '';
+                      const toolInput = content.tool_input ? (typeof content.tool_input === 'string' ? content.tool_input : JSON.stringify(content.tool_input, null, 2)) : '';
+                      const toolOutput = content.output ? ensureString(content.output) : '';
                       const duration = content.duration ? `${content.duration}s` : '';
 
                       steps.push({
@@ -277,8 +300,8 @@ async function* streamFromLangFlow(
                 // Parse tool_use blocks (old format)
                 if (block.type === 'tool_use') {
                   const toolName = block.name || 'Unknown Tool';
-                  const toolInput = block.input ? JSON.stringify(block.input, null, 2) : '';
-                  const toolOutput = block.output || '';
+                  const toolInput = block.input ? (typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2)) : '';
+                  const toolOutput = block.output ? ensureString(block.output) : '';
                   const duration = block.duration || '';
 
                   steps.push({
@@ -327,13 +350,36 @@ async function* streamFromLangFlow(
             }
 
             lastContent = content;
-            yield { type: 'text', content };
+            hasStreamedTokens = true;
+            const textChunk = ensureString(content);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
             continue;
           }
 
-          // Handle end event (optional, contains full message)
-          if (json.event === 'end' && json.data?.result?.message) {
-            // We already streamed all tokens, so we can skip this
+          // Handle end event
+          if (json.event === 'end') {
+            try {
+              const resultData = json.data?.result || {};
+              const outputsOuter = resultData.outputs || [];
+              if (outputsOuter.length > 0) {
+                const outputsInner = outputsOuter[0].outputs || [];
+                if (outputsInner.length > 0) {
+                  const results = outputsInner[0].results || {};
+                  const messageData = results.message?.data || {};
+                  const finalText = ensureString(messageData.text);
+
+                  if (finalText && finalText !== accumulatedText) {
+                    // Start of Selection
+                    // If final text differs, yield the authoritative full text
+                    yield { type: 'text', content: finalText, isFullText: true };
+                    // End of Selection
+                  }
+                }
+              }
+            } catch (e) {
+              // Ignore extraction errors
+            }
             continue;
           }
 
@@ -344,20 +390,27 @@ async function* streamFromLangFlow(
             if (content === lastContent) continue;
 
             lastContent = content;
-            yield { type: 'text', content };
+            hasStreamedTokens = true;
+            const textChunk = ensureString(content);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
             continue;
           }
 
           // Fallback: Handle full response
           const responseContent = json.output_text || json.output || json.text || json.content;
-          if (responseContent) {
-            yield { type: 'text', content: responseContent };
+          if (responseContent && !hasStreamedTokens) {
+            const textChunk = ensureString(responseContent);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
             continue;
           }
 
           // Fallback: Handle chunk format
           if (json.chunk) {
-            yield { type: 'text', content: json.chunk };
+            const textChunk = ensureString(json.chunk);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
           }
         } catch (e) {
           console.error("Error parsing LangFlow stream:", cleanLine);
@@ -376,7 +429,7 @@ export async function* streamMessageFromGemini(
   config: ModelConfig,
   attachments: Attachment[] = [],
   chatId?: string
-): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[] }, void, unknown> {
+): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   // Check if this is a LangFlow agent (has langflowUrl configured)
   if (config.langflowUrl && config.modelId) {
     // Use LangFlow

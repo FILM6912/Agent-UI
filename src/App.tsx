@@ -699,7 +699,11 @@ export default function App() {
           chunk.type === "steps"
         ) {
           if (chunk.type === "text" && chunk.content) {
-            accumulatedContent += chunk.content;
+            if (chunk.isFullText) {
+              accumulatedContent = chunk.content;
+            } else {
+              accumulatedContent += chunk.content;
+            }
           }
 
           setSessions((prev) => {
