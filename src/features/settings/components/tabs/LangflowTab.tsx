@@ -24,10 +24,12 @@ export const LangflowTab: React.FC<LangflowTabProps> = ({
   const {
     urlInput,
     apiKeyInput,
+    apiTypeInput,
     iframeKey,
     showConfigModal,
     setUrlInput,
     setApiKeyInput,
+    setApiTypeInput,
     setShowConfigModal,
     saveConfig,
     getIframeUrl,
@@ -78,9 +80,11 @@ export const LangflowTab: React.FC<LangflowTabProps> = ({
         <LangflowConfigModal
           urlInput={urlInput}
           apiKeyInput={apiKeyInput}
+          apiTypeInput={apiTypeInput}
           currentUrl={modelConfig.langflowUrl || ""}
           onUrlChange={setUrlInput}
           onApiKeyChange={setApiKeyInput}
+          onApiTypeChange={setApiTypeInput}
           onSave={handleSave}
           onClose={() => setShowConfigModal(false)}
           t={t}

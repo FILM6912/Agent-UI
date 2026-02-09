@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ModelConfig } from "@/types";
+import { ModelConfig, ApiType } from "@/types";
 
 interface UseLangflowConfigProps {
   modelConfig: ModelConfig;
@@ -20,6 +20,9 @@ export const useLangflowConfig = ({
   const [apiKeyInput, setApiKeyInput] = useState(
     modelConfig.langflowApiKey || "",
   );
+  const [apiTypeInput, setApiTypeInput] = useState<ApiType>(
+    modelConfig.apiType || "langflow",
+  );
   const [iframeKey, setIframeKey] = useState(0);
   const [showConfigModal, setShowConfigModal] = useState(false);
 
@@ -31,12 +34,14 @@ export const useLangflowConfig = ({
         const config = JSON.parse(savedLangflowConfig);
         setUrlInput(config.url || "");
         setApiKeyInput(config.apiKey || "");
+        setApiTypeInput(config.apiType || "langflow");
 
         if (!modelConfig.langflowUrl && config.url) {
           onModelConfigChange({
             ...modelConfig,
             langflowUrl: config.url,
             langflowApiKey: config.apiKey,
+            apiType: config.apiType || "langflow",
           });
         }
       } catch (error) {
@@ -50,6 +55,7 @@ export const useLangflowConfig = ({
       ...modelConfig,
       langflowUrl: urlInput,
       langflowApiKey: apiKeyInput,
+      apiType: apiTypeInput,
     };
 
     onModelConfigChange(newConfig);
@@ -59,6 +65,7 @@ export const useLangflowConfig = ({
       JSON.stringify({
         url: urlInput,
         apiKey: apiKeyInput,
+        apiType: apiTypeInput,
       }),
     );
 
@@ -87,12 +94,15 @@ export const useLangflowConfig = ({
   return {
     urlInput,
     apiKeyInput,
+    apiTypeInput,
     iframeKey,
     showConfigModal,
     setUrlInput,
     setApiKeyInput,
+    setApiTypeInput,
     setShowConfigModal,
     saveConfig,
     getIframeUrl,
   };
 };
+

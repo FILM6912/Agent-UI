@@ -174,6 +174,10 @@ export const translations = {
       langflowStep2:
         "Set environment variable (add to .env or docker-compose.yml)",
       langflowStep3: "Restart LangFlow server",
+      apiType: "API Type",
+      apiTypeLangflow: "Langflow Run",
+      apiTypeOpenAI: "OpenAI SDK",
+      apiTypeHint: "Choose between Langflow Run API or OpenAI-compatible API format",
     },
     preview: {
       title: "Agent's Window",
@@ -382,6 +386,10 @@ export const translations = {
       langflowStep2:
         "ตั้งค่าตัวแปรสภาพแวดล้อม (เพิ่มใน .env หรือ docker-compose.yml)",
       langflowStep3: "รีสตาร์ทเซิร์ฟเวอร์ LangFlow",
+      apiType: "ประเภท API",
+      apiTypeLangflow: "Langflow Run",
+      apiTypeOpenAI: "OpenAI SDK",
+      apiTypeHint: "เลือกระหว่าง Langflow Run API หรือรูปแบบ OpenAI-compatible API",
     },
     preview: {
       title: "หน้าต่าง Agent",

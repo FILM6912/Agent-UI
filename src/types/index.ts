@@ -1,5 +1,7 @@
 export type AIProvider = "google" | "openai";
 
+export type ApiType = 'langflow' | 'openai';
+
 export interface ModelConfig {
   provider: AIProvider;
   baseUrl: string;
@@ -12,6 +14,7 @@ export interface ModelConfig {
   voiceDelay?: number;
   langflowUrl?: string;
   langflowApiKey?: string;
+  apiType?: ApiType;
 }
 
 export interface Agent {

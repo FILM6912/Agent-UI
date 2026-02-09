@@ -379,12 +379,14 @@ export default function App() {
     const savedLangflowConfig = localStorage.getItem("langflow_config");
     let langflowUrl = "";
     let langflowApiKey = "";
+    let apiType: 'langflow' | 'openai' = 'langflow';
 
     if (savedLangflowConfig) {
       try {
         const config = JSON.parse(savedLangflowConfig);
         langflowUrl = config.url || "";
         langflowApiKey = config.apiKey || "";
+        apiType = config.apiType || "langflow";
       } catch (error) {
         console.error("Failed to load LangFlow config:", error);
       }
@@ -403,6 +405,7 @@ export default function App() {
       voiceDelay: 0.5,
       langflowUrl,
       langflowApiKey,
+      apiType,
     };
   });
 

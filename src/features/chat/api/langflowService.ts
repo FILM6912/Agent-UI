@@ -423,6 +423,108 @@ async function* streamFromLangFlow(
   }
 }
 
+// Stream using OpenAI SDK compatible format (Langflow /api/v1/responses endpoint)
+async function* streamFromOpenAI(
+  history: Message[],
+  newMessage: string,
+  config: ModelConfig,
+  attachments: Attachment[] = [],
+  chatId?: string
+): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
+  try {
+    const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
+    const flowId = config.modelId; // Flow ID is used as the model
+
+    // Build headers matching user's example
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add API key if provided (x-api-key header as in user example)
+    if (config.langflowApiKey) {
+      headers['x-api-key'] = config.langflowApiKey;
+    }
+
+    // Construct request body matching OpenAI SDK format
+    const body = {
+      model: flowId,
+      input: newMessage,
+      stream: true
+    };
+
+    // Call the OpenAI-compatible responses endpoint
+    const response = await fetch(`${baseUrl}/api/v1/responses`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Failed to read stream");
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulatedText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const cleanLine = line.replace(/^data: /, '').trim();
+        if (!cleanLine || cleanLine === '[DONE]') continue;
+
+        try {
+          const json = JSON.parse(cleanLine);
+
+          // Handle delta format (OpenAI streaming format)
+          if (json.delta && json.delta.content) {
+            const content = json.delta.content;
+            if (!content) continue;
+            
+            const textChunk = ensureString(content);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
+            continue;
+          }
+
+          // Handle choices format (alternative OpenAI format)
+          if (json.choices && json.choices[0]?.delta?.content) {
+            const content = json.choices[0].delta.content;
+            if (!content) continue;
+            
+            const textChunk = ensureString(content);
+            accumulatedText += textChunk;
+            yield { type: 'text', content: textChunk };
+            continue;
+          }
+
+          // Handle output_text (full response fallback)
+          if (json.output_text) {
+            const textChunk = ensureString(json.output_text);
+            yield { type: 'text', content: textChunk, isFullText: true };
+            continue;
+          }
+
+        } catch (e) {
+          console.error("Error parsing OpenAI stream:", cleanLine);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("OpenAI streaming error:", error);
+    yield { type: 'text', content: `Error: ${error instanceof Error ? error.message : 'Failed to connect to OpenAI-compatible API'}` };
+  }
+}
+
 export async function* streamMessageFromGemini(
   history: Message[],
   newMessage: string,
@@ -439,7 +541,13 @@ export async function* streamMessageFromGemini(
       await new Promise(resolve => setTimeout(resolve, 600));
     }
 
-    yield* streamFromLangFlow(history, newMessage, config, attachments, chatId);
+    // Route based on apiType
+    if (config.apiType === 'openai') {
+      yield* streamFromOpenAI(history, newMessage, config, attachments, chatId);
+    } else {
+      // Default to langflow (backward compatible)
+      yield* streamFromLangFlow(history, newMessage, config, attachments, chatId);
+    }
     return;
   }
 
