@@ -1748,6 +1748,7 @@ export default function App() {
           const updatedMessageVersion = {
             ...currentMessageVersion,
             aiVersions: updatedAIVersions,
+            currentAIIndex: aiIndex, // Update currentAIIndex to the AI version being switched to
           };
           
           const updatedVersions = [...(msg.versions || [])];
