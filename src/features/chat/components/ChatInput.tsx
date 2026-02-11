@@ -390,11 +390,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               )}
 
               {/* Input Area */}
-              <div className={`w-full flex ${isModeMulti ? "flex-col" : "items-start"}`}>
+              <div className={`w-full flex ${isModeMulti ? "flex-col" : "items-center"}`}>
 
                 {/* Left Actions - Rendered first in Single Line mode, or inside wrapper in Multi Line */}
                 {!isModeMulti && (
-                  <div className="flex items-center gap-2 self-end mb-[2px] py-3 pl-3">
+                  <div className="flex items-center gap-2 py-2 pl-3">
                     <button
                       onClick={onFileSelect}
                       className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
@@ -427,7 +427,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                 {/* Right Actions - Rendered last in Single Line mode */}
                 {!isModeMulti && (
-                  <div className="flex items-center gap-2 self-end mb-[2px] pr-3 py-3">
+                  <div className="flex items-center gap-2 pr-3 py-2">
                     <ModelSelector
                       isOpen={showModelMenu}
                       onToggle={() => setShowModelMenu(!showModelMenu)}
