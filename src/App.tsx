@@ -621,6 +621,7 @@ export default function App() {
       setIsLoading(true);
     }
 
+    isStreamingRef.current = true;
     setIsStreaming(true);
 
     let assistantMsgId = targetMessageId || generateUUID();
@@ -857,6 +858,7 @@ export default function App() {
       }
     } finally {
       setIsLoading(false);
+      isStreamingRef.current = false;
       setIsStreaming(false);
     }
   };
