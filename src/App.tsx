@@ -781,8 +781,17 @@ export default function App() {
       try {
         // Try AI generation first
         suggestions = await generateSuggestions(historyToUse, prompt, accumulatedContent, modelConfig);
-      } catch (e) {
+      } catch (e: any) {
         console.warn("AI generation failed, falling back to random", e);
+        // Show error if it's a specific API error as requested
+        if (e.message && e.message.includes("LangFlow API Error")) {
+          setErrorModalConfig({
+            title: "การสร้างคำแนะนำล้มเหลว",
+            message: `เกิดข้อผิดพลาดจากระบบ: ${e.message}`,
+            type: "error",
+          });
+          setShowErrorModal(true);
+        }
       }
 
       // Fallback to random if empty
