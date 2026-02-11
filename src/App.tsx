@@ -787,6 +787,42 @@ export default function App() {
         }
       }
 
+      // Perform authoritative sync after streaming finishes
+      try {
+        const fullHistory = await fetchHistoryFromLangFlow(modelConfig, sessionId);
+        if (fullHistory.length > 0) {
+          const authoritativeAssistantMsg = fullHistory.find(m => m.id === assistantMsgId || (m.role === 'assistant' && !m.id?.startsWith('temp-')));
+          
+          if (authoritativeAssistantMsg) {
+            setSessions((prev) => {
+              const session = prev[sessionId];
+              if (!session) return prev;
+
+              const updatedMessages = session.messages.map((msg) => {
+                if (msg.role === 'assistant' && (msg.id === assistantMsgId || msg.id === authoritativeAssistantMsg.id)) {
+                  // Preserve existing suggestions if any
+                  return { 
+                    ...authoritativeAssistantMsg, 
+                    suggestions: msg.suggestions 
+                  };
+                }
+                return msg;
+              });
+
+              return {
+                ...prev,
+                [sessionId]: {
+                  ...session,
+                  messages: updatedMessages,
+                },
+              };
+            });
+          }
+        }
+      } catch (syncError) {
+        console.warn("Post-stream sync failed:", syncError);
+      }
+
       // Add suggestions after streaming is complete
       const language = localStorage.getItem("language") === "th" ? "th" : "en";
       let suggestions: string[] = [];
