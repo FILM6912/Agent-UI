@@ -1,7 +1,7 @@
-import React from "react";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { AppearanceProvider } from "@/hooks/useAppearance";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -10,9 +10,11 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider>
-      <LanguageProvider>
-        <BrowserRouter>{children}</BrowserRouter>
-      </LanguageProvider>
+      <AppearanceProvider>
+        <LanguageProvider>
+          <HashRouter>{children}</HashRouter>
+        </LanguageProvider>
+      </AppearanceProvider>
     </ThemeProvider>
   );
 }

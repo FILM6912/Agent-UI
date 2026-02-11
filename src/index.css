@@ -59,6 +59,12 @@
   --color-brand: #1447e6;
   --color-brand-light: #3d6ff7;
   --color-brand-dark: #0d35b8;
+
+  --app-font-family: var(--font-family-sans);
+}
+
+:root {
+  font-family: var(--app-font-family);
 }
 
 /* Light Mode (Default) */
