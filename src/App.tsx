@@ -120,7 +120,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     setIsLangFlowConfigOpen,
     chatInputRef,
   }) => (
-    <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden font-sans relative transition-colors duration-200">
+    <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
       {isMobile && isSidebarOpen && (
         <div

@@ -38,17 +38,20 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   const fontDropdownRef = useRef<HTMLDivElement>(null);
 
   const fonts: FontFamily[] = [
-    "sans",
-    "mono",
-    "roboto",
-    "montserrat",
-    "poppins",
-    "outfit",
-    "lora",
-    "playfair",
+    "noto-sans",
+    "noto-serif",
+    "noto-mono",
+    "sarabun",
+    "kanit",
+    "prompt",
+    "mitr",
+    "chakra-petch",
+    "bai-jamjuree",
     "system-sans",
     "system-serif",
     "system-mono",
+    "sans",
+    "mono",
   ];
 
   // Click outside handler for dropdowns

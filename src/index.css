@@ -30,6 +30,10 @@
   display: none;
 }
 
+button {
+  cursor: pointer;
+}
+
 @theme {
   --font-family-sans: Inter, sans-serif;
   --font-family-mono: "JetBrains Mono", monospace;
@@ -59,12 +63,15 @@
   --color-brand: #1447e6;
   --color-brand-light: #3d6ff7;
   --color-brand-dark: #0d35b8;
-
-  --app-font-family: var(--font-family-sans);
 }
 
 :root {
-  font-family: var(--app-font-family);
+  --app-font-family: Inter, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--app-font-family) !important;
 }
 
 /* Light Mode (Default) */

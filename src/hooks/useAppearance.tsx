@@ -10,12 +10,15 @@ export type FontSize = "xs" | "sm" | "base" | "lg" | "xl";
 export type FontFamily = 
   | "sans" 
   | "mono" 
-  | "roboto" 
-  | "montserrat" 
-  | "poppins" 
-  | "outfit" 
-  | "lora" 
-  | "playfair"
+  | "noto-sans" 
+  | "noto-serif"
+  | "noto-mono"
+  | "sarabun"
+  | "kanit"
+  | "prompt"
+  | "mitr"
+  | "chakra-petch"
+  | "bai-jamjuree"
   | "system-sans"
   | "system-serif"
   | "system-mono";
@@ -42,12 +45,15 @@ const FONT_SIZE_MAP: Record<FontSize, string> = {
 const FONT_FAMILY_MAP: Record<FontFamily, string> = {
   "sans": "Inter, sans-serif",
   "mono": "'JetBrains Mono', monospace",
-  "roboto": "Roboto, sans-serif",
-  "montserrat": "Montserrat, sans-serif",
-  "poppins": "Poppins, sans-serif",
-  "outfit": "Outfit, sans-serif",
-  "lora": "Lora, serif",
-  "playfair": "'Playfair Display', serif",
+  "noto-sans": "'Noto Sans', 'Noto Sans Thai', sans-serif",
+  "noto-serif": "'Noto Serif', 'Noto Serif Thai', serif",
+  "noto-mono": "'Noto Sans Mono', 'Noto Sans Thai-Mono', monospace",
+  "sarabun": "Sarabun, sans-serif",
+  "kanit": "Kanit, sans-serif",
+  "prompt": "Prompt, sans-serif",
+  "mitr": "Mitr, sans-serif",
+  "chakra-petch": "'Chakra Petch', sans-serif",
+  "bai-jamjuree": "'Bai Jamjuree', sans-serif",
   "system-sans": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif",
   "system-serif": "ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif",
   "system-mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
@@ -72,10 +78,17 @@ export const AppearanceProvider: React.FC<{ children: ReactNode }> = ({
 
   useEffect(() => {
     const root = window.document.documentElement;
-    root.style.setProperty(
-      "--app-font-family",
-      FONT_FAMILY_MAP[fontFamily]
-    );
+    const body = window.document.body;
+    const fontValue = FONT_FAMILY_MAP[fontFamily];
+    
+    root.style.setProperty("--app-font-family", fontValue);
+    root.style.setProperty("--font-family-sans", fontValue);
+    
+    if (body) {
+      body.style.setProperty("--app-font-family", fontValue);
+      body.style.setProperty("--font-family-sans", fontValue);
+    }
+    
     localStorage.setItem("app_font_family", fontFamily);
   }, [fontFamily]);
 
