@@ -15,14 +15,14 @@ export const ProcessTab: React.FC<ProcessTabProps> = ({ steps }) => {
   }, [steps]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#050506] transition-colors duration-200 relative overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-[#050506] transition-colors duration-200 relative">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10 relative z-10">
+      <div className="flex-1 overflow-y-auto px-4 py-8 scrollbar-thin scrollbar-thumb-white/10 relative z-10">
         <div className="w-full space-y-0 pb-32">
           {steps && steps.length > 0 ? (
             steps.map((step) => (
