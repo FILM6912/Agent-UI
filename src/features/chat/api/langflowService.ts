@@ -643,6 +643,47 @@ interface LangFlowMessage {
   properties: any;
 }
 
+
+// Helper to map LangFlow messages to internal Message type
+function mapLangFlowMessages(messages: LangFlowMessage[], baseUrl: string): Message[] {
+  return messages
+    .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions
+    .map(msg => {
+      const isUser = msg.sender === 'User';
+      const role = isUser ? 'user' : 'assistant';
+
+      // Parse Files
+      const attachments: Attachment[] = [];
+      try {
+        const filesArray = JSON.parse(msg.files || '[]');
+        if (Array.isArray(filesArray)) {
+          filesArray.forEach((filePath: string) => {
+            const fileName = filePath.split('/').pop();
+            if (fileName) {
+              const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
+              attachments.push({
+                type: 'image',
+                content: imageUrl,
+                name: fileName
+              });
+            }
+          });
+        }
+      } catch (e) {
+        // Silently fail for malformed JSON
+      }
+
+      return {
+        id: msg.id,
+        role: role,
+        content: msg.text,
+        timestamp: new Date(msg.timestamp).getTime(),
+        attachments: attachments.length > 0 ? attachments : undefined,
+        steps: msg.content_blocks ? parseContentBlocks(msg.content_blocks) : undefined
+      };
+    });
+}
+
 export async function fetchHistoryFromLangFlow(
   config: ModelConfig,
   chatId: string
@@ -663,58 +704,15 @@ export async function fetchHistoryFromLangFlow(
     }
 
     const data = await response.json();
-    // API returns { data: [...] } or just [...] depending on version. User example suggests array.
     const messagesData: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
 
-    // Deduplicate messages by ID to handle inconsistencies
+    // Deduplicate and group
     const uniqueMessages = new Map<string, LangFlowMessage>();
     messagesData.forEach(msg => {
-      // If we have duplicates with same session_id and text, they are likely ghosts
-      if (!uniqueMessages.has(msg.id)) {
-        uniqueMessages.set(msg.id, msg);
-      }
+      if (!uniqueMessages.has(msg.id)) uniqueMessages.set(msg.id, msg);
     });
 
-    const messages = Array.from(uniqueMessages.values());
-
-    return messages
-      .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions if they somehow sneak in
-      .map(msg => {
-        const isUser = msg.sender === 'User';
-        const role = isUser ? 'user' : 'assistant';
-
-        // Parse Files
-        const attachments: Attachment[] = [];
-        try {
-          const filesArray = JSON.parse(msg.files || '[]');
-          if (Array.isArray(filesArray)) {
-            filesArray.forEach((filePath: string) => {
-              // Construct Image URL: /api/v1/files/images/{flow_id}/{file_name}
-              const fileName = filePath.split('/').pop();
-              if (fileName) {
-                const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
-                attachments.push({
-                  type: 'image',
-                  content: imageUrl, // Use URL as content for now
-                  name: fileName
-                });
-              }
-            });
-          }
-        } catch (e) {
-          console.warn('Failed to parse files JSON:', e);
-        }
-
-        return {
-          id: msg.id,
-          role: role,
-          content: msg.text,
-          timestamp: new Date(msg.timestamp).getTime(),
-          attachments: attachments.length > 0 ? attachments : undefined,
-          steps: msg.content_blocks ? parseContentBlocks(msg.content_blocks) : undefined
-        };
-      });
-
+    return mapLangFlowMessages(Array.from(uniqueMessages.values()), baseUrl);
   } catch (error) {
     console.warn("Error fetching LangFlow history:", error);
     return [];
@@ -736,9 +734,8 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
     console.log('>>> Fetching sessions from:', `${baseUrl}/api/v1/monitor/messages?order_by=timestamp`);
 
     // Fetch ALL messages (monitor endpoint)
-    // Note: LangFlow might paginate. For now, assuming standard endpoint returns recent messages.
-    // If we need all, we might need a limit param?
-    const response = await fetch(`${baseUrl}/api/v1/monitor/messages?order_by=timestamp`, { headers });
+    // Requesting a larger limit to ensure we get broader history
+    const response = await fetch(`${baseUrl}/api/v1/monitor/messages?order_by=timestamp&limit=2000`, { headers });
 
     if (!response.ok) {
       console.warn(`Failed to fetch sessions: ${response.status}`);
@@ -746,7 +743,9 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
     }
 
     const data = await response.json();
+    console.log('>>> fetchAllSessionsFromLangFlow raw data:', data);
     const allMessages: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
+    console.log('>>> fetchAllSessionsFromLangFlow parsed messages count:', allMessages.length);
 
     // Group by Session ID
     const sessionsMap = new Map<string, LangFlowMessage[]>();
@@ -777,13 +776,12 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       sessions.push({
         id: sessionId,
         title: title,
-        messages: [], // We don't load full messages here to save performance
+        messages: mapLangFlowMessages(msgs, baseUrl),
         updatedAt: new Date(lastMsg.timestamp).getTime()
       });
     });
 
     return sessions.sort((a, b) => b.updatedAt - a.updatedAt);
-
   } catch (error) {
     console.warn("Failed to fetch sessions from LangFlow:", error);
     return [];
