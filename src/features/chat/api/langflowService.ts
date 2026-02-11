@@ -79,6 +79,90 @@ const ensureString = (content: any): string => {
   return String(content);
 };
 
+// Helper to parse content_blocks into ProcessSteps
+const parseContentBlocks = (contentBlocks: any[]): ProcessStep[] => {
+  const steps: ProcessStep[] = [];
+  if (!Array.isArray(contentBlocks)) return steps;
+
+  for (const block of contentBlocks) {
+    // Check if block has "contents" array (new LangFlow format)
+    if (block.contents && Array.isArray(block.contents)) {
+      for (const content of block.contents) {
+        // Parse tool_use type
+        if (content.type === 'tool_use') {
+          const toolName = content.name || 'Unknown Tool';
+          const toolInput = content.tool_input ? (typeof content.tool_input === 'string' ? content.tool_input : JSON.stringify(content.tool_input, null, 2)) : '';
+          const toolOutput = content.output ? ensureString(content.output) : '';
+          const duration = content.duration ? `${content.duration}s` : '';
+
+          steps.push({
+            id: generateUUID(),
+            type: 'command',
+            title: toolName,
+            content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+            duration: duration,
+            status: 'completed',
+            isExpanded: false
+          });
+        }
+
+        // Parse text type (Input/Output)
+        if (content.type === 'text' && content.header?.title) {
+          const headerTitle = content.header.title;
+          const text = content.text || '';
+
+          // Only show thinking/reasoning steps, skip Input/Output
+          if (headerTitle !== 'Input' && headerTitle !== 'Output' && text) {
+            steps.push({
+              id: generateUUID(),
+              type: 'thinking',
+              title: headerTitle,
+              content: text,
+              status: 'completed',
+              isExpanded: false
+            });
+          }
+        }
+      }
+    }
+
+    // Fallback: Old format support
+    // Parse tool_use blocks (old format)
+    if (block.type === 'tool_use') {
+      const toolName = block.name || 'Unknown Tool';
+      const toolInput = block.input ? (typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2)) : '';
+      const toolOutput = block.output ? ensureString(block.output) : '';
+      const duration = block.duration || '';
+
+      steps.push({
+        id: block.id || generateUUID(),
+        type: 'command',
+        title: toolName,
+        content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+        duration: duration,
+        status: 'completed',
+        isExpanded: false
+      });
+    }
+
+    // Parse thinking blocks (old format)
+    if (block.type === 'thinking' || block.type === 'text') {
+      const content = block.content || block.text || '';
+      if (content) {
+        steps.push({
+          id: block.id || generateUUID(),
+          type: 'thinking',
+          title: 'Reasoning',
+          content: content,
+          status: 'completed',
+          isExpanded: false
+        });
+      }
+    }
+  }
+  return steps;
+};
+
 // Stream from LangFlow using OpenAI SDK format
 // Helper to find ChatInput ID
 async function getChatInputId(baseUrl: string, flowId: string, apiKey?: string): Promise<string | null> {
@@ -244,91 +328,9 @@ async function* streamFromLangFlow(
 
           // Handle add_message event with content_blocks (tool usage)
           if (json.event === 'add_message' && json.data?.content_blocks) {
-            const contentBlocks = json.data.content_blocks;
-
-            if (Array.isArray(contentBlocks) && contentBlocks.length > 0) {
-              const steps: ProcessStep[] = [];
-
-              for (const block of contentBlocks) {
-                // Check if block has "contents" array (new LangFlow format)
-                if (block.contents && Array.isArray(block.contents)) {
-                  for (const content of block.contents) {
-                    // Parse tool_use type
-                    if (content.type === 'tool_use') {
-                      const toolName = content.name || 'Unknown Tool';
-                      const toolInput = content.tool_input ? (typeof content.tool_input === 'string' ? content.tool_input : JSON.stringify(content.tool_input, null, 2)) : '';
-                      const toolOutput = content.output ? ensureString(content.output) : '';
-                      const duration = content.duration ? `${content.duration}s` : '';
-
-                      steps.push({
-                        id: generateUUID(),
-                        type: 'command',
-                        title: toolName,
-                        content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
-                        duration: duration,
-                        status: 'completed',
-                        isExpanded: false
-                      });
-                    }
-
-                    // Parse text type (Input/Output)
-                    if (content.type === 'text' && content.header?.title) {
-                      const headerTitle = content.header.title;
-                      const text = content.text || '';
-
-                      // Only show thinking/reasoning steps, skip Input/Output
-                      if (headerTitle !== 'Input' && headerTitle !== 'Output' && text) {
-                        steps.push({
-                          id: generateUUID(),
-                          type: 'thinking',
-                          title: headerTitle,
-                          content: text,
-                          status: 'completed',
-                          isExpanded: false
-                        });
-                      }
-                    }
-                  }
-                }
-
-                // Fallback: Old format support
-                // Parse tool_use blocks (old format)
-                if (block.type === 'tool_use') {
-                  const toolName = block.name || 'Unknown Tool';
-                  const toolInput = block.input ? (typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2)) : '';
-                  const toolOutput = block.output ? ensureString(block.output) : '';
-                  const duration = block.duration || '';
-
-                  steps.push({
-                    id: block.id || generateUUID(),
-                    type: 'command',
-                    title: toolName,
-                    content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
-                    duration: duration,
-                    status: 'completed',
-                    isExpanded: false
-                  });
-                }
-
-                // Parse thinking blocks (old format)
-                if (block.type === 'thinking' || block.type === 'text') {
-                  const content = block.content || block.text || '';
-                  if (content) {
-                    steps.push({
-                      id: block.id || generateUUID(),
-                      type: 'thinking',
-                      title: 'Reasoning',
-                      content: content,
-                      status: 'completed',
-                      isExpanded: false
-                    });
-                  }
-                }
-              }
-
-              if (steps.length > 0) {
-                yield { type: 'steps', steps };
-              }
+            const steps = parseContentBlocks(json.data.content_blocks);
+            if (steps.length > 0) {
+              yield { type: 'steps', steps };
             }
             continue;
           }
@@ -708,7 +710,8 @@ export async function fetchHistoryFromLangFlow(
           role: role,
           content: msg.text,
           timestamp: new Date(msg.timestamp).getTime(),
-          attachments: attachments.length > 0 ? attachments : undefined
+          attachments: attachments.length > 0 ? attachments : undefined,
+          steps: msg.content_blocks ? parseContentBlocks(msg.content_blocks) : undefined
         };
       });
 
