@@ -162,7 +162,7 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                         remarkPlugins={[remarkGfm]}
                         components={{
                           strong: ({ children }) => (
-                            <strong className="font-bold text-orange-600/90 dark:text-orange-400/90">
+                            <strong className="font-bold">
                               {children}
                             </strong>
                           ),
