@@ -1,3 +1,4 @@
+import { ProcessStep } from "@/types";
 import React, { useState, useEffect } from "react";
 import {
   Share2,
@@ -19,7 +20,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { FileTreeItem, FileNode } from "./FileTreeItem";
 import { FileContentRenderer } from "./FileContentRenderer";
 import { ProcessTab } from "./ProcessTab";
-import { useTerminalSimulation } from "../hooks/useTerminalSimulation";
 import { useClipboard } from "../hooks/useClipboard";
 import { useWindowResize } from "../hooks/useWindowResize";
 import { INITIAL_FILE_SYSTEM, MOCK_DASHBOARD_HTML } from "../data/mockData";
@@ -31,6 +31,7 @@ interface PreviewWindowProps {
   isSidebarOpen?: boolean;
   previewContent?: string | null;
   isLoading?: boolean;
+  steps?: ProcessStep[];
 }
 
 export const PreviewWindow: React.FC<PreviewWindowProps> = ({
@@ -40,6 +41,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   isSidebarOpen = true,
   previewContent,
   isLoading = false,
+  steps,
 }) => {
   const { t } = useLanguage();
   const { isDark } = useTheme();
@@ -58,7 +60,6 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
 
-  const { logs } = useTerminalSimulation(activeTab === "process");
   const { copied, copyToClipboard } = useClipboard();
   const { width, isResizing, startResizing } = useWindowResize(
     450,
@@ -280,7 +281,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
               </div>
             </div>
           ) : activeTab === "process" ? (
-            <ProcessTab logs={logs} />
+            <ProcessTab steps={steps} />
           ) : (
             <div className="w-full h-full bg-background rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col shadow-xl relative transition-colors duration-200">
               {selectedFile ? (

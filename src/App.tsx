@@ -211,6 +211,12 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           isSidebarOpen={isSidebarOpen}
           previewContent={previewContent}
           isLoading={isLoading || isStreaming}
+          steps={currentMessages.length > 0 ? (
+            (() => {
+              const assistantMessages = [...currentMessages].reverse().filter(m => m.role === 'assistant');
+              return assistantMessages.length > 0 ? assistantMessages[0].steps : undefined;
+            })()
+          ) : undefined}
         />
       )}
 
