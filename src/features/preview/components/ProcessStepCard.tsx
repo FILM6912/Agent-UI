@@ -94,14 +94,14 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
   const { inputContent, outputContent } = parseContent();
 
   return (
-    <div className="group relative overflow-hidden border-b border-white/5 last:border-0 transition-all duration-300">
-      <div className="py-8 px-2">
+    <div className="group relative overflow-hidden border-b border-white/5 last:border-0 transition-all duration-300 hover:bg-white/1">
+      <div className="py-6 px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
             {getIcon()}
             <div className="flex flex-col">
-              <span className="text-base font-semibold text-zinc-100 dark:text-zinc-100 tracking-tight">
+              <span className="text-sm font-semibold text-zinc-100 dark:text-zinc-100 tracking-tight">
                 {getTitle()}
               </span>
             </div>
@@ -133,11 +133,11 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
             <>
               {inputContent && (
                 <div className="space-y-3">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                  <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                     Input
                   </div>
-                  <div className="bg-[#141416] rounded-2xl p-4 border border-white/3">
-                    <pre className="text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap wrap-break-word">
+                  <div className="bg-[#141416]/50 rounded-xl p-3 border border-white/5">
+                    <pre className="text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all">
                       {(() => {
                         try {
                           const parsed = JSON.parse(inputContent);
@@ -153,11 +153,11 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
 
               {outputContent && (
                 <div className="space-y-3">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">
+                  <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                     Output
                   </div>
-                  <div className="bg-emerald-500/3 rounded-2xl p-4 border border-emerald-500/5">
-                    <div className="text-sm text-zinc-300 prose prose-invert max-w-none">
+                  <div className="bg-emerald-500/2 rounded-xl p-3 border border-emerald-500/5">
+                    <div className="text-[13px] text-zinc-300 prose prose-invert prose-sm max-w-none">
                       <Markdown remarkPlugins={[remarkGfm]}>
                         {outputContent}
                       </Markdown>

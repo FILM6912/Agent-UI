@@ -99,14 +99,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
             {getTitle()}
           </span>
 
-          {/* Show preview snippet always to preserve position */}
-          {step.content && (
-            <div className="flex-1 min-w-0 ml-2">
-              <div className="text-xs text-blue-600 dark:text-blue-400 truncate max-w-[200px] font-medium">
-                {step.content.split("\n")[0].replace(/\*\*/g, "")}
-              </div>
-            </div>
-          )}
+
         </div>
 
           <div className="flex items-center gap-3 pl-2 shrink-0">

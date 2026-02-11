@@ -189,7 +189,6 @@ async function* streamFromLangFlow(
       }
     }
 
-    // Generate session ID
     // Use valid UUID from chat ID if available, otherwise generate one
     const sessionId = chatId || `chat-${Date.now()}`;
 
@@ -199,18 +198,12 @@ async function* streamFromLangFlow(
       input_type: "chat",
       output_type: "chat",
       tweaks: tweaks
-      // session_id is often part of query params or body, but user example didn't show it in body. 
-      // We will keep it flexible or add it if needed, but user's curl didn't have it in the JSON body.
-      // Wait, user curl: "input_request": { "input_value": ... }
     };
 
     const body: any = {
       input_request: payload
     };
 
-    // Some versions need session_id at top level or inside input_request? 
-    // User curl didn't show session_id in the body, only in specific fields? Actually user didn't show session_id.
-    // We'll add session_id to payload just in case, as it's standard.
     (payload as any).session_id = sessionId;
 
     // Use /run endpoint with proper format
