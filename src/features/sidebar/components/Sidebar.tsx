@@ -54,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
 
   // Sidebar expanded state relies purely on isOpen prop now
   const showExpanded = isOpen;
@@ -238,13 +239,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </button>
 
-                {/* Delete Button - Always Visible and Red */}
+                {/* Delete Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteChat(session.id);
                   }}
-                  className="absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/20"
+                  className={`absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/20 cursor-pointer ${enableHover ? "opacity-0 group-hover:opacity-100" : ""}`}
                   title={t("sidebar.deleteChat")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />

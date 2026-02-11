@@ -60,6 +60,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onSuggestionClick,
 }) => {
   const { t } = useLanguage();
+  const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
+  const hoverOpacity = enableHover ? "opacity-0 group-hover/msg:opacity-100 transition-opacity" : "";
   const isAssistant = msg.role === "assistant";
   const isGenerating =
     isStreaming && isAssistant && (isLastMessage || !msg.content);
@@ -70,7 +72,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   return (
     <div
-      className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 group ${msg.role === "user" ? "items-end" : "items-start"}`}
+      className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 group/msg ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
       <div className="mb-2 flex items-center gap-2 px-1">
         {isAssistant && (
@@ -240,7 +242,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 )}
 
                 {/* User Message Controls (Edit / Versions) */}
-                <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity px-1">
+                <div className={`flex items-center gap-2 mt-1 px-1 ${hoverOpacity}`}>
                   {hasVersions && onVersionChange && (
                     <div className="flex items-center gap-1 p-0.5">
                       <button
@@ -251,7 +253,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                           )
                         }
                         disabled={(msg.currentVersionIndex || 0) === 0}
-                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                       >
                         <ChevronLeft className="w-3 h-3" />
                       </button>
@@ -266,7 +268,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                           )
                         }
                         disabled={currentVersion === totalVersions}
-                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                       >
                         <ChevronRight className="w-3 h-3" />
                       </button>
@@ -274,14 +276,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   )}
                   <button
                     onClick={() => onStartEdit(msg)}
-                    className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                    className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                     title={t("chat.edit")}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => onCopy(msg.id, msg.content)}
-                    className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                    className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                     title={t("chat.copy")}
                   >
                     {copiedId === msg.id ? (
@@ -306,13 +308,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         isAssistant && !isGenerating && (
           <div className="flex items-center gap-4 mt-3 pl-1 select-none">
             {hasVersions && onVersionChange && (
-              <div className="flex items-center gap-1 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className={`flex items-center gap-1 p-0.5 ${hoverOpacity}`}>
                 <button
                   onClick={() =>
                     onVersionChange(msg.id, (msg.currentVersionIndex || 0) - 1)
                   }
                   disabled={(msg.currentVersionIndex || 0) === 0}
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
@@ -324,17 +326,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     onVersionChange(msg.id, (msg.currentVersionIndex || 0) + 1)
                   }
                   disabled={currentVersion === totalVersions}
-                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
 
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className={`flex items-center gap-1 ${hoverOpacity}`}>
               <button
                 onClick={() => onCopy(msg.id, msg.content)}
-                className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                 title={t("chat.copy")}
               >
                 {copiedId === msg.id ? (
@@ -346,7 +348,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <button
                 onClick={() => onRegenerate(msg.id)}
                 disabled={isLoading || isStreaming}
-                className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+                className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                 title={t("chat.regenerate")}
               >
                 <RotateCw className="w-3.5 h-3.5" />
