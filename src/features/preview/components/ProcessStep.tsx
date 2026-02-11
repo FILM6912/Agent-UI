@@ -7,7 +7,7 @@ import {
   FileEdit,
   CheckCircle2,
   Loader2,
-  Sparkles,
+  Wrench,
 } from "lucide-react";
 import { ProcessStep as ProcessStepType } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -32,7 +32,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
         );
       case "command":
         return (
-          <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+          <Wrench className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
         );
       case "edit":
         return (
@@ -41,7 +41,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
       case "error":
         return <div className="w-2 h-2 rounded-full bg-red-500" />;
       default:
-        return <Sparkles className="w-4 h-4 text-zinc-400" />;
+        return <Wrench className="w-4 h-4 text-zinc-400" />;
     }
   };
 
