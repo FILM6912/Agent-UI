@@ -999,13 +999,28 @@ export default function App() {
         .catch(() => { });
 
       // Execute Request (history is empty for new chat)
-      await executeChatRequest(
-        currentPrompt,
-        [],
-        undefined,
-        attachments,
-        chatId,
-      );
+      try {
+        // Execute Request (history is empty for new chat)
+        await executeChatRequest(
+          currentPrompt,
+          [],
+          undefined,
+          attachments,
+          chatId,
+        );
+      } catch (e: any) {
+        console.error("Chat execution failed:", e);
+        let errorMessage = `เกิดข้อผิดพลาด: ${e.message}`;
+        if (e.message && e.message.includes("Failed to fetch")) {
+          errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
+        }
+        setErrorModalConfig({
+          title: "การส่งข้อความล้มเหลว",
+          message: errorMessage,
+          type: "error",
+        });
+        setShowErrorModal(true);
+      }
 
       return; // Exit here for new chat flow
     }
@@ -1067,13 +1082,27 @@ export default function App() {
         .catch(() => { });
     }
 
-    await executeChatRequest(
-      currentPrompt,
-      historyBeforeNewMessage,
-      undefined,
-      attachments,
-      chatId,
-    );
+    try {
+      await executeChatRequest(
+        currentPrompt,
+        historyBeforeNewMessage,
+        undefined,
+        attachments,
+        chatId,
+      );
+    } catch (e: any) {
+      console.error("Chat execution failed:", e);
+      let errorMessage = `เกิดข้อผิดพลาด: ${e.message}`;
+        if (e.message && e.message.includes("Failed to fetch")) {
+          errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
+        }
+      setErrorModalConfig({
+        title: "การส่งข้อความล้มเหลว",
+        message: errorMessage,
+        type: "error",
+      });
+      setShowErrorModal(true);
+    }
   };
 
   const handleEditUserMessage = async (
