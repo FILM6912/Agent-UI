@@ -94,7 +94,7 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
   const { inputContent, outputContent } = parseContent();
 
   return (
-    <div className="group relative overflow-hidden border-b border-white/5 last:border-0 transition-all duration-300 hover:bg-white/1">
+    <div className="group relative border-b border-white/5 last:border-0 transition-all duration-300 hover:bg-white/1">
       <div className="py-6 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -136,8 +136,8 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                   <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                     Input
                   </div>
-                  <div className="bg-[#141416]/50 rounded-xl p-3 border border-white/5">
-                    <pre className="text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all">
+                  <div className="bg-[#141416]/50 rounded-xl p-3 border border-white/5 overflow-hidden">
+                    <pre className="text-[11px] font-mono text-zinc-400 whitespace-pre-wrap break-all overflow-wrap-anywhere">
                       {(() => {
                         try {
                           const parsed = JSON.parse(inputContent);
@@ -156,8 +156,8 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                   <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
                     Output
                   </div>
-                  <div className="bg-emerald-500/2 rounded-xl p-3 border border-emerald-500/5">
-                    <div className="text-[13px] text-zinc-300 prose prose-invert prose-sm max-w-none">
+                  <div className="bg-emerald-500/2 rounded-xl p-3 border border-emerald-500/5 overflow-hidden">
+                    <div className="text-[13px] text-zinc-300 prose prose-invert prose-sm max-w-none break-words overflow-wrap-anywhere">
                       <Markdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -167,17 +167,17 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                             </strong>
                           ),
                           p: ({ children }) => (
-                            <p className="break-words">{children}</p>
+                            <p className="break-words overflow-wrap-anywhere leading-relaxed mb-3 last:mb-0">{children}</p>
                           ),
                           pre: ({ children }) => (
-                             <pre className="whitespace-pre-wrap break-all text-xs my-2 p-2 rounded bg-black/20">{children}</pre>
+                             <pre className="whitespace-pre-wrap break-all overflow-wrap-anywhere text-xs my-2 p-2 rounded bg-black/20 overflow-hidden">{children}</pre>
                           ),
                           code: ({ children, className }) => {
                              const isInline = !className;
                              return isInline ? (
-                               <code className="bg-black/10 dark:bg-black/20 px-1 py-0.5 rounded font-mono text-xs break-all border border-black/5 dark:border-white/5">{children}</code>
+                               <code className="bg-black/10 dark:bg-black/20 px-1 py-0.5 rounded font-mono text-xs break-all overflow-wrap-anywhere border border-black/5 dark:border-white/5">{children}</code>
                              ) : (
-                               <code className={`${className} break-all whitespace-pre-wrap`}>{children}</code>
+                               <code className={`${className} break-all whitespace-pre-wrap overflow-wrap-anywhere`}>{children}</code>
                              );
                           }
                         }}
