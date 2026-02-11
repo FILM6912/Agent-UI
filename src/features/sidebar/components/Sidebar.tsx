@@ -325,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-      className={`h-full flex-shrink-0 bg-zinc-50 dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-16"}`}
+      className={`h-full flex-shrink-0 bg-zinc-50 dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-[50px]"}`}
     >
       {SidebarContent}
     </div>
