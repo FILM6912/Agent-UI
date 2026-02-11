@@ -800,9 +800,23 @@ export default function App() {
 
               const updatedMessages = session.messages.map((msg) => {
                 if (msg.role === 'assistant' && (msg.id === assistantMsgId || msg.id === authoritativeAssistantMsg.id)) {
-                  // Preserve existing suggestions if any
+                  // Preserve client-side metadata: versions, currentVersionIndex, and suggestions
+                  const updatedVersions = msg.versions ? [...msg.versions] : [];
+                  const currentIndex = msg.currentVersionIndex ?? 0;
+
+                  // Update the current version in history with authoritative data
+                  if (updatedVersions[currentIndex]) {
+                    updatedVersions[currentIndex] = {
+                      ...updatedVersions[currentIndex],
+                      content: authoritativeAssistantMsg.content,
+                      steps: authoritativeAssistantMsg.steps,
+                    };
+                  }
+
                   return { 
                     ...authoritativeAssistantMsg, 
+                    versions: updatedVersions,
+                    currentVersionIndex: currentIndex,
                     suggestions: msg.suggestions 
                   };
                 }
