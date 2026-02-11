@@ -466,17 +466,25 @@ export default function App() {
       if (fetchedSessions.length > 0) {
         setSessions(prev => {
           const newSessionsMap: Record<string, ChatSession> = {};
-          fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
+          fetchedSessions.forEach(s => {
+            const existing = prev[s.id];
+            // If session exists and has messages, preserve local messages (which might be full)
+            // fetchAllSessionsFromLangFlow now returns minimal stubs.
+            if (existing && existing.messages.length > 0) {
+              newSessionsMap[s.id] = { ...s, messages: existing.messages };
+            } else {
+              newSessionsMap[s.id] = s;
+            }
+          });
 
           // If streaming, PRESERVE the active session from local state entirely
-          // Use Ref to get the LATEST active chat ID, not the one from closure
           const currentActiveId = activeChatIdRef.current;
 
           if (isStreamingRef.current && currentActiveId && prev[currentActiveId]) {
             console.log('>>> App.tsx: Streaming in progress, preserving active session', currentActiveId);
             newSessionsMap[currentActiveId] = prev[currentActiveId];
           }
-          // Also preserve local-only sessions (optimistic ones)
+          // Also preserve local-only sessions
           else if (currentActiveId && prev[currentActiveId] && !newSessionsMap[currentActiveId]) {
             newSessionsMap[currentActiveId] = prev[currentActiveId];
           }
