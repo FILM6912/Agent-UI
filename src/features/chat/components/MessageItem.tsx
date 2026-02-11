@@ -249,7 +249,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                             (msg.currentVersionIndex || 0) - 1,
                           )
                         }
-                        disabled={(msg.currentVersionIndex || 0) === 0}
+                        disabled={(msg.currentVersionIndex || 0) === 0 || isStreaming}
                         className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                       >
                         <ChevronLeft className="w-3 h-3" />
@@ -264,7 +264,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                             (msg.currentVersionIndex || 0) + 1,
                           )
                         }
-                        disabled={currentVersion === totalVersions}
+                        disabled={currentVersion === totalVersions || isStreaming}
                         className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                       >
                         <ChevronRight className="w-3 h-3" />
@@ -310,7 +310,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   onClick={() =>
                     onVersionChange(msg.id, (msg.currentVersionIndex || 0) - 1)
                   }
-                  disabled={(msg.currentVersionIndex || 0) === 0}
+                  disabled={(msg.currentVersionIndex || 0) === 0 || isStreaming}
                   className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -322,7 +322,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   onClick={() =>
                     onVersionChange(msg.id, (msg.currentVersionIndex || 0) + 1)
                   }
-                  disabled={currentVersion === totalVersions}
+                  disabled={currentVersion === totalVersions || isStreaming}
                   className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />

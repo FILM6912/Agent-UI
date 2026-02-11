@@ -542,56 +542,62 @@ export default function App() {
     if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
 
     const loadHistory = async () => {
-      // Don't overwrite if we're currently streaming the active chat
-      if (isStreamingRef.current) {
-        console.log('>>> loadHistory: Skipping sync - streaming in progress');
-        return;
-      }
+      if (isStreamingRef.current) return;
 
-      // Create a local variable or ref to avoid race conditions if needed
-      // For now, simpler is better.
-      const messages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
+      const serverMessages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
 
-        setSessions(prev => {
-          const currentSession = prev[activeChatId];
+      setSessions(prev => {
+        const session = prev[activeChatId];
+        if (!session && serverMessages.length === 0) return prev;
 
-          // If session doesn't exist in our map yet, and we got no messages, ignore.
-          if (!currentSession && messages.length === 0) return prev;
+        const localMessages = session?.messages || [];
+        
+        // Use localMessages as the base to preserve branches (tails)
+        const updatedLocalMessages = localMessages.map(localMsg => {
+          // Skip sync for messages with multiple versions (branching) to preserve version history
+          if (localMsg.versions && localMsg.versions.length > 1) {
+            return localMsg;
+          }
 
-          // Merge messages to avoid losing local state
-          // Trust server messages but keep unique local messages (e.g. while still optimistic)
-          // For now, just trust server if more than 0 messages, but AVOID overwrite if local has more or same
-          if (messages.length > 0) {
-            // Check if server messages are different from what we have
-            const serverCount = messages.length;
-            const localCount = currentSession?.messages.length || 0;
+          const serverMsg = serverMessages.find(sm => sm.id === localMsg.id);
+          if (!serverMsg) return localMsg;
 
-            // If we are currently in this chat and local messages are same as server, skip update
-            if (currentSession && localCount === serverCount) {
-              const lastLocal = currentSession.messages[localCount - 1];
-              const lastServer = messages[serverCount - 1];
-              if (lastLocal.content === lastServer.content && lastLocal.id === lastServer.id) {
-                return prev;
-              }
-            }
+          // Clone versions and update only the LATEST one with server data
+          const updatedVersions = localMsg.versions ? [...localMsg.versions] : [];
+          const latestIdx = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
+          const currentIdx = localMsg.currentVersionIndex ?? 0;
 
-            return {
-              ...prev,
-              [activeChatId]: {
-                ...(currentSession || {
-                  id: activeChatId,
-                  title: "Chat",
-                  updatedAt: Date.now()
-                }),
-                messages: messages,
-                updatedAt: Date.now()
-              }
+          if (updatedVersions[latestIdx]) {
+            updatedVersions[latestIdx] = {
+              ...updatedVersions[latestIdx],
+              content: serverMsg.content,
+              steps: serverMsg.steps || updatedVersions[latestIdx].steps
             };
           }
 
-          return prev;
+          return {
+            ...localMsg, // Keep all local meta (versions, currentVersionIndex)
+            content: (currentIdx === latestIdx) ? serverMsg.content : localMsg.content,
+            steps: (currentIdx === latestIdx) ? serverMsg.steps : localMsg.steps,
+            versions: updatedVersions,
+          };
         });
-      };
+
+        // Add any NEW messages from the server that aren't in local
+        const newServerMessages = serverMessages.filter(sm => !localMessages.find(lm => lm.id === sm.id));
+        const finalMessages = [...updatedLocalMessages, ...newServerMessages];
+
+        return {
+          ...prev,
+          [activeChatId]: {
+            ...session,
+            id: activeChatId,
+            messages: finalMessages,
+            updatedAt: Date.now()
+          }
+        };
+      });
+    };
 
     loadHistory();
   }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
@@ -677,49 +683,58 @@ export default function App() {
         }
 
         if (!messageInitialized) {
-          const initialAssistantMsg: Message = {
-            id: assistantMsgId,
-            role: "assistant",
-            content: "",
-            timestamp: Date.now(),
-            steps: chunk.type === "steps" ? chunk.steps : undefined,
-            versions: [
-              {
-                content: "",
-                steps: chunk.type === "steps" ? chunk.steps : undefined,
-                timestamp: Date.now(),
-              },
-            ],
-            currentVersionIndex: 0,
-          };
-
-          // Set initial content if it's a text chunk
-          if (chunk.type === "text" && chunk.content) {
-            accumulatedContent += chunk.content;
-            initialAssistantMsg.content = accumulatedContent;
-            if (initialAssistantMsg.versions) {
-              initialAssistantMsg.versions[0].content = accumulatedContent;
-            }
-          }
-
-          setSessions((prev) => {
-            // Ensure session exists before updating
-            if (!prev[sessionId]) {
-              console.error(`Session ${sessionId} not found in first chunk handler`);
-              return prev;
-            }
-
-            return {
-              ...prev,
-              [sessionId]: {
-                ...prev[sessionId],
-                messages: [...prev[sessionId].messages, initialAssistantMsg],
-              },
+          // If we have a target message ID, we are updating an existing message (Linked Branching/Regenerate)
+          // So we skip the creation/append step and fall through to the update logic
+          if (!targetMessageId) {
+             const initialAssistantMsg: Message = {
+              id: assistantMsgId,
+              role: "assistant",
+              content: "",
+              timestamp: Date.now(),
+              steps: chunk.type === "steps" ? chunk.steps : undefined,
+              versions: [
+                {
+                  content: "",
+                  steps: chunk.type === "steps" ? chunk.steps : undefined,
+                  timestamp: Date.now(),
+                },
+              ],
+              currentVersionIndex: 0,
             };
-          });
+  
+            // Set initial content if it's a text chunk
+            if (chunk.type === "text" && chunk.content) {
+              accumulatedContent += chunk.content;
+              initialAssistantMsg.content = accumulatedContent;
+              if (initialAssistantMsg.versions) {
+                initialAssistantMsg.versions[0].content = accumulatedContent;
+              }
+            }
+  
+            setSessions((prev) => {
+              // Ensure session exists before updating
+              if (!prev[sessionId]) {
+                console.error(`Session ${sessionId} not found in first chunk handler`);
+                return prev;
+              }
+  
+              return {
+                ...prev,
+                [sessionId]: {
+                  ...prev[sessionId],
+                  messages: [...prev[sessionId].messages, initialAssistantMsg],
+                },
+              };
+            });
+            
+            // Skip the rest of the loop ONLY if we created a new message
+            // If we are updating (fallthrough), we want the update logic to run immediately for this chunk
+            messageInitialized = true;
+            continue;
+          }
+          
           messageInitialized = true;
-          // Skip the rest of the loop for this chunk since we already handled it
-          continue;
+          // Fall through to update logic for existing message...
         }
 
         if (
@@ -747,9 +762,11 @@ export default function App() {
             }
 
             const updatedMessages = session.messages.map((msg) => {
-              if (msg.id === assistantMsgId) {
+                if (msg.id === assistantMsgId) {
                 const updatedVersions = msg.versions ? [...msg.versions] : [];
-                const currentIndex = msg.currentVersionIndex ?? 0;
+                // Always write to the LATEST version when streaming (append-only logic)
+                // This protects against state desync where currentVersionIndex might be stale (e.g. 0)
+                const currentIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
 
                 if (updatedVersions[currentIndex]) {
                   if (chunk.type === "text") {
@@ -771,6 +788,7 @@ export default function App() {
                     chunk.type === "text" ? accumulatedContent : msg.content,
                   steps: chunk.type === "steps" ? chunk.steps : msg.steps,
                   versions: updatedVersions,
+                  currentVersionIndex: currentIndex, // Force UI to show the version we are writing to
                 };
               }
               return msg;
@@ -789,49 +807,49 @@ export default function App() {
 
       // Perform authoritative sync after streaming finishes
       try {
-        const fullHistory = await fetchHistoryFromLangFlow(modelConfig, sessionId);
-        if (fullHistory.length > 0) {
-          const authoritativeAssistantMsg = fullHistory.find(m => m.id === assistantMsgId || (m.role === 'assistant' && !m.id?.startsWith('temp-')));
-          
-          if (authoritativeAssistantMsg) {
-            setSessions((prev) => {
-              const session = prev[sessionId];
-              if (!session) return prev;
+        const serverMessages = await fetchHistoryFromLangFlow(modelConfig, sessionId);
+        if (serverMessages.length > 0) {
+          setSessions((prev) => {
+            const session = prev[sessionId];
+            if (!session) return prev;
 
-              const updatedMessages = session.messages.map((msg) => {
-                if (msg.role === 'assistant' && (msg.id === assistantMsgId || msg.id === authoritativeAssistantMsg.id)) {
-                  // Preserve client-side metadata: versions, currentVersionIndex, and suggestions
-                  const updatedVersions = msg.versions ? [...msg.versions] : [];
-                  const currentIndex = msg.currentVersionIndex ?? 0;
+            const updatedMessages = session.messages.map((localMsg) => {
+              // Skip sync for messages with multiple versions (branching) to preserve version history
+              if (localMsg.versions && localMsg.versions.length > 1) {
+                return localMsg;
+              }
 
-                  // Update the current version in history with authoritative data
-                  if (updatedVersions[currentIndex]) {
-                    updatedVersions[currentIndex] = {
-                      ...updatedVersions[currentIndex],
-                      content: authoritativeAssistantMsg.content,
-                      steps: authoritativeAssistantMsg.steps,
-                    };
-                  }
+              const serverMsg = serverMessages.find(sm => sm.id === localMsg.id);
+              if (!serverMsg) return localMsg;
 
-                  return { 
-                    ...authoritativeAssistantMsg, 
-                    versions: updatedVersions,
-                    currentVersionIndex: currentIndex,
-                    suggestions: msg.suggestions 
-                  };
-                }
-                return msg;
-              });
+              const updatedVersions = localMsg.versions ? [...localMsg.versions] : [];
+              const latestIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
+              const currentIdx = localMsg.currentVersionIndex ?? 0;
+
+              if (updatedVersions[latestIndex]) {
+                updatedVersions[latestIndex] = {
+                  ...updatedVersions[latestIndex],
+                  content: serverMsg.content,
+                  steps: serverMsg.steps || updatedVersions[latestIndex].steps,
+                };
+              }
 
               return {
-                ...prev,
-                [sessionId]: {
-                  ...session,
-                  messages: updatedMessages,
-                },
+                ...localMsg,
+                content: (currentIdx === latestIndex) ? serverMsg.content : localMsg.content,
+                steps: (currentIdx === latestIndex) ? serverMsg.steps : localMsg.steps,
+                versions: updatedVersions,
               };
             });
-          }
+
+            return {
+              ...prev,
+              [sessionId]: {
+                ...session,
+                messages: updatedMessages,
+              },
+            };
+          });
         }
       } catch (syncError) {
         console.warn("Post-stream sync failed:", syncError);
@@ -1174,29 +1192,52 @@ export default function App() {
   ) => {
     if (isLoading || isStreaming) return;
 
-    const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+    // Snapshot state for calculation
+    const currentSession = sessions[activeChatId];
+    if (!currentSession) return;
+    const currentMessagesRaw = currentSession.messages;
+    const msgIndex = currentMessagesRaw.findIndex((m) => m.id === messageId);
     if (msgIndex === -1) return;
 
-    const historyToUse = currentMessages.slice(0, msgIndex);
-    const originalMsg = currentMessages[msgIndex];
+    const originalMsg = currentMessagesRaw[msgIndex];
+    const finalAttachments = originalMsg.attachments;
 
-    const nextMsg = currentMessages[msgIndex + 1];
-    const targetAssistantId =
-      nextMsg && nextMsg.role === "assistant" ? nextMsg.id : undefined;
+    // Robustly find the next assistant message and its index
+    const assistantIndex = currentMessagesRaw.slice(msgIndex + 1).findIndex(m => m.role === "assistant");
+    const assistantMsg = assistantIndex !== -1 ? currentMessagesRaw[msgIndex + 1 + assistantIndex] : null;
+    const actualAssistantIndex = assistantIndex !== -1 ? msgIndex + 1 + assistantIndex : -1;
+    
+    const targetAssistantId = assistantMsg?.id;
+    const historyToUse = currentMessagesRaw.slice(0, msgIndex);
+
+    console.log('>>> handleEditUserMessage calculated:', { msgIndex, actualAssistantIndex, targetAssistantId });
 
     setSessions((prev) => {
       const session = prev[activeChatId];
       if (!session) return prev;
 
       const updatedMessages = session.messages.map((msg) => {
+        // Handle User Message update
         if (msg.id === messageId) {
-          const currentVersions = msg.versions || [
+          const currentVersions = [...(msg.versions || [
             {
               content: msg.content,
               attachments: msg.attachments,
               timestamp: msg.timestamp,
             },
-          ];
+          ])];
+
+          const tailStartIndex = assistantMsg ? actualAssistantIndex + 1 : msgIndex + 1;
+          const currentTail = session.messages.slice(tailStartIndex);
+
+          const currentIndex = msg.currentVersionIndex ?? 0;
+          if (currentVersions[currentIndex]) {
+            currentVersions[currentIndex] = {
+              ...currentVersions[currentIndex],
+              tail: currentTail
+            };
+          }
+
           const newVersion: MessageVersion = {
             content: newContent,
             attachments: msg.attachments,
@@ -1210,14 +1251,26 @@ export default function App() {
             currentVersionIndex: currentVersions.length,
           };
         }
-        if (msg.id === targetAssistantId) {
-          const currentVersions = msg.versions || [
+
+        // Handle Assistant Message update (linked version)
+        if (assistantMsg && msg.id === assistantMsg.id) {
+          const currentVersions = [...(msg.versions || [
             {
               content: msg.content,
               steps: msg.steps,
               timestamp: msg.timestamp,
             },
-          ];
+          ])];
+
+          const currentTail = session.messages.slice(actualAssistantIndex + 1);
+          const currentIndex = msg.currentVersionIndex ?? 0;
+          if (currentVersions[currentIndex]) {
+            currentVersions[currentIndex] = {
+              ...currentVersions[currentIndex],
+              tail: currentTail
+            };
+          }
+
           const newVersion: MessageVersion = {
             content: "",
             timestamp: Date.now(),
@@ -1231,14 +1284,18 @@ export default function App() {
             currentVersionIndex: currentVersions.length,
           };
         }
+
         return msg;
       });
+
+      const truncatedSize = assistantMsg ? actualAssistantIndex + 1 : msgIndex + 1;
+      const finalMessages = updatedMessages.slice(0, truncatedSize);
 
       return {
         ...prev,
         [activeChatId]: {
           ...session,
-          messages: updatedMessages,
+          messages: finalMessages,
         },
       };
     });
@@ -1247,22 +1304,28 @@ export default function App() {
       newContent,
       historyToUse,
       targetAssistantId,
-      originalMsg.attachments,
+      finalAttachments,
     );
   };
 
   const handleRegenerate = async (messageId: string) => {
     if (isLoading || isStreaming) return;
 
-    const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+    const currentSession = sessions[activeChatId];
+    if (!currentSession) return;
+    const currentMessagesRaw = currentSession.messages;
+    const msgIndex = currentMessagesRaw.findIndex((m) => m.id === messageId);
     if (msgIndex === -1) return;
 
-    const historyToUse = currentMessages.slice(0, msgIndex);
+    const historyToUse = currentMessagesRaw.slice(0, msgIndex);
     const lastUserMsg = [...historyToUse]
       .reverse()
       .find((m) => m.role === "user");
 
     if (!lastUserMsg) return;
+
+    const targetPrompt = lastUserMsg.content;
+    const targetAttachments = lastUserMsg.attachments;
 
     setSessions((prev) => {
       const session = prev[activeChatId];
@@ -1270,13 +1333,22 @@ export default function App() {
 
       const updatedMessages = session.messages.map((msg) => {
         if (msg.id === messageId) {
-          const currentVersions = msg.versions || [
+          const currentVersions = [...(msg.versions || [
             {
               content: msg.content,
               steps: msg.steps,
               timestamp: msg.timestamp,
             },
-          ];
+          ])];
+
+          const currentTail = session.messages.slice(msgIndex + 1);
+          const currentIndex = msg.currentVersionIndex ?? 0;
+          if (currentVersions[currentIndex]) {
+            currentVersions[currentIndex] = {
+              ...currentVersions[currentIndex],
+              tail: currentTail
+            };
+          }
 
           const newVersion: MessageVersion = {
             content: "",
@@ -1294,20 +1366,22 @@ export default function App() {
         return msg;
       });
 
+      const finalMessages = updatedMessages.slice(0, msgIndex + 1);
+
       return {
         ...prev,
         [activeChatId]: {
           ...session,
-          messages: updatedMessages,
+          messages: finalMessages,
         },
       };
     });
 
     await executeChatRequest(
-      lastUserMsg.content,
+      targetPrompt,
       historyToUse,
       messageId,
-      lastUserMsg.attachments,
+      targetAttachments,
     );
   };
 
@@ -1316,35 +1390,75 @@ export default function App() {
       const session = prev[activeChatId];
       if (!session) return prev;
 
-      const msgIndex = session.messages.findIndex((m) => m.id === messageId);
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return prev;
 
-      const targetMsg = session.messages[msgIndex];
+      const targetMsg = currentMessages[msgIndex];
+      if (!targetMsg.versions || !targetMsg.versions[newIndex]) return prev;
+
       const updates = new Map<string, number>();
       updates.set(messageId, newIndex);
 
+      let linkedMsg: Message | undefined;
+      let linkedIndex = -1;
+
       if (targetMsg.role === "user") {
-        const nextMsg = session.messages[msgIndex + 1];
-        if (nextMsg && nextMsg.role === "assistant" && nextMsg.versions) {
-          if (nextMsg.versions[newIndex]) {
-            updates.set(nextMsg.id, newIndex);
-          }
+        const foundAssistantIndex = currentMessages.slice(msgIndex + 1).findIndex(m => m.role === "assistant");
+        if (foundAssistantIndex !== -1) {
+          linkedIndex = msgIndex + 1 + foundAssistantIndex;
+          linkedMsg = currentMessages[linkedIndex];
+          updates.set(linkedMsg.id, newIndex);
+        }
+      } else if (targetMsg.role === "assistant") {
+        const foundUserIndex = [...currentMessages.slice(0, msgIndex)].reverse().findIndex(m => m.role === "user");
+        if (foundUserIndex !== -1) {
+          linkedIndex = msgIndex - 1 - foundUserIndex;
+          linkedMsg = currentMessages[linkedIndex];
+          updates.set(linkedMsg.id, newIndex);
         }
       }
 
-      const updatedMessages = session.messages.map((msg) => {
+      // Identify point of divergence
+      const calculatedTailStartIndex = (targetMsg.role === "user" && linkedMsg) ? linkedIndex + 1 : msgIndex + 1;
+      const currentTail = currentMessages.slice(calculatedTailStartIndex);
+
+      // 1. Calculate new tail from TARGET or LINKED version
+      let newTail: Message[] = [];
+      const linkedVersion = (linkedMsg && linkedMsg.versions) ? linkedMsg.versions[newIndex] : null;
+      const targetVersion = targetMsg.versions[newIndex];
+
+      if (linkedVersion?.tail) {
+        newTail = linkedVersion.tail;
+      } else if (targetVersion?.tail) {
+        newTail = targetVersion.tail;
+      }
+
+      // 2. Construct new message list with IMMUTABLE updates
+      const baseMessages = currentMessages.slice(0, calculatedTailStartIndex).map((msg) => {
+        // Clone message if it's the target or linked one
         if (updates.has(msg.id)) {
-          const indexToUse = updates.get(msg.id)!;
-          if (msg.versions && msg.versions[indexToUse]) {
-            const targetVersion = msg.versions[indexToUse];
-            return {
-              ...msg,
-              content: targetVersion.content,
-              steps: targetVersion.steps,
-              attachments: targetVersion.attachments || msg.attachments,
-              currentVersionIndex: indexToUse,
+          const idxToUse = updates.get(msg.id)!;
+          const currentIdx = msg.currentVersionIndex ?? 0;
+          const updatedVersions = msg.versions ? [...msg.versions] : [];
+          
+          // Save CURRENT tail to CURRENT version slot before switching
+          if (updatedVersions[currentIdx]) {
+            updatedVersions[currentIdx] = {
+              ...updatedVersions[currentIdx],
+              tail: currentTail
             };
           }
+
+          const targetV = updatedVersions[idxToUse];
+          return {
+            ...msg,
+            content: targetV.content,
+            steps: targetV.steps,
+            attachments: targetV.attachments || msg.attachments,
+            currentVersionIndex: idxToUse,
+            versions: updatedVersions,
+          };
         }
         return msg;
       });
@@ -1353,7 +1467,8 @@ export default function App() {
         ...prev,
         [activeChatId]: {
           ...session,
-          messages: updatedMessages,
+          messages: [...baseMessages, ...newTail],
+          updatedAt: Date.now(),
         },
       };
     });

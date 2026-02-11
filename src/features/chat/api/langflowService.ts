@@ -614,7 +614,6 @@ interface LangFlowMessage {
 // Helper to map LangFlow messages to minimal stubs (performance)
 function mapLangFlowMessagesMinimal(messages: LangFlowMessage[]): Message[] {
   return messages
-    .filter(msg => !msg.session_id.startsWith('suggestion-'))
     .map(msg => ({
       id: msg.id,
       role: msg.sender === 'User' ? 'user' : 'assistant' as any,
@@ -626,7 +625,6 @@ function mapLangFlowMessagesMinimal(messages: LangFlowMessage[]): Message[] {
 // Helper to map LangFlow messages to internal Message type (full)
 function mapLangFlowMessages(messages: LangFlowMessage[], baseUrl: string): Message[] {
   return messages
-    .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions
     .map(msg => {
       const isUser = msg.sender === 'User';
       const role = isUser ? 'user' : 'assistant';
@@ -685,10 +683,10 @@ export async function fetchHistoryFromLangFlow(
     const data = await response.json();
     const messagesData: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
 
-    // Deduplicate and group
+    // Deduplicate: Keep the LATEST record for each ID
     const uniqueMessages = new Map<string, LangFlowMessage>();
     messagesData.forEach(msg => {
-      if (!uniqueMessages.has(msg.id)) uniqueMessages.set(msg.id, msg);
+      uniqueMessages.set(msg.id, msg);
     });
 
     return mapLangFlowMessages(Array.from(uniqueMessages.values()), baseUrl);
@@ -712,31 +710,44 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
 
     console.log('>>> Fetching sessions from:', `${baseUrl}/api/v1/monitor/messages?order_by=timestamp`);
 
-    // Fetch ALL messages (monitor endpoint)
-    // Requesting a larger limit to ensure we get broader history
-    const response = await fetch(`${baseUrl}/api/v1/monitor/messages?order_by=timestamp&limit=2000`, { headers });
+    const fetchUrl = `${baseUrl}/api/v1/monitor/messages?order_by=timestamp&limit=2000`;
+    console.log('>>> fetchAllSessionsFromLangFlow fetching from:', fetchUrl);
+    
+    const response = await fetch(fetchUrl, { headers });
+
+    console.log('>>> fetchAllSessionsFromLangFlow response status:', response.status);
 
     if (!response.ok) {
-      console.warn(`Failed to fetch sessions: ${response.status}`);
+      const errorText = await response.text().catch(() => 'No error body');
+      console.warn(`>>> Failed to fetch sessions: ${response.status}`, errorText);
       return [];
     }
 
     const data = await response.json();
-    console.log('>>> fetchAllSessionsFromLangFlow raw data:', data);
+    console.log('>>> fetchAllSessionsFromLangFlow raw data length:', Array.isArray(data) ? data.length : (data.data ? data.data.length : 'unknown'));
     const allMessages: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
     console.log('>>> fetchAllSessionsFromLangFlow parsed messages count:', allMessages.length);
+
+    if (allMessages.length > 0) {
+      console.log('>>> Sample message keys:', Object.keys(allMessages[0]));
+      console.log('>>> Sample message session_id:', allMessages[0].session_id);
+    }
 
     // Group by Session ID
     const sessionsMap = new Map<string, LangFlowMessage[]>();
 
-    allMessages.forEach(msg => {
-      // Filter suggestions
-      if (msg.session_id.startsWith('suggestion-')) return;
+    allMessages.forEach((msg) => {
+      // Find session ID robustly
+      const sessionId = msg.session_id || (msg as any).sessionId || (msg as any).sessionID;
+      
+      if (!sessionId) return;
 
-      const existing = sessionsMap.get(msg.session_id) || [];
+      const existing = sessionsMap.get(sessionId) || [];
       existing.push(msg);
-      sessionsMap.set(msg.session_id, existing);
+      sessionsMap.set(sessionId, existing);
     });
+
+    console.log(`>>> Created ${sessionsMap.size} unique session buckets before filtering`);
 
     // Convert to ChatSession
     const sessions: ChatSession[] = [];

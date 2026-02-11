@@ -49,6 +49,7 @@ export interface MessageVersion {
   steps?: ProcessStep[];
   suggestions?: string[];
   timestamp: number;
+  tail?: Message[];
 }
 
 export interface Message {
