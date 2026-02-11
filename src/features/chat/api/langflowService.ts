@@ -1,46 +1,6 @@
 import { Message, ProcessStep, ModelConfig, Attachment, ChatSession } from "../../../types";
 import { generateUUID } from "@/lib/utils";
 
-const generateMockSteps = (prompt: string): ProcessStep[] => {
-  const lowercasePrompt = prompt.toLowerCase();
-  const techKeywords = ['npm', 'npx', 'yarn', 'pnpm', 'git', 'install', 'setup', 'init', 'vite', 'deploy', 'build'];
-  const thinkingKeywords = ['plan', 'design', 'architecture', 'analyze', 'compare', 'solve'];
-
-  const isTechRequest = techKeywords.some(k => lowercasePrompt.includes(k));
-  const isThinkingRequest = thinkingKeywords.some(k => lowercasePrompt.includes(k));
-
-  const steps: ProcessStep[] = [];
-  if (isTechRequest) {
-    steps.push({
-      id: generateUUID(),
-      type: 'thinking',
-      title: 'Deep Thinking',
-      content: `Analyzing technical requirements for: "${prompt.substring(0, 30)}..."`,
-      duration: '0.8s',
-      status: 'completed',
-      isExpanded: false
-    });
-    steps.push({
-      id: generateUUID(),
-      type: 'command',
-      title: 'Environment Setup',
-      content: 'Initializing execution environment...',
-      status: 'completed',
-      isExpanded: false
-    });
-  } else if (isThinkingRequest) {
-    steps.push({
-      id: generateUUID(),
-      type: 'thinking',
-      title: 'Reasoning',
-      content: `Deconstructing the problem...`,
-      duration: '1.2s',
-      status: 'completed',
-      isExpanded: false
-    });
-  }
-  return steps;
-};
 
 export async function generateChatTitle(userPrompt: string, _config?: ModelConfig): Promise<string> {
   // Simple title generation without AI fallback to avoid extra dependencies
@@ -96,12 +56,12 @@ const parseContentBlocks = (contentBlocks: any[]): ProcessStep[] => {
           const duration = content.duration ? `${content.duration}s` : '';
 
           steps.push({
-            id: generateUUID(),
+            id: content.id || `tool-${toolName}-${steps.length}`,
             type: 'command',
             title: toolName,
             content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
             duration: duration,
-            status: 'completed',
+            status: toolOutput ? 'completed' : 'running',
             isExpanded: false
           });
         }
@@ -135,12 +95,12 @@ const parseContentBlocks = (contentBlocks: any[]): ProcessStep[] => {
       const duration = block.duration || '';
 
       steps.push({
-        id: block.id || generateUUID(),
+        id: block.id || `tool-${toolName}-${contentBlocks.indexOf(block)}`,
         type: 'command',
         title: toolName,
         content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
         duration: duration,
-        status: 'completed',
+        status: toolOutput ? 'completed' : 'running',
         isExpanded: false
       });
     }
@@ -336,7 +296,15 @@ async function* streamFromLangFlow(
           }
 
           // Handle LangFlow /run endpoint format
-          if ((json.event === 'token' || json.event === 'message') && json.data?.chunk) {
+          if ((json.event === 'token' || json.event === 'message') && json.data) {
+            // Check for steps in message event
+            if (json.event === 'message' && json.data.content_blocks) {
+              const steps = parseContentBlocks(json.data.content_blocks);
+              if (steps.length > 0) {
+                yield { type: 'steps', steps };
+              }
+            }
+
             const content = json.data.chunk;
 
             // Skip empty content
@@ -364,14 +332,20 @@ async function* streamFromLangFlow(
                 const outputsInner = outputsOuter[0].outputs || [];
                 if (outputsInner.length > 0) {
                   const results = outputsInner[0].results || {};
+                  
+                  // Extract Steps from End Event
                   const messageData = results.message?.data || {};
-                  const finalText = ensureString(messageData.text);
+                  if (messageData.content_blocks) {
+                    const steps = parseContentBlocks(messageData.content_blocks);
+                    if (steps.length > 0) {
+                      yield { type: 'steps', steps };
+                    }
+                  }
 
+                  const finalText = ensureString(messageData.text);
                   if (finalText && finalText !== accumulatedText) {
-                    // Start of Selection
                     // If final text differs, yield the authoritative full text
                     yield { type: 'text', content: finalText, isFullText: true };
-                    // End of Selection
                   }
                 }
               }
@@ -532,13 +506,6 @@ export async function* streamMessageFromGemini(
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   // Check if this is a LangFlow agent (has langflowUrl configured)
   if (config.langflowUrl && config.modelId) {
-    // Use LangFlow
-    const mockSteps = generateMockSteps(newMessage);
-    if (mockSteps.length > 0) {
-      yield { type: 'steps', steps: mockSteps };
-      await new Promise(resolve => setTimeout(resolve, 600));
-    }
-
     // Route based on apiType
     if (config.apiType === 'openai') {
       yield* streamFromOpenAI(history, newMessage, config, attachments, chatId);
