@@ -158,7 +158,16 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                   </div>
                   <div className="bg-emerald-500/2 rounded-xl p-3 border border-emerald-500/5">
                     <div className="text-[13px] text-zinc-300 prose prose-invert prose-sm max-w-none">
-                      <Markdown remarkPlugins={[remarkGfm]}>
+                      <Markdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          strong: ({ children }) => (
+                            <strong className="font-bold text-red-500/70 dark:text-red-400/80">
+                              {children}
+                            </strong>
+                          ),
+                        }}
+                      >
                         {outputContent}
                       </Markdown>
                     </div>
