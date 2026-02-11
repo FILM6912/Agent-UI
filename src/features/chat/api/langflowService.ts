@@ -41,7 +41,7 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
   return steps;
 };
 
-export async function generateChatTitle(userPrompt: string, config?: ModelConfig): Promise<string> {
+export async function generateChatTitle(userPrompt: string, _config?: ModelConfig): Promise<string> {
   // Simple title generation without AI fallback to avoid extra dependencies
   return userPrompt.substring(0, 30);
 }
@@ -138,7 +138,7 @@ async function uploadFileToLangFlow(
 // Stream from LangFlow using OpenAI SDK format
 // Stream from LangFlow using OpenAI SDK format
 async function* streamFromLangFlow(
-  history: Message[],
+  _history: Message[],
   newMessage: string,
   config: ModelConfig,
   attachments: Attachment[] = [],
@@ -425,11 +425,11 @@ async function* streamFromLangFlow(
 
 // Stream using OpenAI SDK compatible format (Langflow /api/v1/responses endpoint)
 async function* streamFromOpenAI(
-  history: Message[],
+  _history: Message[],
   newMessage: string,
   config: ModelConfig,
-  attachments: Attachment[] = [],
-  chatId?: string
+  _attachments: Attachment[] = [],
+  _chatId?: string
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
@@ -666,7 +666,18 @@ export async function fetchHistoryFromLangFlow(
 
     const data = await response.json();
     // API returns { data: [...] } or just [...] depending on version. User example suggests array.
-    const messages: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
+    const messagesData: LangFlowMessage[] = Array.isArray(data) ? data : (data.data || []);
+
+    // Deduplicate messages by ID to handle inconsistencies
+    const uniqueMessages = new Map<string, LangFlowMessage>();
+    messagesData.forEach(msg => {
+      // If we have duplicates with same session_id and text, they are likely ghosts
+      if (!uniqueMessages.has(msg.id)) {
+        uniqueMessages.set(msg.id, msg);
+      }
+    });
+
+    const messages = Array.from(uniqueMessages.values());
 
     return messages
       .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions if they somehow sneak in
@@ -767,48 +778,9 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       sessions.push({
         id: sessionId,
         title: title,
-        messages: [], // We don't load full messages here to save performance, or we could? 
-        // App expects messages in session? 
-        // Actually App uses `sessions[id].messages`. 
-        // So we SHOULD populate them or App needs refactor.
-        // Given the App architecture, let's map them now.
+        messages: [], // We don't load full messages here to save performance
         updatedAt: new Date(lastMsg.timestamp).getTime()
       });
-
-      // Populate messages for this session
-      // We can reuse the mapping logic from fetchHistoryFromLangFlow but applied locally
-      const mappedMessages = msgs.map(msg => {
-        const isUser = msg.sender === 'User';
-        const role = isUser ? 'user' : 'assistant';
-
-        let attachments: Attachment[] = [];
-        try {
-          const filesArray = JSON.parse(msg.files || '[]');
-          if (Array.isArray(filesArray)) {
-            filesArray.forEach((filePath: string) => {
-              const fileName = filePath.split('/').pop();
-              if (fileName) {
-                const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
-                attachments.push({
-                  type: 'image',
-                  content: imageUrl,
-                  name: fileName
-                });
-              }
-            });
-          }
-        } catch (e) { }
-
-        return {
-          id: msg.id,
-          role: role as 'user' | 'assistant',
-          content: msg.text,
-          timestamp: new Date(msg.timestamp).getTime(),
-          attachments: attachments.length > 0 ? attachments : undefined
-        };
-      });
-
-      sessions[sessions.length - 1].messages = mappedMessages;
     });
 
     return sessions.sort((a, b) => b.updatedAt - a.updatedAt);
