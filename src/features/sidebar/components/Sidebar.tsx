@@ -289,10 +289,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Logout Button - Expanded */}
               <button
                 onClick={() => setShowLogoutConfirm(true)}
-                className="flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 p-2 cursor-pointer"
+                className={`flex items-center justify-center rounded-xl transition-all duration-200 hover:bg-red-100 dark:hover:bg-red-500/15 p-2 cursor-pointer ${enableHover ? "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400" : "text-red-500 dark:text-red-400"}`}
                 title={t("sidebar.logout")}
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-5 h-5" />
               </button>
             </>
           ) : (
@@ -305,12 +305,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title={t("sidebar.logout")}
             >
               <div className={`w-9 h-9 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center shadow-lg shadow-blue-500/10 transition-transform relative ${isUserHovered ? "scale-105" : ""}`}>
-                {isUserHovered ? (
-                  <LogOut className="w-4 h-4 text-white" />
+                {(enableHover ? isUserHovered : true) ? (
+                  <LogOut className="w-4 h-4 text-red-400" />
                 ) : (
                   <User className="w-5 h-5 text-white" />
                 )}
-                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white dark:border-black rounded-full transition-colors ${isUserHovered ? "bg-red-500" : "bg-emerald-500"}`}></div>
+                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white dark:border-black rounded-full transition-colors ${(enableHover ? isUserHovered : true) ? "bg-red-500" : "bg-emerald-500"}`}></div>
               </div>
             </button>
           )}
