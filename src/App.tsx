@@ -900,15 +900,31 @@ export default function App() {
     }
 
     const currentPrompt = message;
-    const isAtChatRoot = window.location.pathname === "/chat" || window.location.pathname === "/";
-    const isNewChat = !activeChatId || isAtChatRoot || !sessions[activeChatId] || (sessions[activeChatId]?.messages.length === 0);
+    const isAtChatRoot = location.pathname === "/chat" || location.pathname === "/";
+    
+    // Use Ref to get the LATEST active chat ID
+    const currentActiveId = activeChatIdRef.current;
+    
+    // Check if we really need a new chat
+    // 1. If we are at root (/chat)
+    // 2. If NO active ID exists
+    // 3. If the active session doesn't exist in our state
+    // 4. If the active session exists but has NO messages (empty new chat)
+    const isNewChat = isAtChatRoot || !currentActiveId || !sessions[currentActiveId] || (sessions[currentActiveId]?.messages.length === 0);
 
     // Create new chat ID if this is a new chat
-    let chatId = activeChatId;
+    let chatId = currentActiveId;
 
     if (isNewChat) {
-      chatId = generateUUID();
-      console.log('>>> handleSend: New Chat ID generated:', chatId);
+      // Only generate new ID if we truly need one (no ID or at root)
+      if (isAtChatRoot || !currentActiveId) {
+        chatId = generateUUID();
+        console.log('>>> handleSend: New Chat ID generated:', chatId);
+      } else {
+        // Reuse existing ID (e.g. from URL) even if session is missing from state
+        chatId = currentActiveId;
+        console.log('>>> handleSend: Reusing active Chat ID:', chatId);
+      }
 
       const userMsg: Message = {
         id: generateUUID(),
