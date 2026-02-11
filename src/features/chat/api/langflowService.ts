@@ -644,7 +644,19 @@ interface LangFlowMessage {
 }
 
 
-// Helper to map LangFlow messages to internal Message type
+// Helper to map LangFlow messages to minimal stubs (performance)
+function mapLangFlowMessagesMinimal(messages: LangFlowMessage[]): Message[] {
+  return messages
+    .filter(msg => !msg.session_id.startsWith('suggestion-'))
+    .map(msg => ({
+      id: msg.id,
+      role: msg.sender === 'User' ? 'user' : 'assistant' as any,
+      content: '', // No content for stubs
+      timestamp: new Date(msg.timestamp).getTime(),
+    }));
+}
+
+// Helper to map LangFlow messages to internal Message type (full)
 function mapLangFlowMessages(messages: LangFlowMessage[], baseUrl: string): Message[] {
   return messages
     .filter(msg => !msg.session_id.startsWith('suggestion-')) // Filter out suggestions
@@ -776,7 +788,7 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       sessions.push({
         id: sessionId,
         title: title,
-        messages: mapLangFlowMessages(msgs, baseUrl),
+        messages: mapLangFlowMessagesMinimal(msgs),
         updatedAt: new Date(lastMsg.timestamp).getTime()
       });
     });
