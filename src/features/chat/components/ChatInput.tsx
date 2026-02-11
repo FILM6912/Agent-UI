@@ -328,6 +328,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       opacity: 0.8;
       filter: brightness(1.3);
     }
+
+    .action-bar-transition {
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
   `;
 
   return (
@@ -401,11 +405,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               )}
 
               {/* Input Area */}
-              <div className={`w-full flex ${isStacked ? "flex-col" : "items-center"}`}>
+              <div className={`w-full flex transition-all duration-500 ease-in-out ${isStacked ? "flex-col" : "items-center"}`}>
 
                 {/* Left Actions - Rendered first in Single Line mode, or inside wrapper in Multi Line */}
                 {!isStacked && (
-                  <div className="flex items-center gap-2 py-2 pl-3">
+                  <div className="flex items-center gap-2 py-2 pl-3 animate-in fade-in slide-in-from-left-2 duration-500">
                     <button
                       onClick={onFileSelect}
                       className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
@@ -437,7 +441,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                 {/* Right Actions - Rendered last in Single Line mode */}
                 {!isStacked && (
-                  <div className="flex items-center gap-2 pr-3 py-2">
+                  <div className="flex items-center gap-2 pr-3 py-2 animate-in fade-in slide-in-from-right-2 duration-500">
                     <ModelSelector
                       isOpen={showModelMenu}
                       onToggle={() => setShowModelMenu(!showModelMenu)}
@@ -518,7 +522,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                 {/* Multi-line Action Bar (Bottom) */}
                 {isStacked && (
-                  <div className="flex items-center justify-between px-3 pb-3">
+                  <div className="flex items-center justify-between px-3 pb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     {/* Left Actions Group */}
                     <div className="flex items-center gap-2">
                       <button
