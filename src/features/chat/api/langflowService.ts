@@ -23,7 +23,8 @@ const generateMockSteps = (prompt: string): ProcessStep[] => {
     steps.push({
       id: generateUUID(),
       type: 'command',
-      content: 'Initializing environment...',
+      title: 'Environment Setup',
+      content: 'Initializing execution environment...',
       status: 'completed',
       isExpanded: false
     });
@@ -269,7 +270,8 @@ async function* streamFromLangFlow(
                       steps.push({
                         id: generateUUID(),
                         type: 'command',
-                        content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+                        title: toolName,
+                        content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
                         duration: duration,
                         status: 'completed',
                         isExpanded: false
@@ -307,7 +309,8 @@ async function* streamFromLangFlow(
                   steps.push({
                     id: block.id || generateUUID(),
                     type: 'command',
-                    content: `**${toolName}**${toolInput ? `\n\nInput:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
+                    title: toolName,
+                    content: `${toolInput ? `Input:\n\`\`\`json\n${toolInput}\n\`\`\`` : ''}${toolOutput ? `\n\nOutput:\n${toolOutput}` : ''}`,
                     duration: duration,
                     status: 'completed',
                     isExpanded: false

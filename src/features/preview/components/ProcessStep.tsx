@@ -16,12 +16,13 @@ import remarkGfm from "remark-gfm";
 
 interface ProcessStepProps {
   step: ProcessStepType;
+  forceExpanded?: boolean;
 }
 
-export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
+export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false }) => {
   const { t } = useLanguage();
   // Default expanded state
-  const [expanded, setExpanded] = useState(step.isExpanded ?? true);
+  const [expanded, setExpanded] = useState(forceExpanded || (step.isExpanded ?? true));
 
   const getIcon = () => {
     switch (step.type) {
@@ -78,20 +79,22 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center justify-center w-4 h-4 text-zinc-500 dark:text-zinc-600 group-hover:text-zinc-800 dark:group-hover:text-zinc-400 transition-colors">
-          {expanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
+          {!forceExpanded && (
+            expanded ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )
           )}
         </div>
 
         <div className="flex items-center gap-3 flex-1 overflow-hidden min-w-0">
-          <div className="flex-shrink-0 flex items-center justify-center">
+          <div className="shrink-0 flex items-center justify-center">
             {getIcon()}
           </div>
 
           <span
-            className="text-sm font-medium whitespace-nowrap flex-shrink-0 text-zinc-800 dark:text-zinc-200"
+            className="text-sm font-medium whitespace-nowrap shrink-0 text-zinc-800 dark:text-zinc-200"
           >
             {getTitle()}
           </span>
@@ -106,7 +109,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-3 pl-2 flex-shrink-0">
+          <div className="flex items-center gap-3 pl-2 shrink-0">
           {step.duration && (
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
               {step.duration}
@@ -180,7 +183,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                           Input
                         </div>
                         <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-                          <pre className="whitespace-pre-wrap break-words">
+                          <pre className="whitespace-pre-wrap wrap-break-word">
                             {(() => {
                               try {
                                 const parsed = JSON.parse(inputContent);
