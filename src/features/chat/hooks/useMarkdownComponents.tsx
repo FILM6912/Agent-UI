@@ -19,7 +19,7 @@ export const useMarkdownComponents = ({
 
     // Bold & Italics
     strong: ({ children }: any) => (
-      <strong className="font-bold text-orange-600/90 dark:text-orange-400/90">
+      <strong className="font-bold">
         {children}
       </strong>
     ),
