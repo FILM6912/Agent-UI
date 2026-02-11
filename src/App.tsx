@@ -524,50 +524,56 @@ export default function App() {
     if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
 
     const loadHistory = async () => {
+      // Don't overwrite if we're currently streaming the active chat
+      if (isStreamingRef.current) {
+        console.log('>>> loadHistory: Skipping sync - streaming in progress');
+        return;
+      }
+
       // Create a local variable or ref to avoid race conditions if needed
       // For now, simpler is better.
       const messages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
 
-      setSessions(prev => {
-        const currentSession = prev[activeChatId];
+        setSessions(prev => {
+          const currentSession = prev[activeChatId];
 
-        // If session doesn't exist in our map yet, and we got no messages, ignore.
-        if (!currentSession && messages.length === 0) return prev;
+          // If session doesn't exist in our map yet, and we got no messages, ignore.
+          if (!currentSession && messages.length === 0) return prev;
 
-        // If session exists locally but we got nothing from server, it might be a new chat.
-        // We generally shouldn't overwrite a local session with empty list unless we are sure.
-        // But if the server returns [], it means empty on server. 
-        // If local has messages and server has 0, we risk wiping local unsynced messages? 
-        // No, local messages are only "optimistic" steps or user input. 
-        // Usually we want server truth. 
-        // EXCEPT for "New Chat" which starts with empty messages locally anyway.
-        // So safe to return prev if both empty.
+          // Merge messages to avoid losing local state
+          // Trust server messages but keep unique local messages (e.g. while still optimistic)
+          // For now, just trust server if more than 0 messages, but AVOID overwrite if local has more or same
+          if (messages.length > 0) {
+            // Check if server messages are different from what we have
+            const serverCount = messages.length;
+            const localCount = currentSession?.messages.length || 0;
 
-        if (currentSession && currentSession.messages.length === 0 && messages.length === 0) {
-          return prev;
-        }
-
-        if (messages.length > 0) {
-          return {
-            ...prev,
-            [activeChatId]: {
-              ...(currentSession || {
-                id: activeChatId,
-                title: "Chat",
-                updatedAt: Date.now()
-              }),
-              messages: messages,
-              updatedAt: Date.now()
-              // Updating timestamp here keeps it fresh in sort order? 
-              // Maybe preserve original updatedAt if not changed. 
-              // But fetching history usually means we viewed it.
+            // If we are currently in this chat and local messages are same as server, skip update
+            if (currentSession && localCount === serverCount) {
+              const lastLocal = currentSession.messages[localCount - 1];
+              const lastServer = messages[serverCount - 1];
+              if (lastLocal.content === lastServer.content && lastLocal.id === lastServer.id) {
+                return prev;
+              }
             }
-          };
-        }
 
-        return prev;
-      });
-    };
+            return {
+              ...prev,
+              [activeChatId]: {
+                ...(currentSession || {
+                  id: activeChatId,
+                  title: "Chat",
+                  updatedAt: Date.now()
+                }),
+                messages: messages,
+                updatedAt: Date.now()
+              }
+            };
+          }
+
+          return prev;
+        });
+      };
 
     loadHistory();
   }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
