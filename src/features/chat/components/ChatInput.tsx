@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useResizeObserver } from "@/hooks/useResizeObserver";
 import { ModelSelector } from "./ModelSelector";
 import { MCPServerList } from "./MCPServerList";
 
@@ -80,6 +82,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   mcpMenuRef,
 }) => {
   const { t } = useLanguage();
+  const isSmallScreen = useMediaQuery("(max-width: 1024px)");
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const { width: containerWidth } = useResizeObserver(containerRef);
+
+  // Consider "small" if window is small OR container is narrow (< 650px)
+  const isNarrowContainer = containerWidth !== undefined && containerWidth < 650;
+  const isResponsiveSmall = isSmallScreen || isNarrowContainer;
+
+  // Persistent state for layout mode to prevent flickering
+  const [isModeMulti, setModeMulti] = React.useState(false);
+  const isModeMultiRef = React.useRef(isModeMulti);
+
+  // Derived state for layout
+  const isStacked = isModeMulti || isResponsiveSmall;
 
   const autoResize = () => {
     if (textareaRef.current) {
@@ -87,10 +103,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       const newHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = newHeight + "px";
 
-      // Manage overflow to avoid scrollbar when not needed
-      // Force hidden in single-line mode (found by checking isModeMulti state)
-      // Note: isModeMulti is defined later but available when this is called
-      if (!isModeMulti) {
+      // Manage overflow
+      if (!isStacked) {
         textareaRef.current.style.overflowY = "hidden";
       } else {
         if (newHeight > textareaRef.current.clientHeight) {
@@ -113,10 +127,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // Persistent state for layout mode to prevent flickering
-  const [isModeMulti, setModeMulti] = React.useState(false);
-  const isModeMultiRef = React.useRef(isModeMulti);
-
   // Sync ref
   React.useEffect(() => {
     isModeMultiRef.current = isModeMulti;
@@ -127,14 +137,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (!textareaRef.current) return;
 
     // Use ref to check current mode to avoid adding isModeMulti to dependency array
-    // This prevents the "Maximum update depth exceeded" error loop
     const currentMode = isModeMultiRef.current;
-    const hasNewline = input.includes("\n");
 
-    // We check scrollHeight. Note: styling affects scrollHeight.
-    // In single-line mode, padding is now px-4 py-4.
-    // Base height is min-h-[56px].
-    // If scrollHeight > 76 (allowing for some buffer), it means wrapping.
+    const hasNewline = input.includes("\n");
     const isOverflowing = textareaRef.current.scrollHeight > 76;
 
     if (!currentMode) {
@@ -326,6 +331,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <div className="absolute bottom-6 left-0 w-full px-4 z-20 pointer-events-none">
         <div className="max-w-5xl mx-auto pointer-events-auto">
           <div
+            ref={containerRef}
             className="cosmic-container relative w-full group transition-all duration-500"
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
@@ -390,10 +396,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               )}
 
               {/* Input Area */}
-              <div className={`w-full flex ${isModeMulti ? "flex-col" : "items-center"}`}>
+              <div className={`w-full flex ${isStacked ? "flex-col" : "items-center"}`}>
 
                 {/* Left Actions - Rendered first in Single Line mode, or inside wrapper in Multi Line */}
-                {!isModeMulti && (
+                {!isStacked && (
                   <div className="flex items-center gap-2 py-2 pl-3">
                     <button
                       onClick={onFileSelect}
@@ -426,7 +432,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 />
 
                 {/* Right Actions - Rendered last in Single Line mode */}
-                {!isModeMulti && (
+                {!isStacked && (
                   <div className="flex items-center gap-2 pr-3 py-2">
                     <ModelSelector
                       isOpen={showModelMenu}
@@ -507,7 +513,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 )}
 
                 {/* Multi-line Action Bar (Bottom) */}
-                {isModeMulti && (
+                {isStacked && (
                   <div className="flex items-center justify-between px-3 pb-3">
                     {/* Left Actions Group */}
                     <div className="flex items-center gap-2">
