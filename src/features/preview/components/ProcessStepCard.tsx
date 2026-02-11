@@ -4,8 +4,8 @@ import {
   FileEdit,
   CheckCircle2,
   Loader2,
-  Sparkles,
   Command,
+  Wrench,
 } from "lucide-react";
 import { ProcessStep as ProcessStepType } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -32,7 +32,7 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
         return (
           <div className="relative">
             <div className="absolute inset-0 bg-indigo-500/20 blur-lg rounded-full" />
-            <Sparkles className="w-5 h-5 text-indigo-500 dark:text-indigo-400 relative z-10" />
+            <Wrench className="w-5 h-5 text-indigo-500 dark:text-indigo-400 relative z-10" />
           </div>
         );
       case "edit":
