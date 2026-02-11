@@ -428,12 +428,16 @@ export default function App() {
     });
   }, [t]);
 
-  // Fetch ALL sessions on mount/config change (Replaces local storage logic)
   // Ref for checking streaming status in useEffects without dependency
   const isStreamingRef = useRef(isStreaming);
   useEffect(() => {
     isStreamingRef.current = isStreaming;
   }, [isStreaming]);
+
+  const activeChatIdRef = useRef(activeChatId);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
 
   // Fetch ALL sessions on mount/config change (Replaces local storage logic)
   useEffect(() => {
@@ -465,26 +469,26 @@ export default function App() {
           fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
 
           // If streaming, PRESERVE the active session from local state entirely
-          if (isStreamingRef.current && activeChatId && prev[activeChatId]) {
-            console.log('>>> App.tsx: Streaming in progress, preserving active session', activeChatId);
-            newSessionsMap[activeChatId] = prev[activeChatId];
+          // Use Ref to get the LATEST active chat ID, not the one from closure
+          const currentActiveId = activeChatIdRef.current;
+
+          if (isStreamingRef.current && currentActiveId && prev[currentActiveId]) {
+            console.log('>>> App.tsx: Streaming in progress, preserving active session', currentActiveId);
+            newSessionsMap[currentActiveId] = prev[currentActiveId];
           }
           // Also preserve local-only sessions (optimistic ones)
-          else if (activeChatId && prev[activeChatId] && !newSessionsMap[activeChatId]) {
-            newSessionsMap[activeChatId] = prev[activeChatId];
+          else if (currentActiveId && prev[currentActiveId] && !newSessionsMap[currentActiveId]) {
+            newSessionsMap[currentActiveId] = prev[currentActiveId];
           }
 
           return newSessionsMap;
         });
 
-        // If active chat is empty or not in list, select latest
-        // This relies on state update which hasn't happened yet, so we use fetchedSessions
-        if (!activeChatId || !fetchedSessions.find(s => s.id === activeChatId)) {
-          if (fetchedSessions.length > 0) {
-            // We should probably wait for sessions to update?
-            // Or just set it.
+        // If active chat is empty, select latest from server
+        // Use Ref to get the LATEST active chat ID
+        const currentActiveId = activeChatIdRef.current;
+        if (!currentActiveId && fetchedSessions.length > 0) {
             setActiveChatId(fetchedSessions[0].id);
-          }
         }
       } else {
         // No sessions from API.
@@ -897,12 +901,12 @@ export default function App() {
 
     const currentPrompt = message;
     const isAtChatRoot = window.location.pathname === "/chat" || window.location.pathname === "/";
-    const isFirstUserMessage = currentMessages.length === 0 || isAtChatRoot;
+    const isNewChat = !activeChatId || isAtChatRoot || !sessions[activeChatId] || (sessions[activeChatId]?.messages.length === 0);
 
-    // Create new chat ID if this is the first message and no active chat
+    // Create new chat ID if this is a new chat
     let chatId = activeChatId;
 
-    if (isFirstUserMessage && (isAtChatRoot || !activeChatId || !sessions[activeChatId])) {
+    if (isNewChat) {
       chatId = generateUUID();
       console.log('>>> handleSend: New Chat ID generated:', chatId);
 
@@ -1024,7 +1028,7 @@ export default function App() {
       };
     });
 
-    if (isFirstUserMessage) {
+    if (currentMessages.length === 0) {
       generateChatTitle(currentPrompt, modelConfig)
         .then((aiTitle) => {
           setSessions((prev) => {
@@ -1239,7 +1243,8 @@ export default function App() {
   };
 
   const handleNewChat = () => {
-    // Navigate to root chat path
+    // Clear active chat first, then navigate
+    setActiveChatId("");
     navigate("/chat");
 
     setPreviewContent(null);
