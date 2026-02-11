@@ -97,7 +97,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   // Derived state for layout
   const isStacked = isModeMulti || isResponsiveSmall;
 
-  const autoResize = () => {
+  const autoResize = React.useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       const newHeight = textareaRef.current.scrollHeight;
@@ -114,7 +114,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         }
       }
     }
-  };
+  }, [isStacked, textareaRef]);
+
+  // Handle auto-resize on any state change that affects layout or content
+  React.useLayoutEffect(() => {
+    autoResize();
+  }, [input, isStacked, autoResize]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -422,7 +427,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   value={input}
                   onChange={(e) => {
                     setInput(e.target.value);
-                    autoResize();
                   }}
                   onKeyDown={handleKeyDown}
                   onPaste={onPaste}
