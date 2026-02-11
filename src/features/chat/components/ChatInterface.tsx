@@ -59,6 +59,8 @@ interface ChatInterfaceProps {
   onModelConfigChange: (config: ModelConfig) => void;
   onProviderChange?: (provider: AIProvider) => void;
   onVersionChange?: (messageId: string, newIndex: number) => void;
+  onAIVersionChange?: (messageId: string, newIndex: number) => void;
+  onRegenVersionChange?: (messageId: string, aiIndex: number, regenIndex: number) => void;
   isPreviewOpen?: boolean;
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
@@ -78,6 +80,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   modelConfig,
   onModelConfigChange,
   onVersionChange,
+  onAIVersionChange,
+  onRegenVersionChange,
   isPreviewOpen = false,
   onPreviewRequest,
   onOpenSettings,
@@ -352,6 +356,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onRegenerate={onRegenerate}
               onEdit={onEdit}
               onVersionChange={onVersionChange}
+              onAIVersionChange={onAIVersionChange}
+              onRegenVersionChange={onRegenVersionChange}
               onViewImage={setViewingImage}
               editingId={editingId}
               editValue={editValue}

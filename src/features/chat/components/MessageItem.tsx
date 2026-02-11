@@ -36,6 +36,9 @@ interface MessageItemProps {
   setEditValue: (value: string) => void;
   markdownComponents: any;
   onSuggestionClick?: (suggestion: string) => void;
+  // AI version props
+  onAIVersionChange?: (id: string, newIndex: number) => void;
+  onRegenVersionChange?: (id: string, aiIndex: number, regenIndex: number) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -57,6 +60,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   setEditValue,
   markdownComponents,
   onSuggestionClick,
+  onAIVersionChange,
+  onRegenVersionChange,
 }) => {
   const { t } = useLanguage();
   const isAssistant = msg.role === "assistant";
@@ -66,6 +71,23 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const currentVersion = (msg.currentVersionIndex || 0) + 1;
   const totalVersions = msg.versions?.length || 1;
   const isEditing = editingId === msg.id;
+  const currentVersionIndex = msg.currentVersionIndex || 0;
+  
+  // Get current version (for both user and assistant messages)
+  const currentMessageVersion = msg.versions?.[currentVersionIndex];
+  
+  // AI versions (from current message version)
+  const hasAIVersions = currentMessageVersion?.aiVersions && currentMessageVersion.aiVersions.length > 1;
+  const currentAIIndex = currentMessageVersion?.currentAIIndex || 0;
+  const currentAIVersion = currentMessageVersion?.aiVersions?.[currentAIIndex];
+  const totalAIVersions = currentMessageVersion?.aiVersions?.length || 1;
+  
+  // Regen versions (for current AI version)
+  // Show when has regen versions (>= 1) OR when no aiVersions yet (first AI response)
+  const hasRegenVersions = (currentAIVersion?.regenVersions && currentAIVersion.regenVersions.length > 0) || 
+                           (!currentMessageVersion?.aiVersions || currentMessageVersion.aiVersions.length === 0);
+  const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
+  const totalRegenVersions = currentAIVersion?.regenVersions?.length || 1;
 
   return (
     <div
@@ -304,26 +326,25 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       {
         isAssistant && !isGenerating && (
           <div className="flex items-center gap-4 mt-3 pl-1 select-none">
-            {hasVersions && onVersionChange && (
+            {/* Regen Version Controls - Show when has regen versions */}
+            {hasRegenVersions && onRegenVersionChange && (
               <div className="msg-actions flex items-center gap-1 p-0.5">
                 <button
-                  onClick={() =>
-                    onVersionChange(msg.id, (msg.currentVersionIndex || 0) - 1)
-                  }
-                  disabled={(msg.currentVersionIndex || 0) === 0 || isStreaming}
+                  onClick={() => onRegenVersionChange(msg.id, currentAIIndex, currentRegenIndex - 1)}
+                  disabled={currentRegenIndex === 0 || isStreaming}
                   className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title="Previous regen version"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <span className="text-[10px] font-medium text-zinc-500 px-1 min-w-[30px] text-center">
-                  {currentVersion} / {totalVersions}
+                  {currentRegenIndex + 1} / {totalRegenVersions}
                 </span>
                 <button
-                  onClick={() =>
-                    onVersionChange(msg.id, (msg.currentVersionIndex || 0) + 1)
-                  }
-                  disabled={currentVersion === totalVersions || isStreaming}
+                  onClick={() => onRegenVersionChange(msg.id, currentAIIndex, currentRegenIndex + 1)}
+                  disabled={currentRegenIndex === totalRegenVersions - 1 || isStreaming}
                   className="p-1 hover:bg-zinc-300 dark:hover:bg-zinc-700/50 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title="Next regen version"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>

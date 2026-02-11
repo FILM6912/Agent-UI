@@ -66,6 +66,8 @@ interface AppLayoutProps {
   isLoading: boolean;
   isStreaming: boolean;
   handleVersionChange: (messageId: string, newIndex: number) => void;
+  handleAIVersionChange: (messageId: string, newIndex: number) => void;
+  handleRegenVersionChange: (messageId: string, aiIndex: number, regenIndex: number) => void;
   isPreviewOpen: boolean;
   handlePreviewRequest: (html: string) => void;
   setIsPreviewOpen: (open: boolean) => void;
@@ -108,6 +110,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     isLoading,
     isStreaming,
     handleVersionChange,
+    handleAIVersionChange,
+    handleRegenVersionChange,
     isPreviewOpen,
     handlePreviewRequest,
     setIsPreviewOpen,
@@ -179,6 +183,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               onModelConfigChange={setModelConfig}
               onProviderChange={handleProviderChange}
               onVersionChange={handleVersionChange}
+              onAIVersionChange={handleAIVersionChange}
+              onRegenVersionChange={handleRegenVersionChange}
               isPreviewOpen={isPreviewOpen}
               onPreviewRequest={handlePreviewRequest}
               onOpenSettings={() => navigate("/settings/general")}
@@ -763,33 +769,83 @@ export default function App() {
 
             const updatedMessages = session.messages.map((msg) => {
                 if (msg.id === assistantMsgId) {
-                const updatedVersions = msg.versions ? [...msg.versions] : [];
-                // Always write to the LATEST version when streaming (append-only logic)
-                // This protects against state desync where currentVersionIndex might be stale (e.g. 0)
-                const currentIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
-
-                if (updatedVersions[currentIndex]) {
-                  if (chunk.type === "text") {
-                    updatedVersions[currentIndex] = {
-                      ...updatedVersions[currentIndex],
-                      content: accumulatedContent,
-                    };
-                  } else if (chunk.type === "steps") {
-                    updatedVersions[currentIndex] = {
-                      ...updatedVersions[currentIndex],
-                      steps: chunk.steps,
-                    };
+                // Check if this is a regenerate (has aiVersions in current version)
+                const currentVersionIndex = msg.currentVersionIndex || 0;
+                const currentMessageVersion = msg.versions?.[currentVersionIndex];
+                
+                if (currentMessageVersion?.aiVersions && currentMessageVersion.aiVersions.length > 0) {
+                  const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+                  const currentAIVersion = currentMessageVersion.aiVersions[currentAIIndex];
+                  const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
+                  const currentRegenVersions = currentAIVersion?.regenVersions || [];
+                  
+                  const updatedAIVersions = [...currentMessageVersion.aiVersions];
+                  const updatedRegenVersions = [...currentRegenVersions];
+                  
+                  // Write to current regen version
+                  if (updatedRegenVersions[currentRegenIndex]) {
+                    if (chunk.type === "text") {
+                      updatedRegenVersions[currentRegenIndex] = {
+                        ...updatedRegenVersions[currentRegenIndex],
+                        content: accumulatedContent,
+                      };
+                    } else if (chunk.type === "steps") {
+                      updatedRegenVersions[currentRegenIndex] = {
+                        ...updatedRegenVersions[currentRegenIndex],
+                        steps: chunk.steps,
+                      };
+                    }
                   }
-                }
+                  
+                  updatedAIVersions[currentAIIndex] = {
+                    ...currentAIVersion,
+                    regenVersions: updatedRegenVersions,
+                  };
+                  
+                  const updatedMessageVersion = {
+                    ...currentMessageVersion,
+                    aiVersions: updatedAIVersions,
+                  };
+                  
+                  const updatedVersions = [...(msg.versions || [])];
+                  updatedVersions[currentVersionIndex] = updatedMessageVersion;
+                  
+                  return {
+                    ...msg,
+                    content: chunk.type === "text" ? accumulatedContent : msg.content,
+                    steps: chunk.type === "steps" ? chunk.steps : msg.steps,
+                    versions: updatedVersions,
+                  };
+                } else {
+                  // Original version logic for non-regenerate messages
+                  const updatedVersions = msg.versions ? [...msg.versions] : [];
+                  // Always write to the LATEST version when streaming (append-only logic)
+                  // This protects against state desync where currentVersionIndex might be stale (e.g. 0)
+                  const currentIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
 
-                return {
-                  ...msg,
-                  content:
-                    chunk.type === "text" ? accumulatedContent : msg.content,
-                  steps: chunk.type === "steps" ? chunk.steps : msg.steps,
-                  versions: updatedVersions,
-                  currentVersionIndex: currentIndex, // Force UI to show the version we are writing to
-                };
+                  if (updatedVersions[currentIndex]) {
+                    if (chunk.type === "text") {
+                      updatedVersions[currentIndex] = {
+                        ...updatedVersions[currentIndex],
+                        content: accumulatedContent,
+                      };
+                    } else if (chunk.type === "steps") {
+                      updatedVersions[currentIndex] = {
+                        ...updatedVersions[currentIndex],
+                        steps: chunk.steps,
+                      };
+                    }
+                  }
+
+                  return {
+                    ...msg,
+                    content:
+                      chunk.type === "text" ? accumulatedContent : msg.content,
+                    steps: chunk.type === "steps" ? chunk.steps : msg.steps,
+                    versions: updatedVersions,
+                    currentVersionIndex: currentIndex, // Force UI to show the version we are writing to
+                  };
+                }
               }
               return msg;
             });
@@ -1333,34 +1389,133 @@ export default function App() {
 
       const updatedMessages = session.messages.map((msg) => {
         if (msg.id === messageId) {
-          const currentVersions = [...(msg.versions || [
-            {
+          const currentVersionIndex = msg.currentVersionIndex || 0;
+          const currentVersions = msg.versions || [];
+          
+          // Get current message version
+          const currentMessageVersion = currentVersions[currentVersionIndex] || {
+            content: msg.content,
+            steps: msg.steps,
+            attachments: msg.attachments,
+            suggestions: msg.suggestions,
+            timestamp: msg.timestamp,
+          };
+          
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const currentAIVersions = currentMessageVersion.aiVersions || [];
+          
+          // If no aiVersions exist, create the first one with current content
+          if (currentAIVersions.length === 0) {
+            const firstRegenVersion = {
               content: msg.content,
               steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
               timestamp: msg.timestamp,
-            },
-          ])];
-
-          const currentTail = session.messages.slice(msgIndex + 1);
-          const currentIndex = msg.currentVersionIndex ?? 0;
-          if (currentVersions[currentIndex]) {
-            currentVersions[currentIndex] = {
-              ...currentVersions[currentIndex],
-              tail: currentTail
+            };
+            
+            // Create new empty regen version for streaming
+            const newRegenVersion = {
+              content: "",
+              timestamp: Date.now(),
+            };
+            
+            const firstAIVersion = {
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+              timestamp: msg.timestamp,
+              regenVersions: [firstRegenVersion, newRegenVersion],
+              currentRegenIndex: 1, // Point to the new empty version
+            };
+            
+            const updatedMessageVersion = {
+              ...currentMessageVersion,
+              aiVersions: [firstAIVersion],
+              currentAIIndex: 0,
+            };
+            
+            const updatedVersions = [...currentVersions];
+            if (updatedVersions[currentVersionIndex]) {
+              updatedVersions[currentVersionIndex] = updatedMessageVersion;
+            } else {
+              updatedVersions.push(updatedMessageVersion);
+            }
+            
+            return {
+              ...msg,
+              content: "",
+              steps: undefined,
+              versions: updatedVersions,
             };
           }
-
-          const newVersion: MessageVersion = {
+          
+          // Save current content to current AI version
+          const updatedAIVersions = [...currentAIVersions];
+          if (updatedAIVersions[currentAIIndex]) {
+            updatedAIVersions[currentAIIndex] = {
+              ...updatedAIVersions[currentAIIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+            };
+          }
+          
+          // Add new regen version to current AI version
+          const currentAIVersion = updatedAIVersions[currentAIIndex];
+          const currentRegenVersions = currentAIVersion.regenVersions || [];
+          const currentRegenIndex = currentAIVersion.currentRegenIndex || 0;
+          
+          // Save current content to current regen version before creating new one
+          const updatedRegenVersions = [...currentRegenVersions];
+          
+          // If regenVersions is empty, save current content as first regen version
+          if (updatedRegenVersions.length === 0) {
+            const firstRegenVersion = {
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+              timestamp: msg.timestamp,
+            };
+            updatedRegenVersions.push(firstRegenVersion);
+          } else if (updatedRegenVersions[currentRegenIndex]) {
+            updatedRegenVersions[currentRegenIndex] = {
+              ...updatedRegenVersions[currentRegenIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+            };
+          }
+          
+          // Create new regen version
+          const newRegenVersion = {
             content: "",
             timestamp: Date.now(),
           };
-
+          
+          updatedAIVersions[currentAIIndex] = {
+            ...currentAIVersion,
+            regenVersions: [...updatedRegenVersions, newRegenVersion],
+            currentRegenIndex: updatedRegenVersions.length,
+          };
+          
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+          };
+          
+          const updatedVersions = [...currentVersions];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
           return {
             ...msg,
             content: "",
             steps: undefined,
-            versions: [...currentVersions, newVersion],
-            currentVersionIndex: currentVersions.length,
+            versions: updatedVersions,
           };
         }
         return msg;
@@ -1468,6 +1623,153 @@ export default function App() {
         [activeChatId]: {
           ...session,
           messages: [...baseMessages, ...newTail],
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  };
+
+  // Handle AI version change (for assistant messages)
+  const handleAIVersionChange = (messageId: string, newIndex: number) => {
+    setSessions((prev) => {
+      const session = prev[activeChatId];
+      if (!session) return prev;
+
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return prev;
+
+      const targetMsg = currentMessages[msgIndex];
+      const currentVersionIndex = targetMsg.currentVersionIndex || 0;
+      const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
+      
+      if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[newIndex]) return prev;
+
+      const updatedMessages = currentMessages.map((msg) => {
+        if (msg.id === messageId) {
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
+          
+          // Save current content to current AI version before switching
+          if (updatedAIVersions[currentAIIndex]) {
+            updatedAIVersions[currentAIIndex] = {
+              ...updatedAIVersions[currentAIIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+            };
+          }
+
+          const targetAIVersion = updatedAIVersions[newIndex];
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+            currentAIIndex: newIndex,
+          };
+          
+          const updatedVersions = [...(msg.versions || [])];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
+          return {
+            ...msg,
+            content: targetAIVersion.content,
+            steps: targetAIVersion.steps,
+            attachments: targetAIVersion.attachments || msg.attachments,
+            suggestions: targetAIVersion.suggestions,
+            versions: updatedVersions,
+          };
+        }
+        return msg;
+      });
+
+      return {
+        ...prev,
+        [activeChatId]: {
+          ...session,
+          messages: updatedMessages,
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  };
+
+  // Handle regen version change (for AI versions)
+  const handleRegenVersionChange = (messageId: string, aiIndex: number, regenIndex: number) => {
+    setSessions((prev) => {
+      const session = prev[activeChatId];
+      if (!session) return prev;
+
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return prev;
+
+      const targetMsg = currentMessages[msgIndex];
+      const currentVersionIndex = targetMsg.currentVersionIndex || 0;
+      const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
+      
+      if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[aiIndex]) return prev;
+      
+      const targetAIVersion = currentMessageVersion.aiVersions[aiIndex];
+      if (!targetAIVersion.regenVersions || !targetAIVersion.regenVersions[regenIndex]) return prev;
+
+      const updatedMessages = currentMessages.map((msg) => {
+        if (msg.id === messageId) {
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const currentAIVersion = currentMessageVersion.aiVersions?.[currentAIIndex];
+          const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
+          
+          const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
+          
+          // Save current content to current regen version before switching
+          if (updatedAIVersions[aiIndex] && updatedAIVersions[aiIndex].regenVersions) {
+            const updatedRegenVersions = [...updatedAIVersions[aiIndex].regenVersions!];
+            if (updatedRegenVersions[currentRegenIndex]) {
+              updatedRegenVersions[currentRegenIndex] = {
+                ...updatedRegenVersions[currentRegenIndex],
+                content: msg.content,
+                steps: msg.steps,
+                attachments: msg.attachments,
+              };
+            }
+            updatedAIVersions[aiIndex] = {
+              ...updatedAIVersions[aiIndex],
+              regenVersions: updatedRegenVersions,
+            };
+          }
+
+          const targetRegenVersion = updatedAIVersions[aiIndex].regenVersions![regenIndex];
+          
+          // Update currentRegenIndex in the target AI version
+          updatedAIVersions[aiIndex] = {
+            ...updatedAIVersions[aiIndex],
+            currentRegenIndex: regenIndex,
+          };
+          
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+          };
+          
+          const updatedVersions = [...(msg.versions || [])];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
+          return {
+            ...msg,
+            content: targetRegenVersion.content,
+            steps: targetRegenVersion.steps,
+            attachments: targetRegenVersion.attachments || msg.attachments,
+            suggestions: targetRegenVersion.suggestions,
+            versions: updatedVersions,
+          };
+        }
+        return msg;
+      });
+
+      return {
+        ...prev,
+        [activeChatId]: {
+          ...session,
+          messages: updatedMessages,
           updatedAt: Date.now(),
         },
       };
@@ -1628,6 +1930,8 @@ export default function App() {
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}
@@ -1676,6 +1980,8 @@ export default function App() {
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}
@@ -1724,6 +2030,8 @@ export default function App() {
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}
