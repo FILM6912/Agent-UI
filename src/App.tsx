@@ -734,6 +734,11 @@ export default function App() {
             }
           }
 
+          // Auto-open right sidebar if tools are used
+          if (chunk.type === "steps" && !isPreviewOpen && !isSettingsOpen) {
+            setIsPreviewOpen(true);
+          }
+
           setSessions((prev) => {
             const session = prev[sessionId];
             if (!session) {
