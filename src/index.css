@@ -34,6 +34,26 @@ button {
   cursor: pointer;
 }
 
+/* Message action buttons: hidden by default, visible on hover */
+.msg-container .msg-actions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.msg-container:hover .msg-actions {
+  opacity: 1;
+}
+
+/* Sidebar delete button: hidden by default, visible on hover */
+.sidebar-item .sidebar-delete {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-item:hover .sidebar-delete {
+  opacity: 1;
+}
+
 @theme {
   --font-family-sans: Inter, sans-serif;
   --font-family-mono: "JetBrains Mono", monospace;

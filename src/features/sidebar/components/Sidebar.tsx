@@ -216,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             filteredHistory.map((session) => (
               <div
                 key={session.id}
-                className="group relative flex items-center"
+                className="sidebar-item group relative flex items-center"
               >
                 <button
                   onClick={() => onSelectChat(session.id)}
@@ -246,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     e.stopPropagation();
                     onDeleteChat(session.id);
                   }}
-                  className={`absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/20 cursor-pointer ${enableHover ? "opacity-0 group-hover:opacity-100" : ""}`}
+                  className="sidebar-delete absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-500/10 dark:hover:bg-red-400/20 cursor-pointer"
                   title={t("sidebar.deleteChat")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />

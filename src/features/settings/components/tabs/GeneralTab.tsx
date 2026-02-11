@@ -397,7 +397,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
           </div>
           <button
             onClick={() => setShowClearAllConfirm(true)}
-            className="bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-500 border border-red-200 dark:border-red-500/30 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            className="bg-red-50 dark:bg-red-500/10 hover:bg-red-500/15 dark:hover:bg-red-500/20 text-red-600 dark:text-red-500 border border-red-200 dark:border-red-500/30 px-4 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer"
           >
             {t("settings.clearAll")}
           </button>
