@@ -162,10 +162,24 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
                         remarkPlugins={[remarkGfm]}
                         components={{
                           strong: ({ children }) => (
-                            <strong className="font-bold text-red-500/70 dark:text-red-400/80">
+                            <strong className="font-bold text-orange-600/90 dark:text-orange-400/90">
                               {children}
                             </strong>
                           ),
+                          p: ({ children }) => (
+                            <p className="break-words">{children}</p>
+                          ),
+                          pre: ({ children }) => (
+                             <pre className="whitespace-pre-wrap break-all text-xs my-2 p-2 rounded bg-black/20">{children}</pre>
+                          ),
+                          code: ({ children, className }) => {
+                             const isInline = !className;
+                             return isInline ? (
+                               <code className="bg-black/10 dark:bg-black/20 px-1 py-0.5 rounded font-mono text-xs break-all border border-black/5 dark:border-white/5">{children}</code>
+                             ) : (
+                               <code className={`${className} break-all whitespace-pre-wrap`}>{children}</code>
+                             );
+                          }
                         }}
                       >
                         {outputContent}

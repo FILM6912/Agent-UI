@@ -176,7 +176,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
                           Input
                         </div>
                         <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-                          <pre className="whitespace-pre-wrap wrap-break-word">
+                          <pre className="whitespace-pre-wrap break-all">
                             {(() => {
                               try {
                                 const parsed = JSON.parse(inputContent);
@@ -255,7 +255,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
                                 <p className="my-1 last:mb-0">{children}</p>
                               ),
                               strong: ({ children }) => (
-                                <strong className="font-bold text-red-500/70 dark:text-red-400/80">
+                                <strong className="font-bold text-orange-600/90 dark:text-orange-400/90">
                                   {children}
                                 </strong>
                               ),
