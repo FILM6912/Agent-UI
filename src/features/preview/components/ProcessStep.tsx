@@ -255,7 +255,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
                                 <p className="my-1 last:mb-0">{children}</p>
                               ),
                               strong: ({ children }) => (
-                                <strong className="font-bold text-blue-600 dark:text-blue-400">
+                                <strong className="font-bold text-red-500/70 dark:text-red-400/80">
                                   {children}
                                 </strong>
                               ),
