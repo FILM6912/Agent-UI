@@ -755,7 +755,6 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
             </div>
           )}
         </div>
-        </div>
       </div>
       <ConfirmModal
         isOpen={confirmModal.isOpen}
