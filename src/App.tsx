@@ -65,6 +65,7 @@ interface AppLayoutProps {
   ) => Promise<void>;
   isLoading: boolean;
   isStreaming: boolean;
+  loadingChatId: string | null;
   handleVersionChange: (messageId: string, newIndex: number) => void;
   handleAIVersionChange: (messageId: string, newIndex: number) => void;
   handleRegenVersionChange: (messageId: string, aiIndex: number, regenIndex: number) => void;
@@ -109,6 +110,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     handleEditUserMessage,
     isLoading,
     isStreaming,
+    loadingChatId,
     handleVersionChange,
     handleAIVersionChange,
     handleRegenVersionChange,
@@ -138,6 +140,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         <Sidebar
           history={history}
           activeChatId={activeChatId}
+          loadingChatId={loadingChatId}
           onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
           onDeleteChat={onRequestDeleteChat}
@@ -341,6 +344,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
 
   // Error Modal State
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -607,6 +611,15 @@ export default function App() {
 
     loadHistory();
   }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+
+  useEffect(() => {
+    if (loadingChatId) {
+      const timer = setTimeout(() => {
+        setLoadingChatId(null);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingChatId]);
 
   const history = useMemo(() => {
     return (Object.values(sessions) as ChatSession[]).sort(
@@ -1810,7 +1823,7 @@ export default function App() {
     // If deleted the active chat, navigate to /chat or another chat
     if (activeChatId === id) {
       const remainingSessions = Object.values(sessions).filter(
-        (s) => s.id !== id,
+        (s) => s.id !== id && !s.id.startsWith("suggestion-"),
       ) as ChatSession[];
 
       if (remainingSessions.length === 0) {
@@ -1845,6 +1858,7 @@ export default function App() {
     navigate(`/chat/${id}`);
     setPreviewContent(null); // Reset preview on chat switch
     setIsSettingsOpen(false);
+    setLoadingChatId(id);
     if (isMobile) {
       setIsSidebarOpen(false);
     }
@@ -1930,6 +1944,7 @@ export default function App() {
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
                 isStreaming={isStreaming}
+                loadingChatId={loadingChatId}
                 handleVersionChange={handleVersionChange}
                 handleAIVersionChange={handleAIVersionChange}
                 handleRegenVersionChange={handleRegenVersionChange}
@@ -1980,6 +1995,7 @@ export default function App() {
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
                 isStreaming={isStreaming}
+                loadingChatId={loadingChatId}
                 handleVersionChange={handleVersionChange}
                 handleAIVersionChange={handleAIVersionChange}
                 handleRegenVersionChange={handleRegenVersionChange}
