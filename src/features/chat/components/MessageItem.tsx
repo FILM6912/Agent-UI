@@ -15,6 +15,7 @@ import { Message, ModelConfig } from "@/types";
 import { ProcessStep } from "@/features/preview/components/ProcessStep";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CachedImage } from "./CachedImage";
 
@@ -230,12 +231,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
               if (!mainContent) return null;
 
+              // Wrap text in “...” with a span for orange coloring and HIDE the quotes
+               // We replace it with <span class="text-orange-500 font-medium">...</span>
+               const coloredContent = mainContent.replace(/“([\s\S]*?)”/g, '<span class="text-orange-500 font-medium">$1</span>');
+
               return (
                 <Markdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
                   components={markdownComponents as any}
                 >
-                  {mainContent}
+                  {coloredContent}
                 </Markdown>
               );
             })()}
