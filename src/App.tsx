@@ -11,6 +11,7 @@ import { Sidebar } from "@/features/sidebar";
 import { ChatInterface, getPresetModels } from "@/features/chat";
 import { PreviewWindow } from "@/features/preview";
 import { SettingsView } from "@/features/settings";
+import { FileView } from "@/features/files";
 import { ErrorModal } from "@/components/ErrorModal";
 import { LangFlowConfigModal } from "@/components/LangFlowConfigModal";
 import { AuthPage } from "@/features/auth";
@@ -2097,6 +2098,16 @@ export default function App() {
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
               />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/files"
+          element={
+            isAuthenticated ? (
+              <FileView />
             ) : (
               <Navigate to="/login" />
             )
