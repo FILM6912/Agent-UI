@@ -9,6 +9,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { FileNode } from "./FileTreeItem";
 import { SpreadsheetViewer } from "./SpreadsheetViewer";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface FileContentRendererProps {
   selectedFile: FileNode;
@@ -37,6 +38,7 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
   isDark,
   onEditContentChange,
 }) => {
+  const { t } = useLanguage();
   const ext = selectedFile.name.split(".").pop()?.toLowerCase();
 
   if (viewMode === "code") {
@@ -133,14 +135,14 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
       return (
         <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 flex flex-col">
           <div className="bg-zinc-200 dark:bg-zinc-900 border-b border-zinc-300 dark:border-zinc-800 p-2 flex justify-between items-center text-xs text-zinc-600 dark:text-zinc-400">
-            <span>PDF Viewer</span>
+            <span>{t("preview.pdfViewer")}</span>
             <a
               href={selectedFile.content}
               target="_blank"
               rel="noreferrer"
               className="hover:text-black dark:hover:text-white flex items-center gap-1"
             >
-              <Share2 className="w-3 h-3" /> Open external
+              <Share2 className="w-3 h-3" /> {t("preview.openExternal")}
             </a>
           </div>
           <iframe

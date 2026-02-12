@@ -72,6 +72,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     message: string;
     onConfirm: () => void;
     type: "danger" | "info";
+    confirmText?: string;
+    cancelText?: string;
   }>({
     isOpen: false,
     title: "",
@@ -85,6 +87,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     title: string;
     initialValue: string;
     onConfirm: (value: string) => void;
+    placeholder?: string;
+    confirmText?: string;
+    cancelText?: string;
   }>({
     isOpen: false,
     title: "",
@@ -196,9 +201,11 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
     setConfirmModal({
       isOpen: true,
-      title: "Delete File",
-      message: `Are you sure you want to delete ${selectedFile.name}?`,
+      title: t("preview.deleteFile"),
+      message: t("preview.deleteFileConfirm").replace("{name}", selectedFile.name),
       type: "danger",
+      confirmText: t("preview.delete"),
+      cancelText: t("preview.cancel"),
       onConfirm: async () => {
         try {
           const fullPath = selectedFile.id;
@@ -244,8 +251,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Agent Preview",
-          text: "Check out this agent preview",
+          title: t("preview.shareTitle"),
+          text: t("preview.shareText"),
           url: url,
         });
         return;
@@ -274,8 +281,11 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
     setInputModal({
       isOpen: true,
-      title: "Rename",
+      title: t("preview.rename"),
       initialValue: node.name,
+      placeholder: t("preview.enterNewName"),
+      confirmText: t("preview.save"),
+      cancelText: t("preview.cancel"),
       onConfirm: async (newName) => {
         if (!newName || newName === node.name) return;
 
@@ -308,9 +318,11 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
     setConfirmModal({
       isOpen: true,
-      title: "Delete",
-      message: `Are you sure you want to delete ${node.name}?`,
+      title: t("preview.deleteFile"),
+      message: t("preview.deleteFileConfirm").replace("{name}", node.name),
       type: "danger",
+      confirmText: t("preview.delete"),
+      cancelText: t("preview.cancel"),
       onConfirm: async () => {
         try {
           const fullPath = node.id;
@@ -410,7 +422,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
             <button
               onClick={handleShare}
               className="text-muted-foreground hover:text-foreground relative"
-              title="Share"
+              title={t("preview.share")}
             >
               {showShareTooltip ? (
                 <Check className="w-4 h-4 text-emerald-500" />
@@ -506,7 +518,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       onClick={() => setSelectedFile(null)}
                       className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent transition-colors"
                     >
-                      <ArrowLeft className="w-3.5 h-3.5" /> Back
+                      <ArrowLeft className="w-3.5 h-3.5" /> {t("preview.back")}
                     </button>
                     <div className="flex items-center gap-2">
                       <div className="flex bg-muted border border-zinc-200 dark:border-zinc-800 rounded-lg p-0.5 mr-2">
@@ -514,7 +526,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                           onClick={() => setViewMode("code")}
                           className={`px-2 py-1 text-[10px] rounded-md transition-all flex items-center gap-1.5 ${viewMode === "code" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                         >
-                          <Code className="w-3 h-3" /> Code
+                          <Code className="w-3 h-3" /> {t("preview.code")}
                         </button>
                         {[
                           "md",
@@ -536,7 +548,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                             onClick={() => setViewMode("preview")}
                             className={`px-2 py-1 text-[10px] rounded-md transition-all flex items-center gap-1.5 ${viewMode === "preview" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            <Eye className="w-3 h-3" /> Preview
+                            <Eye className="w-3 h-3" /> {t("preview.previewMode")}
                           </button>
                         )}
                       </div>
@@ -546,37 +558,37 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       {viewMode === "code" && (
                         <button
                           onClick={handleSaveContent}
-                          className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-accent rounded transition-colors"
-                          title="Save"
-                        >
-                          <Save className="w-3.5 h-3.5" />
-                        </button>
+                        className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-accent rounded transition-colors"
+                        title={t("preview.save")}
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDownload(selectedFile)}
+                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                      title={t("preview.download")}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleCopy}
+                      className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                      title={t("preview.copy")}
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
                       )}
-                      <button
-                        onClick={() => handleDownload(selectedFile)}
-                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
-                        title="Download"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={handleCopy}
-                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
-                        title="Copy code"
-                      >
-                        {copied ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
-                        onClick={handleDeleteFile}
-                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
-                        title="Delete File"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    </button>
+                    <button
+                      onClick={handleDeleteFile}
+                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                      title={t("preview.deleteFile")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                     </div>
                   </div>
                   <div className="flex-1 overflow-auto bg-background scrollbar-thin scrollbar-thumb-border transition-colors duration-200">
@@ -630,6 +642,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
         title={confirmModal.title}
         message={confirmModal.message}
         type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
       />
       <InputModal
         isOpen={inputModal.isOpen}
@@ -637,6 +651,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
         onConfirm={inputModal.onConfirm}
         title={inputModal.title}
         initialValue={inputModal.initialValue}
+        placeholder={inputModal.placeholder}
+        confirmText={inputModal.confirmText}
+        cancelText={inputModal.cancelText}
       />
     </div>
   );
