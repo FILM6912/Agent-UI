@@ -15,6 +15,7 @@ import {
   Moon,
   Laptop,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import { ChatSession, AIProvider } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -22,8 +23,9 @@ import { useTheme } from "@/hooks/useTheme";
 
 interface SidebarProps {
   history: ChatSession[];
-  onNewChat: () => void;
   activeChatId: string | null;
+  loadingChatId: string | null;
+  onNewChat: () => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
   activeProvider: AIProvider;
@@ -37,8 +39,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   history,
-  onNewChat,
   activeChatId,
+  loadingChatId,
+  onNewChat,
   onSelectChat,
   onDeleteChat,
   activeProvider,
@@ -227,9 +230,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
                   }`}
                 >
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
-                  ></div>
+                  {loadingChatId === session.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
+                  ) : (
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
+                    ></div>
+                  )}
                   <span className="truncate flex-1 font-medium">
                     {session.title}
                   </span>
