@@ -5,6 +5,7 @@ import type { FileUploadResponse } from '@/types/file-api';
 
 interface FileUploadProps {
   currentPath?: string;
+  chatId?: string;
   onUploadComplete?: (responses: FileUploadResponse[]) => void;
   className?: string;
 }
@@ -18,6 +19,7 @@ interface UploadProgress {
 
 export const FileUpload: React.FC<FileUploadProps> = ({
   currentPath = '',
+  chatId,
   onUploadComplete,
   className = ''
 }) => {
@@ -67,6 +69,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const uploadFile = async (file: File) => {
+    if (!chatId) return;
     setUploads(prev => 
       prev.map(u => 
         u.file === file 
@@ -76,7 +79,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     );
 
     try {
-      const response = await fileService.uploadFile(file, { path: currentPath });
+      const response = await fileService.uploadFile(file, { path: currentPath }, chatId);
       
       setUploads(prev => 
         prev.map(u => 
@@ -103,6 +106,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const uploadMultiple = async () => {
+    if (!chatId) return;
     const pendingFiles = uploads
       .filter(u => u.status === 'pending')
       .map(u => u.file);
@@ -118,7 +122,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     );
 
     try {
-      const response = await fileService.uploadMultipleFiles(pendingFiles, { path: currentPath });
+      const response = await fileService.uploadMultipleFiles(pendingFiles, { path: currentPath }, chatId);
       
       setUploads(prev => 
         prev.map(u => 

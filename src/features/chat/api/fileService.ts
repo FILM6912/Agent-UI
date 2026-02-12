@@ -48,19 +48,23 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async listFiles(path?: string): Promise<FileListResponse> {
+  async listFiles(path?: string, chatId?: string): Promise<FileListResponse> {
     const params = new URLSearchParams();
     if (path) params.append('path', path);
+    if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
     return this.request<FileListResponse>(`/api/v1/files${query ? `?${query}` : ''}`);
   }
 
-  async uploadFile(file: File, options?: FileUploadOptions): Promise<FileUploadResponse> {
+  async uploadFile(file: File, options?: FileUploadOptions, chatId?: string): Promise<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     if (options?.path) {
       formData.append('path', options.path);
+    }
+    if (chatId) {
+      formData.append('chat_id', chatId);
     }
 
     const url = `${this.baseUrl}/api/v1/files/upload`;
@@ -77,11 +81,14 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async uploadMultipleFiles(files: File[], options?: FileUploadOptions): Promise<MultipleFileUploadResponse> {
+  async uploadMultipleFiles(files: File[], options?: FileUploadOptions, chatId?: string): Promise<MultipleFileUploadResponse> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
     if (options?.path) {
       formData.append('path', options.path);
+    }
+    if (chatId) {
+      formData.append('chat_id', chatId);
     }
 
     const url = `${this.baseUrl}/api/v1/files/upload/multiple`;
@@ -98,9 +105,10 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async downloadFile(filename: string, options?: FileReadOptions): Promise<Blob> {
+  async downloadFile(filename: string, options?: FileReadOptions, chatId?: string): Promise<Blob> {
     const params = new URLSearchParams();
     if (options?.path) params.append('path', options.path);
+    if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
     const url = `${this.baseUrl}/api/v1/files/download/${encodeURIComponent(filename)}${query ? `?${query}` : ''}`;
@@ -114,19 +122,23 @@ class FileService implements FileApiClient {
     return response.blob();
   }
 
-  async readFile(filename: string, options?: FileReadOptions): Promise<FileReadResponse> {
+  async readFile(filename: string, options?: FileReadOptions, chatId?: string): Promise<FileReadResponse> {
     const params = new URLSearchParams();
     if (options?.path) params.append('path', options.path);
+    if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
     return this.request<FileReadResponse>(`/api/v1/files/read/${encodeURIComponent(filename)}${query ? `?${query}` : ''}`);
   }
 
-  async writeFile(filename: string, content: string, options?: FileWriteOptions): Promise<FileWriteResponse> {
+  async writeFile(filename: string, content: string, options?: FileWriteOptions, chatId?: string): Promise<FileWriteResponse> {
     const formData = new FormData();
     formData.append('content', content);
     if (options?.path) {
       formData.append('path', options.path);
+    }
+    if (chatId) {
+      formData.append('chat_id', chatId);
     }
 
     const url = `${this.baseUrl}/api/v1/files/write/${encodeURIComponent(filename)}`;
@@ -143,11 +155,14 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async createDirectory(name: string, options?: FileDeleteOptions): Promise<DirectoryCreateResponse> {
+  async createDirectory(name: string, options?: FileDeleteOptions, chatId?: string): Promise<DirectoryCreateResponse> {
     const formData = new FormData();
     formData.append('name', name);
     if (options?.path) {
       formData.append('path', options.path);
+    }
+    if (chatId) {
+      formData.append('chat_id', chatId);
     }
 
     const url = `${this.baseUrl}/api/v1/files/directory`;
@@ -164,9 +179,10 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async deleteFile(filename: string, options?: FileDeleteOptions): Promise<FileDeleteResponse> {
+  async deleteFile(filename: string, options?: FileDeleteOptions, chatId?: string): Promise<FileDeleteResponse> {
     const params = new URLSearchParams();
     if (options?.path) params.append('path', options.path);
+    if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
     return this.request<FileDeleteResponse>(`/api/v1/files/${encodeURIComponent(filename)}${query ? `?${query}` : ''}`, {
@@ -174,34 +190,36 @@ class FileService implements FileApiClient {
     });
   }
 
-  async searchFiles(query: string, options?: FileSearchOptions): Promise<FileSearchResponse> {
+  async searchFiles(query: string, options?: FileSearchOptions, chatId?: string): Promise<FileSearchResponse> {
     const params = new URLSearchParams({ query });
     if (options?.path) params.append('path', options.path);
     if (options?.extensions) params.append('extensions', options.extensions);
+    if (chatId) params.append('chat_id', chatId);
     
     const queryString = params.toString();
     return this.request<FileSearchResponse>(`/api/v1/files/search?${queryString}`);
   }
 
-  async getFileInfo(filename: string, options?: FileReadOptions): Promise<FileInfoResponse> {
+  async getFileInfo(filename: string, options?: FileReadOptions, chatId?: string): Promise<FileInfoResponse> {
     const params = new URLSearchParams();
     if (options?.path) params.append('path', options.path);
+    if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
     return this.request<FileInfoResponse>(`/api/v1/files/info/${encodeURIComponent(filename)}${query ? `?${query}` : ''}`);
   }
 
-  async moveFile(source: string, destination: string, sourcePath?: string, destPath?: string): Promise<FileMoveResponse> {
+  async moveFile(source: string, destination: string, sourcePath?: string, destPath?: string, chatId?: string): Promise<FileMoveResponse> {
     return this.request<FileMoveResponse>('/api/v1/files/move', {
       method: 'POST',
-      body: JSON.stringify({ source, destination, source_path: sourcePath, dest_path: destPath }),
+      body: JSON.stringify({ source, destination, source_path: sourcePath, dest_path: destPath, chat_id: chatId }),
     });
   }
 
-  async copyFile(source: string, destination: string, sourcePath?: string, destPath?: string): Promise<FileCopyResponse> {
+  async copyFile(source: string, destination: string, sourcePath?: string, destPath?: string, chatId?: string): Promise<FileCopyResponse> {
     return this.request<FileCopyResponse>('/api/v1/files/copy', {
       method: 'POST',
-      body: JSON.stringify({ source, destination, source_path: sourcePath, dest_path: destPath }),
+      body: JSON.stringify({ source, destination, source_path: sourcePath, dest_path: destPath, chat_id: chatId }),
     });
   }
 

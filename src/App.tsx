@@ -82,6 +82,7 @@ interface AppLayoutProps {
   isLangFlowConfigOpen: boolean;
   setIsLangFlowConfigOpen: (open: boolean) => void;
   chatInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onOpenFiles: () => void;
 }
 
 // AppLayout component extracted outside to prevent recreation
@@ -128,6 +129,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     isLangFlowConfigOpen,
     setIsLangFlowConfigOpen,
     chatInputRef,
+    onOpenFiles,
   }) => (
     <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
@@ -152,6 +154,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           onOpenSettings={() => {
             navigate("/settings/general");
           }}
+          onOpenFiles={onOpenFiles}
           isOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isMobile={isMobile}
@@ -1901,6 +1904,20 @@ export default function App() {
     }
   };
 
+  const handleOpenFiles = () => {
+    if (activeChatId) {
+      navigate(`/files/${activeChatId}`);
+    } else {
+       // If no active chat, try to find the most recent one
+       const sessionIds = Object.keys(sessions);
+       if (sessionIds.length > 0) {
+          // Sort by updated at
+          const latest = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          navigate(`/files/${latest.id}`);
+       }
+    }
+  };
+
   // If not authenticated, show Auth Page
   // Sync route params to settings state
   useEffect(() => {
@@ -1996,6 +2013,7 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
             ) : (
               <Navigate to="/login" />
@@ -2047,6 +2065,7 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
             ) : (
               <Navigate to="/login" />
@@ -2097,6 +2116,7 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
             ) : (
               <Navigate to="/login" />
@@ -2104,7 +2124,7 @@ export default function App() {
           }
         />
         <Route
-          path="/files"
+          path="/files/:chatId"
           element={
             isAuthenticated ? (
               <FileView />

@@ -7,12 +7,14 @@ import { formatBytes } from '@/lib/utils';
 interface FileBrowserProps {
   onFileSelect?: (file: FileItem) => void;
   onDirectorySelect?: (file: FileItem) => void;
+  chatId?: string;
   className?: string;
 }
 
 export const FileBrowser: React.FC<FileBrowserProps> = ({
   onFileSelect,
   onDirectorySelect,
+  chatId,
   className = ''
 }) => {
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -25,9 +27,10 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileItem } | null>(null);
 
   const loadFiles = async (path?: string) => {
+    if (!chatId) return;
     setLoading(true);
     try {
-      const response = await fileService.listFiles(path);
+      const response = await fileService.listFiles(path, chatId);
       setFiles(response.files || []);
       setCurrentPath(response.path || '');
       
@@ -46,7 +49,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
 
   useEffect(() => {
     loadFiles();
-  }, []);
+  }, [chatId]);
 
   const handleFileClick = (file: FileItem) => {
     if (file.type === 'directory') {
@@ -91,14 +94,14 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+    if (!chatId || !searchQuery.trim()) {
       loadFiles(currentPath);
       return;
     }
     
     setLoading(true);
     try {
-      const response = await fileService.searchFiles(searchQuery, { path: currentPath });
+      const response = await fileService.searchFiles(searchQuery, { path: currentPath }, chatId);
       const results = response.results || [];
       const fileItems: FileItem[] = results.map(r => ({
         name: r.name,
@@ -129,10 +132,10 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   };
 
   const handleDelete = async (file: FileItem) => {
-    if (!confirm(`Are you sure you want to delete "${file.name}"?`)) return;
+    if (!chatId || !confirm(`Are you sure you want to delete "${file.name}"?`)) return;
     
     try {
-      await fileService.deleteFile(file.name, { path: currentPath });
+      await fileService.deleteFile(file.name, { path: currentPath }, chatId);
       await loadFiles(currentPath);
     } catch (error) {
       console.error('Delete failed:', error);
@@ -141,8 +144,9 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
   };
 
   const handleDownload = async (file: FileItem) => {
+    if (!chatId) return;
     try {
-      const blob = await fileService.downloadFile(file.name, { path: currentPath });
+      const blob = await fileService.downloadFile(file.name, { path: currentPath }, chatId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -349,12 +353,17 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
             {contextMenu.file.type === 'file' && (
               <button
                 onClick={async () => {
+                  if (!chatId) {
+                    closeContextMenu();
+                    return;
+                  }
                   try {
                     await fileService.copyFile(
                       contextMenu.file.name,
                       `${contextMenu.file.name}.copy`,
                       currentPath,
-                      currentPath
+                      currentPath,
+                      chatId
                     );
                     await loadFiles(currentPath);
                   } catch (error) {

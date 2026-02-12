@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { FileBrowser } from './components/FileBrowser';
 import { FileUpload } from './components/FileUpload';
 import { FileEditor } from './components/FileEditor';
@@ -11,6 +12,7 @@ interface FileViewProps {
 }
 
 export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
+  const { chatId } = useParams<{ chatId: string }>();
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [showEditor, setShowEditor] = useState<boolean>(false);
@@ -18,9 +20,13 @@ export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
   const checkServerStatus = async () => {
+    if (!chatId) {
+      setServerStatus('offline');
+      return;
+    }
     setServerStatus('checking');
     try {
-      await fileService.listFiles();
+      await fileService.listFiles(undefined, chatId);
       setServerStatus('online');
     } catch (error) {
       setServerStatus('offline');
@@ -31,7 +37,7 @@ export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
     checkServerStatus();
     const interval = setInterval(checkServerStatus, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chatId]);
 
   const handleFileSelect = (file: FileItem) => {
     if (file.type === 'file') {
@@ -52,10 +58,11 @@ export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
   };
 
   const handleCreateDirectory = async () => {
+    if (!chatId) return;
     const name = prompt('Enter directory name:');
     if (name) {
       try {
-        await fileService.createDirectory(name, { path: currentPath });
+        await fileService.createDirectory(name, { path: currentPath }, chatId);
         checkServerStatus();
       } catch (error) {
         console.error('Failed to create directory:', error);
@@ -135,12 +142,14 @@ export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
           <div className="flex flex-col gap-6 h-full">
             <FileBrowser
               currentPath={currentPath}
+              chatId={chatId}
               onFileSelect={handleFileSelect}
               onDirectorySelect={handleDirectorySelect}
               className="flex-1"
             />
             <FileUpload
               currentPath={currentPath}
+              chatId={chatId}
               onUploadComplete={handleUploadComplete}
             />
           </div>
@@ -149,6 +158,7 @@ export const FileView: React.FC<FileViewProps> = ({ className = '' }) => {
             {showEditor && selectedFile ? (
               <FileEditor
                 file={selectedFile}
+                chatId={chatId}
                 onClose={handleEditorClose}
                 onSave={checkServerStatus}
                 className="h-full"

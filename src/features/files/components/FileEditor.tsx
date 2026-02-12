@@ -5,6 +5,7 @@ import type { FileItem } from '@/types/file-api';
 
 interface FileEditorProps {
   file: FileItem | null;
+  chatId?: string;
   onClose?: () => void;
   onSave?: () => void;
   className?: string;
@@ -12,6 +13,7 @@ interface FileEditorProps {
 
 export const FileEditor: React.FC<FileEditorProps> = ({
   file,
+  chatId,
   onClose,
   onSave,
   className = ''
@@ -37,12 +39,12 @@ export const FileEditor: React.FC<FileEditorProps> = ({
   }, [file]);
 
   const loadFileContent = async () => {
-    if (!file) return;
+    if (!file || !chatId) return;
 
     setLoading(true);
     setError('');
     try {
-      const response = await fileService.readFile(file.name);
+      const response = await fileService.readFile(file.name, chatId);
       setContent(response.content);
       setOriginalContent(response.content);
       setIsModified(false);
@@ -56,12 +58,12 @@ export const FileEditor: React.FC<FileEditorProps> = ({
   };
 
   const handleSave = async () => {
-    if (!file || saving) return;
+    if (!file || !chatId || saving) return;
 
     setSaving(true);
     setError('');
     try {
-      await fileService.writeFile(file.name, content);
+      await fileService.writeFile(file.name, content, chatId);
       setOriginalContent(content);
       setIsModified(false);
       onSave?.();

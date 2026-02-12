@@ -9,12 +9,14 @@ class FileItem(BaseModel):
     size: int
     modified: float
     mime_type: Optional[str] = None
+    chat_id: str
 
 
 class FileListResponse(BaseModel):
     files: List[FileItem]
     path: str
     count: int
+    chat_id: str
 
 
 class FileUploadResponse(BaseModel):
@@ -23,12 +25,14 @@ class FileUploadResponse(BaseModel):
     path: str
     size: int
     mime_type: Optional[str] = None
+    chat_id: str
 
 
 class MultipleFileUploadResponse(BaseModel):
     results: List[FileUploadResponse]
     total: int
     success_count: int
+    chat_id: str
 
 
 class FileReadResponse(BaseModel):
@@ -37,6 +41,7 @@ class FileReadResponse(BaseModel):
     content: str
     mime_type: Optional[str]
     size: int
+    chat_id: str
 
 
 class FileWriteResponse(BaseModel):
@@ -44,18 +49,21 @@ class FileWriteResponse(BaseModel):
     filename: str
     path: str
     size: int
+    chat_id: str
 
 
 class DirectoryCreateResponse(BaseModel):
     success: bool
     path: str
     name: str
+    chat_id: str
 
 
 class FileDeleteResponse(BaseModel):
     success: bool
     message: str
     path: str
+    chat_id: str
 
 
 class FileSearchResult(BaseModel):

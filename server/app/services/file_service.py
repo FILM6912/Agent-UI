@@ -31,8 +31,12 @@ class FileService:
     def __init__(self):
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
-    async def list_files(self, path: Optional[str] = None) -> FileListResponse:
-        base_dir = resolve_path(path)
+    def _get_chat_dir(self, chat_id: str) -> str:
+        return os.path.join(settings.UPLOAD_DIR, chat_id)
+
+    async def list_files(self, chat_id: str, path: Optional[str] = None) -> FileListResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        base_dir = resolve_path(path, base_dir=chat_dir)
         
         if not os.path.exists(base_dir):
             raise HTTPException(status_code=404, detail="Path not found")
@@ -51,20 +55,23 @@ class FileService:
                     type="directory" if os.path.isdir(item_path) else "file",
                     size=stat.st_size if os.path.isfile(item_path) else 0,
                     modified=stat.st_mtime,
-                    mime_type=get_mime_type(item) if os.path.isfile(item_path) else None
+                    mime_type=get_mime_type(item) if os.path.isfile(item_path) else None,
+                    chat_id=chat_id
                 ))
             
             files.sort(key=lambda x: (x.type == "file", x.name.lower()))
-            return FileListResponse(files=files, path=base_dir, count=len(files))
+            return FileListResponse(files=files, path=base_dir, count=len(files), chat_id=chat_id)
         except PermissionError:
             raise HTTPException(status_code=403, detail="Permission denied")
 
     async def upload_file(
         self,
+        chat_id: str,
         file: UploadFile,
         path: Optional[str] = None
     ) -> FileUploadResponse:
-        target_dir = resolve_path(path)
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         os.makedirs(target_dir, exist_ok=True)
         
         filename = file.filename or "unnamed"
@@ -86,23 +93,26 @@ class FileService:
                 filename=filename,
                 path=file_path,
                 size=os.path.getsize(file_path),
-                mime_type=get_mime_type(filename)
+                mime_type=get_mime_type(filename),
+                chat_id=chat_id
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
     async def upload_multiple_files(
         self,
+        chat_id: str,
         files: List[UploadFile],
         path: Optional[str] = None
     ) -> MultipleFileUploadResponse:
-        target_dir = resolve_path(path)
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         os.makedirs(target_dir, exist_ok=True)
         
         results = []
         success_count = 0
         
-        tasks = [self._upload_single_file(file, target_dir) for file in files]
+        tasks = [self._upload_single_file(chat_id, file, target_dir) for file in files]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for result in results:
@@ -112,7 +122,8 @@ class FileService:
                     filename="",
                     path="",
                     size=0,
-                    mime_type=None
+                    mime_type=None,
+                    chat_id=chat_id
                 ))
             else:
                 if result.success:
@@ -122,11 +133,13 @@ class FileService:
         return MultipleFileUploadResponse(
             results=results,
             total=len(files),
-            success_count=success_count
+            success_count=success_count,
+            chat_id=chat_id
         )
 
     async def _upload_single_file(
         self,
+        chat_id: str,
         file: UploadFile,
         target_dir: str
     ) -> FileUploadResponse:
@@ -139,7 +152,8 @@ class FileService:
                 filename=filename,
                 path="",
                 size=0,
-                mime_type=None
+                mime_type=None,
+                chat_id=chat_id
             )
         
         try:
@@ -150,7 +164,8 @@ class FileService:
                     filename=filename,
                     path="",
                     size=0,
-                    mime_type=None
+                    mime_type=None,
+                    chat_id=chat_id
                 )
             
             with open(file_path, "wb") as buffer:
@@ -161,7 +176,8 @@ class FileService:
                 filename=filename,
                 path=file_path,
                 size=os.path.getsize(file_path),
-                mime_type=get_mime_type(filename)
+                mime_type=get_mime_type(filename),
+                chat_id=chat_id
             )
         except Exception:
             return FileUploadResponse(
@@ -169,11 +185,13 @@ class FileService:
                 filename=filename,
                 path="",
                 size=0,
-                mime_type=None
+                mime_type=None,
+                chat_id=chat_id
             )
 
-    async def read_file(self, filename: str, path: Optional[str] = None) -> FileReadResponse:
-        target_dir = resolve_path(path)
+    async def read_file(self, chat_id: str, filename: str, path: Optional[str] = None) -> FileReadResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         file_path = os.path.join(target_dir, filename)
         
         if not os.path.exists(file_path):
@@ -191,18 +209,21 @@ class FileService:
                 path=file_path,
                 content=content,
                 mime_type=get_mime_type(filename),
-                size=os.path.getsize(file_path)
+                size=os.path.getsize(file_path),
+                chat_id=chat_id
             )
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="File is not text-readable")
 
     async def write_file(
         self,
+        chat_id: str,
         filename: str,
         content: str,
         path: Optional[str] = None
     ) -> FileWriteResponse:
-        target_dir = resolve_path(path)
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         os.makedirs(target_dir, exist_ok=True)
         file_path = os.path.join(target_dir, filename)
         
@@ -214,13 +235,15 @@ class FileService:
                 success=True,
                 filename=filename,
                 path=file_path,
-                size=os.path.getsize(file_path)
+                size=os.path.getsize(file_path),
+                chat_id=chat_id
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Write failed: {str(e)}")
 
-    async def create_directory(self, name: str, path: Optional[str] = None) -> DirectoryCreateResponse:
-        base_dir = resolve_path(path)
+    async def create_directory(self, chat_id: str, name: str, path: Optional[str] = None) -> DirectoryCreateResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        base_dir = resolve_path(path, base_dir=chat_dir)
         os.makedirs(base_dir, exist_ok=True)
         new_dir_path = os.path.join(base_dir, name)
         
@@ -232,13 +255,15 @@ class FileService:
             return DirectoryCreateResponse(
                 success=True,
                 path=new_dir_path,
-                name=name
+                name=name,
+                chat_id=chat_id
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Create directory failed: {str(e)}")
 
-    async def delete_file(self, filename: str, path: Optional[str] = None) -> FileDeleteResponse:
-        target_dir = resolve_path(path)
+    async def delete_file(self, chat_id: str, filename: str, path: Optional[str] = None) -> FileDeleteResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         file_path = os.path.join(target_dir, filename)
         
         if not os.path.exists(file_path):
@@ -253,18 +278,21 @@ class FileService:
             return FileDeleteResponse(
                 success=True,
                 message=f"Deleted {filename}",
-                path=file_path
+                path=file_path,
+                chat_id=chat_id
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
     async def search_files(
         self,
+        chat_id: str,
         query: str,
         path: Optional[str] = None,
         extensions: Optional[str] = None
     ) -> FileSearchResponse:
-        search_dir = resolve_path(path)
+        chat_dir = self._get_chat_dir(chat_id)
+        search_dir = resolve_path(path, base_dir=chat_dir)
         
         if not os.path.exists(search_dir):
             raise HTTPException(status_code=404, detail="Search path not found")
@@ -295,8 +323,9 @@ class FileService:
             count=len(results)
         )
 
-    async def get_file_info(self, filename: str, path: Optional[str] = None) -> FileInfoResponse:
-        target_dir = resolve_path(path)
+    async def get_file_info(self, chat_id: str, filename: str, path: Optional[str] = None) -> FileInfoResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        target_dir = resolve_path(path, base_dir=chat_dir)
         file_path = os.path.join(target_dir, filename)
         
         if not os.path.exists(file_path):
@@ -314,9 +343,10 @@ class FileService:
             mime_type=get_mime_type(filename) if os.path.isfile(file_path) else None
         )
 
-    async def move_file(self, request: FileMoveRequest) -> FileMoveResponse:
-        src_dir = resolve_path(request.source_path)
-        dst_dir = resolve_path(request.dest_path)
+    async def move_file(self, chat_id: str, request: FileMoveRequest) -> FileMoveResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        src_dir = resolve_path(request.source_path, base_dir=chat_dir)
+        dst_dir = resolve_path(request.dest_path, base_dir=chat_dir)
         
         src_file = os.path.join(src_dir, request.source)
         dst_file = os.path.join(dst_dir, request.destination)
@@ -335,9 +365,10 @@ class FileService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Move failed: {str(e)}")
 
-    async def copy_file(self, request: FileCopyRequest) -> FileCopyResponse:
-        src_dir = resolve_path(request.source_path)
-        dst_dir = resolve_path(request.dest_path)
+    async def copy_file(self, chat_id: str, request: FileCopyRequest) -> FileCopyResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        src_dir = resolve_path(request.source_path, base_dir=chat_dir)
+        dst_dir = resolve_path(request.dest_path, base_dir=chat_dir)
         
         src_file = os.path.join(src_dir, request.source)
         dst_file = os.path.join(dst_dir, request.destination)

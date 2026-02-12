@@ -6,13 +6,22 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-def resolve_path(path: Optional[str] = None) -> str:
-    base_dir = os.path.abspath(path or settings.UPLOAD_DIR)
+def resolve_path(path: Optional[str] = None, base_dir: Optional[str] = None) -> str:
+    if base_dir is None:
+        base_dir = settings.UPLOAD_DIR
     
-    if not base_dir.startswith(os.path.abspath(settings.UPLOAD_DIR)):
+    if path:
+        resolved = os.path.normpath(os.path.join(base_dir, path))
+    else:
+        resolved = base_dir
+    
+    abs_base = os.path.abspath(base_dir)
+    abs_resolved = os.path.abspath(resolved)
+    
+    if not abs_resolved.startswith(abs_base):
         raise HTTPException(status_code=403, detail="Access denied: path outside allowed directory")
     
-    return base_dir
+    return abs_resolved
 
 
 def is_allowed_file(filename: str) -> bool:
