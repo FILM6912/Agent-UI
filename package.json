@@ -5,7 +5,8 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite",
+    "server": "cd server && uvicorn app.main:combined_app --reload",
+    "dev": "concurrently \"npm:server\" \"vite\" --kill-others",
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
