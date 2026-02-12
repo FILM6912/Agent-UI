@@ -62,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const filteredHistory = history.filter(
     (session) =>
+      !session.id.startsWith("suggestion-") &&
       session.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
       session.messages.length > 0,
   );
