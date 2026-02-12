@@ -1,3 +1,5 @@
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { InputModal } from "@/components/InputModal";
 import { ProcessStep } from "@/types";
 import React, { useState, useEffect } from "react";
 import {
@@ -63,6 +65,32 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   );
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: "danger" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info",
+  });
+
+  const [inputModal, setInputModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    initialValue: string;
+    onConfirm: (value: string) => void;
+  }>({
+    isOpen: false,
+    title: "",
+    initialValue: "",
+    onConfirm: () => {},
+  });
 
   const { copied, copyToClipboard } = useClipboard();
   const { width, isResizing, startResizing } = useWindowResize(
@@ -229,6 +257,85 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
   const handleRefresh = () => {
     setIframeKey((prev) => prev + 1);
+  };
+
+  const handleRenameNode = async (node: FileNode) => {
+    if (!node || !chatId) return;
+    const newName = prompt("Enter new name:", node.name);
+    if (!newName || newName === node.name) return;
+
+    try {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath =
+        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+
+      await fileService.moveFile(
+        node.name,
+        newName,
+        dirPath,
+        dirPath,
+        chatId,
+      );
+
+      await fetchFiles();
+    } catch (error) {
+      console.error("Failed to rename node:", error);
+    }
+  };
+
+  const handleDeleteNode = async (node: FileNode) => {
+    if (!node || !chatId) return;
+    if (
+      !window.confirm(`Are you sure you want to delete ${node.name}?`)
+    )
+      return;
+
+    try {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath =
+        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+      const filename = node.name;
+
+      await fileService.deleteFile(filename, { path: dirPath }, chatId);
+
+      if (selectedFile && selectedFile.id === node.id) {
+        setSelectedFile(null);
+      }
+
+      await fetchFiles();
+    } catch (error) {
+      console.error("Failed to delete node:", error);
+    }
+  };
+
+  const handleDownloadNode = async (node: FileNode) => {
+    if (!node || !chatId || node.type !== "file") return;
+
+    try {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath =
+        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+      const filename = node.name;
+
+      const blob = await fileService.downloadFile(
+        filename,
+        { path: dirPath },
+        chatId,
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download file:", error);
+    }
   };
 
   const handleFileTreeSelect = async (path: string, node: FileNode) => {
@@ -478,6 +585,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         selectedFile={selectedFileName}
                         onToggle={toggleFolder}
                         onSelect={handleFileTreeSelect}
+                        onDelete={handleDeleteNode}
+                        onRename={handleRenameNode}
+                        onDownload={handleDownloadNode}
                         expandedPaths={expandedPaths}
                       />
                     ))}

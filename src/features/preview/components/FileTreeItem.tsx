@@ -13,6 +13,9 @@ import {
   FileText,
   Table as TableIcon,
   Globe,
+  Trash2,
+  Edit2,
+  Download,
 } from "lucide-react";
 
 export interface FileNode {
@@ -31,6 +34,9 @@ interface FileTreeItemProps {
   selectedFile: string | null;
   onToggle: (path: string) => void;
   onSelect: (path: string, node: FileNode) => void;
+  onDelete?: (node: FileNode) => void;
+  onRename?: (node: FileNode) => void;
+  onDownload?: (node: FileNode) => void;
   expandedPaths: Set<string>;
 }
 
@@ -59,48 +65,100 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   selectedFile,
   onToggle,
   onSelect,
+  onDelete,
+  onRename,
+  onDownload,
   expandedPaths,
 }) => {
   const isExpanded = expandedPaths.has(path);
   const isSelected = selectedFile === path;
 
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
     <div>
       <div
-        onClick={() => {
-          if (node.type === "folder") {
-            onToggle(path);
-          } else {
-            onSelect(path, node);
-          }
-        }}
-        className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
+        className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
           isSelected
             ? "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
             : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300"
         }`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {node.type === "folder" ? (
-          <>
-            {isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
-            ) : (
-              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+        <div
+          className="flex items-center gap-2 flex-1 min-w-0"
+          onClick={() => {
+            if (node.type === "folder") {
+              onToggle(path);
+            } else {
+              onSelect(path, node);
+            }
+          }}
+        >
+          {node.type === "folder" ? (
+            <>
+              {isExpanded ? (
+                <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+              )}
+              {isExpanded ? (
+                <FolderOpen className="w-4 h-4 shrink-0 text-blue-400" />
+              ) : (
+                <Folder className="w-4 h-4 shrink-0 text-blue-400" />
+              )}
+            </>
+          ) : (
+            <>
+              <div className="w-3.5" />
+              {getFileIcon(node.name)}
+            </>
+          )}
+          <span className="text-sm truncate">{node.name}</span>
+        </div>
+        
+        {isHovered && (
+          <div className="flex items-center gap-1 bg-transparent px-1 animate-in fade-in duration-200">
+            {onRename && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRename(node);
+                }}
+                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-orange-500 hover:text-orange-600"
+                title="Rename"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
             )}
-            {isExpanded ? (
-              <FolderOpen className="w-4 h-4 shrink-0 text-blue-400" />
-            ) : (
-              <Folder className="w-4 h-4 shrink-0 text-blue-400" />
+            {onDownload && node.type === "file" && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(node);
+                }}
+                className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-500 hover:text-blue-600"
+                title="Download"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
             )}
-          </>
-        ) : (
-          <>
-            <div className="w-3.5" />
-            {getFileIcon(node.name)}
-          </>
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(node);
+                }}
+                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500 hover:text-red-600"
+                title="Delete"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         )}
-        <span className="text-sm truncate">{node.name}</span>
       </div>
 
       {node.type === "folder" && isExpanded && node.children && (
@@ -114,6 +172,8 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               selectedFile={selectedFile}
               onToggle={onToggle}
               onSelect={onSelect}
+              onDelete={onDelete}
+              onRename={onRename}
               expandedPaths={expandedPaths}
             />
           ))}
