@@ -16,6 +16,7 @@ import {
   Save,
   Trash2,
   Loader2,
+  Edit2,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
@@ -102,6 +103,12 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     450,
     isSidebarOpen,
   );
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    node: FileNode;
+  } | null>(null);
 
   useEffect(() => {
     const content = previewContent || MOCK_DASHBOARD_HTML;
@@ -416,6 +423,11 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  };
+
   const handleFileTreeSelect = async (path: string, node: FileNode) => {
     if (node.type === "file" && !node.content && chatId) {
       try {
@@ -683,14 +695,66 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         onRename={handleRenameNode}
                         onDownload={handleDownloadNode}
                         onFileDrop={handleFileDrop}
+                        onContextMenu={handleContextMenu}
                         expandedPaths={expandedPaths}
                       />
                     ))}
                   </div>
+                  
+                  {contextMenu && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setContextMenu(null)}
+                      />
+                      <div
+                        className="fixed z-50 min-w-[160px] bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 py-1 animate-in fade-in zoom-in-95 duration-100"
+                        style={{ left: contextMenu.x, top: contextMenu.y }}
+                      >
+                        <button
+                          onClick={() => {
+                            handleRenameNode(contextMenu.node);
+                            setContextMenu(null);
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
+                        >
+                          <Edit2 className="w-4 h-4 text-zinc-500" />
+                          {t("preview.rename")}
+                        </button>
+                        
+                        {contextMenu.node.type === "file" && (
+                          <button
+                            onClick={() => {
+                              handleDownloadNode(contextMenu.node);
+                              setContextMenu(null);
+                            }}
+                            className="w-full px-3 py-1.5 text-left text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4 text-zinc-500" />
+                            {t("preview.download")}
+                          </button>
+                        )}
+                        
+                        <div className="my-1 border-t border-zinc-200 dark:border-zinc-700" />
+                        
+                        <button
+                          onClick={() => {
+                            handleDeleteNode(contextMenu.node);
+                            setContextMenu(null);
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {t("preview.delete")}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
       <ConfirmModal
