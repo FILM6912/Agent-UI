@@ -83,11 +83,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const totalAIVersions = currentMessageVersion?.aiVersions?.length || 1;
   
   // Regen versions (for current AI version)
-  // Show when has regen versions (>= 1) OR when no aiVersions yet (first AI response)
-  const hasRegenVersions = (currentAIVersion?.regenVersions && currentAIVersion.regenVersions.length > 0) || 
-                           (!currentMessageVersion?.aiVersions || currentMessageVersion.aiVersions.length === 0);
   const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
   const totalRegenVersions = currentAIVersion?.regenVersions?.length || 1;
+  const hasRegenVersions = totalRegenVersions > 1;
 
   return (
     <div
