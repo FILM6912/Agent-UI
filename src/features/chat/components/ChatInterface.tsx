@@ -55,6 +55,7 @@ interface ChatInterfaceProps {
   onEdit?: (messageId: string, newContent: string) => void;
   isLoading: boolean;
   isStreaming?: boolean;
+  onStop?: () => void;
   modelConfig: ModelConfig;
   onModelConfigChange: (config: ModelConfig) => void;
   onProviderChange?: (provider: AIProvider) => void;
@@ -73,6 +74,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   input,
   setInput,
   onSend,
+  onStop,
   onRegenerate,
   onEdit,
   isLoading,
@@ -395,6 +397,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         attachments={attachments}
         onRemoveAttachment={removeAttachment}
         onSend={handleSendClick}
+        onStop={onStop}
         onFileSelect={() => fileInputRef.current?.click()}
         onPaste={handlePaste}
         onDragOver={handleDragOver}

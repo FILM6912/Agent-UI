@@ -58,6 +58,7 @@ interface AppLayoutProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   handleSend: (message: string, attachments?: Attachment[]) => Promise<void>;
+  handleStop: () => void;
   handleRegenerate: (messageId: string) => Promise<void>;
   handleEditUserMessage: (
     messageId: string,
@@ -106,6 +107,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     inputValue,
     setInputValue,
     handleSend,
+    handleStop,
     handleRegenerate,
     handleEditUserMessage,
     isLoading,
@@ -178,6 +180,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               input={inputValue}
               setInput={setInputValue}
               onSend={handleSend}
+              onStop={handleStop}
               onRegenerate={handleRegenerate}
               onEdit={handleEditUserMessage}
               isLoading={isLoading}
@@ -345,6 +348,7 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Error Modal State
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -657,6 +661,10 @@ export default function App() {
     attachments?: Attachment[],
     chatId?: string,
   ) => {
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Use provided chatId or fall back to activeChatId
     const sessionId = chatId || activeChatId;
 
@@ -691,7 +699,8 @@ export default function App() {
         prompt,
         modelConfig,
         attachments,
-        sessionId
+        sessionId,
+        abortController.signal
       );
       let isFirstChunk = true;
 
@@ -874,6 +883,12 @@ export default function App() {
         }
       }
 
+      // Mark streaming as complete immediately after loop finishes
+      // so the send button becomes available without waiting for suggestions
+      isStreamingRef.current = false;
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+
       // Perform authoritative sync after streaming finishes
       try {
         const serverMessages = await fetchHistoryFromLangFlow(modelConfig, sessionId);
@@ -983,6 +998,16 @@ export default function App() {
         errorMsg.includes("model is required") ||
         errorMsg.includes("No model selected");
 
+      const isAbortError =
+        errorMsg.includes("AbortError") ||
+        errorMsg.includes("The user aborted a request") ||
+        error.name === "AbortError";
+
+      if (isAbortError) {
+        console.log("Streaming was aborted by user");
+        return;
+      }
+
       // Show error modal instead of alert
       if (isModelError) {
         setErrorModalConfig({
@@ -1029,7 +1054,18 @@ export default function App() {
       setIsLoading(false);
       isStreamingRef.current = false;
       setIsStreaming(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    isStreamingRef.current = false;
+    setIsStreaming(false);
   };
 
   const handleSend = async (

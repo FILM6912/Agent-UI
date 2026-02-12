@@ -6,6 +6,7 @@ import {
   MicOff,
   X,
   File as FileIcon,
+  Square,
 } from "lucide-react";
 import { Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -28,6 +29,7 @@ interface ChatInputProps {
   isDragging: boolean;
   isLoading: boolean;
   isStreaming: boolean;
+  onStop?: () => void;
   isListening: boolean;
   speechError: string | null;
   onToggleListening: () => void;
@@ -56,6 +58,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   attachments,
   onRemoveAttachment,
   onSend,
+  onStop,
   onFileSelect,
   onPaste,
   onDragOver,
@@ -495,26 +498,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
-                          onSend();
-                          // Keep focus on textarea after clicking send
-                          setTimeout(() => {
-                            textareaRef.current?.focus();
-                          }, 0);
+                          if (isStreaming) {
+                            onStop?.();
+                          } else {
+                            onSend();
+                            // Keep focus on textarea after clicking send
+                            setTimeout(() => {
+                              textareaRef.current?.focus();
+                            }, 0);
+                          }
                         }}
                         disabled={
-                          (!input.trim() && attachments.length === 0) ||
-                          isLoading ||
-                          isStreaming
+                          !isStreaming && ((!input.trim() && attachments.length === 0) || isLoading)
                         }
-                        className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
-                          !isLoading &&
-                          !isStreaming
+                        className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
+                          ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
+                          : (input.trim() || attachments.length > 0) &&
+                          !isLoading
                           ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                           }`}
-                        title={t("chat.send") || "Send"}
+                        title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                       >
-                        <Send className="w-4 h-4" />
+                        {isStreaming ? <Square className="w-3.5 h-3.5" /> : <Send className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
@@ -593,26 +599,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                         <button
                           onClick={() => {
-                            onSend();
-                            // Keep focus on textarea after clicking send
-                            setTimeout(() => {
-                              textareaRef.current?.focus();
-                            }, 0);
+                            if (isStreaming) {
+                              onStop?.();
+                            } else {
+                              onSend();
+                              // Keep focus on textarea after clicking send
+                              setTimeout(() => {
+                                textareaRef.current?.focus();
+                              }, 0);
+                            }
                           }}
                           disabled={
-                            (!input.trim() && attachments.length === 0) ||
-                            isLoading ||
-                            isStreaming
+                            !isStreaming && ((!input.trim() && attachments.length === 0) || isLoading)
                           }
-                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
-                            !isLoading &&
-                            !isStreaming
+                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
+                            ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
+                            : (input.trim() || attachments.length > 0) &&
+                            !isLoading
                             ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                             }`}
-                          title={t("chat.send") || "Send"}
+                          title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                         >
-                          <Send className="w-4 h-4" />
+                          {isStreaming ? <Square className="w-3.5 h-3.5" /> : <Send className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>

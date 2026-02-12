@@ -187,7 +187,8 @@ async function* streamFromLangFlow(
   newMessage: string,
   config: ModelConfig,
   attachments: Attachment[] = [],
-  chatId?: string
+  chatId?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
@@ -254,7 +255,8 @@ async function* streamFromLangFlow(
     const response = await fetch(`${baseUrl}/api/v1/run/${flowId}?stream=true`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal
     });
 
     if (!response.ok) {
@@ -401,7 +403,8 @@ async function* streamFromOpenAI(
   newMessage: string,
   config: ModelConfig,
   _attachments: Attachment[] = [],
-  _chatId?: string
+  _chatId?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
@@ -428,7 +431,8 @@ async function* streamFromOpenAI(
     const response = await fetch(`${baseUrl}/api/v1/responses`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal
     });
 
     if (!response.ok) {
@@ -502,16 +506,17 @@ export async function* streamMessageFromGemini(
   newMessage: string,
   config: ModelConfig,
   attachments: Attachment[] = [],
-  chatId?: string
+  chatId?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<{ type: 'text' | 'steps'; content?: string; steps?: ProcessStep[]; isFullText?: boolean }, void, unknown> {
   // Check if this is a LangFlow agent (has langflowUrl configured)
   if (config.langflowUrl && config.modelId) {
     // Route based on apiType
     if (config.apiType === 'openai') {
-      yield* streamFromOpenAI(history, newMessage, config, attachments, chatId);
+      yield* streamFromOpenAI(history, newMessage, config, attachments, chatId, signal);
     } else {
       // Default to langflow (backward compatible)
-      yield* streamFromLangFlow(history, newMessage, config, attachments, chatId);
+      yield* streamFromLangFlow(history, newMessage, config, attachments, chatId, signal);
     }
     return;
   }
