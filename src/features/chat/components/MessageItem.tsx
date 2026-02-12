@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Pencil,
   File as FileIcon,
+  Brain,
+  Loader2,
 } from "lucide-react";
 import { Message, ModelConfig } from "@/types";
 import { ProcessStep } from "@/features/preview/components/ProcessStep";
@@ -117,22 +119,53 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {/* Thinking Process Display */}
           {(() => {
             const hasThinkTag = msg.content.includes('<think>');
-            if (!hasThinkTag) return null;
+            const hasSolutionTag = msg.content.includes('<|begin_of_solution|>');
+            
+            if (!hasThinkTag && !hasSolutionTag) return null;
 
             const thinkBlocks = [];
-            // Match closed blocks
-            const closedMatches = [...msg.content.matchAll(/<think>([\s\S]*?)<\/think>/g)];
-            for (const match of closedMatches) {
-              thinkBlocks.push({ content: match[1], isComplete: true });
+            
+            // Handle <think> tags
+            if (hasThinkTag) {
+              const closedMatches = [...msg.content.matchAll(/<think>([\s\S]*?)<\/think>/g)];
+              for (const match of closedMatches) {
+                thinkBlocks.push({ content: match[1], isComplete: true, label: t("chat.thoughtProcess") || "Thought Process" });
+              }
+
+              const lastCloseIndex = msg.content.lastIndexOf('</think>');
+              const lastOpenIndex = msg.content.lastIndexOf('<think>');
+
+              if (lastOpenIndex > lastCloseIndex) {
+                const openContent = msg.content.substring(lastOpenIndex + 7);
+                // If it also has solution tag later, we might need to truncate
+                const solutionTagIndex = openContent.indexOf('<|begin_of_solution|>');
+                const finalContent = solutionTagIndex !== -1 ? openContent.substring(0, solutionTagIndex) : openContent;
+                thinkBlocks.push({ content: finalContent, isComplete: solutionTagIndex !== -1, label: t("chat.thoughtProcess") || "Thought Process" });
+              }
             }
 
-            // Match open block at the end (if any) - simply check if there is a <think> after the last </think>
-            const lastCloseIndex = msg.content.lastIndexOf('</think>');
-            const lastOpenIndex = msg.content.lastIndexOf('<think>');
+            // Handle <|begin_of_solution|> tags (often used in specialized models)
+            if (hasSolutionTag) {
+              // Content before the first <|begin_of_solution|> that isn't already in a <think> block
+              const firstSolutionIndex = msg.content.indexOf('<|begin_of_solution|>');
+              let preSolutionContent = msg.content.substring(0, firstSolutionIndex);
+              
+              // Clean up pre-solution content: remove any <think> blocks already handled
+              preSolutionContent = preSolutionContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+              // Remove a trailing pipe if it exists (common in some formats)
+              preSolutionContent = preSolutionContent.replace(/\|$/, '').trim();
 
-            if (lastOpenIndex > lastCloseIndex) {
-              const openContent = msg.content.substring(lastOpenIndex + 7);
-              thinkBlocks.push({ content: openContent, isComplete: false });
+              if (preSolutionContent) {
+                // Check if this content is already in thinkBlocks to avoid duplicates
+                const isDuplicate = thinkBlocks.some(block => block.content.trim() === preSolutionContent);
+                if (!isDuplicate) {
+                  thinkBlocks.push({ 
+                    content: preSolutionContent, 
+                    isComplete: true, 
+                    label: t("chat.process") || "Process" 
+                  });
+                }
+              }
             }
 
             if (thinkBlocks.length === 0) return null;
@@ -146,8 +179,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     open={!block.isComplete && isStreaming} // Auto-open if streaming and incomplete
                   >
                     <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none">
-                      <div className={`w-1.5 h-1.5 rounded-full transition-colors ${!block.isComplete && isStreaming ? 'bg-blue-500 animate-pulse' : 'bg-zinc-400 group-open/think:bg-blue-500'}`} />
-                      {t("chat.thoughtProcess") || "Thought Process"}
+                      <div className="flex items-center justify-center relative">
+                        {!block.isComplete && isStreaming ? (
+                          <>
+                            <Brain className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+                            <Loader2 className="w-4 h-4 text-blue-400 absolute animate-spin opacity-40" />
+                          </>
+                        ) : (
+                          <div className={`w-1.5 h-1.5 rounded-full transition-colors bg-zinc-400 group-open/think:bg-blue-500`} />
+                        )}
+                      </div>
+                      {block.label}
                       {!block.isComplete && isStreaming && <span className="opacity-50 ml-1">...</span>}
                     </summary>
                     <div className="px-3 pb-3 pt-1 text-xs text-zinc-600 dark:text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed opacity-90">
@@ -166,8 +208,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             : "w-full text-zinc-800 dark:text-zinc-300 pl-1"
             }`}>
             {(() => {
+              let mainContent = msg.content;
+              
+              // Handle <|begin_of_solution|> format
+              if (mainContent.includes('<|begin_of_solution|>')) {
+                const parts = mainContent.split('<|begin_of_solution|>');
+                // Take everything after the first <|begin_of_solution|>
+                mainContent = parts.slice(1).join('<|begin_of_solution|>');
+                // Remove <|end_of_solution|>
+                mainContent = mainContent.replace('<|end_of_solution|>', '');
+              }
+
               // Remove <think>... </think> (closed)
-              let mainContent = msg.content.replace(/<think>[\s\S]*?<\/think>/g, '');
+              mainContent = mainContent.replace(/<think>[\s\S]*?<\/think>/g, '');
               // Remove <think>... (open/incomplete at end)
               mainContent = mainContent.replace(/<think>[\s\S]*$/, '');
 

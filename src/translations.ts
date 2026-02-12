@@ -68,6 +68,7 @@ export const translations = {
       messages: "messages",
       lastUpdated: "Last updated",
       thoughtProcess: "Thought Process",
+      process: "Process",
     },
     settings: {
       title: "Settings",
@@ -306,6 +307,7 @@ export const translations = {
       messages: "ข้อความ",
       lastUpdated: "อัปเดตล่าสุด",
       thoughtProcess: "กระบวนการคิด",
+      process: "ขั้นตอนการทำงาน",
     },
     settings: {
       title: "การตั้งค่า",

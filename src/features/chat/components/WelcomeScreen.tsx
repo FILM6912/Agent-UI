@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  RotateCw,
   Sparkles,
   Code,
   Wrench,
@@ -68,22 +67,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const [randomSuggestions, setRandomSuggestions] = React.useState<Suggestion[]>(
     []
   );
-  const [isShuffling, setIsShuffling] = React.useState(false);
 
-  const shuffleSuggestions = React.useCallback(() => {
-    setIsShuffling(true);
+  React.useEffect(() => {
     // Select correct language pool, fallback to 'en' if not 'th'
     const pool = language === "th" ? SUGGESTIONS.th : SUGGESTIONS.en;
     // Shuffle and pick 4
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     setRandomSuggestions(shuffled.slice(0, 4));
-
-    setTimeout(() => setIsShuffling(false), 500);
   }, [language]);
-
-  React.useEffect(() => {
-    shuffleSuggestions();
-  }, [shuffleSuggestions]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -105,18 +96,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
       {/* Quick Action Suggestions */}
       <div className="w-full max-w-2xl relative">
-        <div className="absolute -top-12 right-0">
-          <button
-            onClick={shuffleSuggestions}
-            className={`p-2 rounded-full text-zinc-400 hover:text-[#1447E6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ${
-              isShuffling ? "animate-spin text-[#1447E6]" : ""
-            }`}
-            title={language === "th" ? "เปลี่ยนหัวข้อใหม่" : "Shuffle suggestions"}
-          >
-            <RotateCw className="w-5 h-5" />
-          </button>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
           {randomSuggestions.map((item, idx) => (
             <button

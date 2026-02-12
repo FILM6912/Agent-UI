@@ -65,9 +65,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const filteredHistory = history.filter(
     (session) =>
+      session &&
+      session.id &&
       !session.id.startsWith("suggestion-") &&
-      session.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      session.messages.length > 0,
+      (session.title || "").toLowerCase().includes(searchQuery.toLowerCase()) &&
+      (session.messages || []).length > 0,
   );
 
   const toggleLanguage = () => {
@@ -238,9 +240,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ></div>
                   )}
                   <span className="truncate flex-1 font-medium">
-                    {session.title}
+                    {session.title || "Untitled Chat"}
                   </span>
-                  {session.messages.length > 0 &&
+                  {(session.messages || []).length > 0 &&
                     activeChatId !== session.id && (
                       <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums">
                         {session.messages.length}
