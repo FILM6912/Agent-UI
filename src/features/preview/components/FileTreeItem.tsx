@@ -38,6 +38,7 @@ interface FileTreeItemProps {
   onRename?: (node: FileNode) => void;
   onDownload?: (node: FileNode) => void;
   onFileDrop?: (sourceNode: FileNode, targetNode: FileNode | null) => void;
+  onContextMenu?: (e: React.MouseEvent, node: FileNode) => void;
   expandedPaths: Set<string>;
 }
 
@@ -70,6 +71,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   onRename,
   onDownload,
   onFileDrop,
+  onContextMenu,
   expandedPaths,
 }) => {
   const isExpanded = expandedPaths.has(path);
@@ -132,6 +134,11 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu?.(e, node);
+        }}
       >
         <div
           className="flex items-center gap-2 flex-1 min-w-0"
@@ -164,47 +171,6 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
           )}
           <span className="text-sm truncate">{node.name}</span>
         </div>
-        
-        {isHovered && (
-          <div className="flex items-center gap-1 bg-transparent px-1 animate-in fade-in duration-200">
-            {onRename && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRename(node);
-                }}
-                className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded text-orange-500 hover:text-orange-600"
-                title="Rename"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {onDownload && node.type === "file" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDownload(node);
-                }}
-                className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-500 hover:text-blue-600"
-                title="Download"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(node);
-                }}
-                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500 hover:text-red-600"
-                title="Delete"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {node.type === "folder" && isExpanded && node.children && (
@@ -239,6 +205,7 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               onRename={onRename}
               onDownload={onDownload}
               onFileDrop={onFileDrop}
+              onContextMenu={onContextMenu}
               expandedPaths={expandedPaths}
             />
           ))}
