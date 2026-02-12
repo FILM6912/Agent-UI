@@ -1,6 +1,60 @@
 import React from "react";
-import { RotateCw, Sparkles } from "lucide-react";
+import {
+  RotateCw,
+  Sparkles,
+  Code,
+  Wrench,
+  Palette,
+  Atom,
+  Box,
+  FileText,
+  Mail,
+  Megaphone,
+  FileSearch,
+  BarChart,
+  Plane,
+  Wallet,
+  ChefHat,
+  Gift,
+  Lightbulb,
+  Film,
+  Music,
+  Wind,
+  Cloud,
+  Smartphone,
+  Theater,
+  Target,
+  Brain,
+  BookOpen,
+} from "lucide-react";
 import { SUGGESTIONS, Suggestion } from "../data/suggestions";
+
+const IconMap: Record<string, React.ReactNode> = {
+  Code: <Code className="w-6 h-6" />,
+  Wrench: <Wrench className="w-6 h-6" />,
+  Palette: <Palette className="w-6 h-6" />,
+  Atom: <Atom className="w-6 h-6" />,
+  Box: <Box className="w-6 h-6" />,
+  FileText: <FileText className="w-6 h-6" />,
+  Mail: <Mail className="w-6 h-6" />,
+  Megaphone: <Megaphone className="w-6 h-6" />,
+  FileSearch: <FileSearch className="w-6 h-6" />,
+  BarChart: <BarChart className="w-6 h-6" />,
+  Plane: <Plane className="w-6 h-6" />,
+  Wallet: <Wallet className="w-6 h-6" />,
+  ChefHat: <ChefHat className="w-6 h-6" />,
+  Gift: <Gift className="w-6 h-6" />,
+  Lightbulb: <Lightbulb className="w-6 h-6" />,
+  Film: <Film className="w-6 h-6" />,
+  Music: <Music className="w-6 h-6" />,
+  Wind: <Wind className="w-6 h-6" />,
+  Cloud: <Cloud className="w-6 h-6" />,
+  Smartphone: <Smartphone className="w-6 h-6" />,
+  Theater: <Theater className="w-6 h-6" />,
+  Target: <Target className="w-6 h-6" />,
+  Brain: <Brain className="w-6 h-6" />,
+  BookOpen: <BookOpen className="w-6 h-6" />,
+};
 
 interface WelcomeScreenProps {
   language: string;
@@ -11,7 +65,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   language,
   onSuggestionClick,
 }) => {
-  const [randomSuggestions, setRandomSuggestions] = React.useState<Suggestion[]>([]);
+  const [randomSuggestions, setRandomSuggestions] = React.useState<Suggestion[]>(
+    []
+  );
   const [isShuffling, setIsShuffling] = React.useState(false);
 
   const shuffleSuggestions = React.useCallback(() => {
@@ -52,36 +108,47 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <div className="absolute -top-12 right-0">
           <button
             onClick={shuffleSuggestions}
-            className={`p-2 rounded-full text-zinc-400 hover:text-[#1447E6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ${isShuffling ? "animate-spin text-[#1447E6]" : ""}`}
+            className={`p-2 rounded-full text-zinc-400 hover:text-[#1447E6] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 ${
+              isShuffling ? "animate-spin text-[#1447E6]" : ""
+            }`}
             title={language === "th" ? "เปลี่ยนหัวข้อใหม่" : "Shuffle suggestions"}
           >
             <RotateCw className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
           {randomSuggestions.map((item, idx) => (
             <button
               key={idx + item.title}
               onClick={() => onSuggestionClick(item.prompt)}
-              className="group p-4 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-xl hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-blue-500/10 hover:bg-blue-50/30 dark:hover:from-blue-950/20 dark:hover:to-blue-900/20 transition-all duration-200 cursor-pointer text-left animate-in fade-in zoom-in-95 duration-300 fill-mode-both"
+              className="group relative p-5 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-[#1447E6] dark:hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer text-left overflow-hidden animate-in fade-in zoom-in-95 duration-300 fill-mode-both"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
-              <div className="text-2xl mb-2">{item.icon}</div>
-              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 mb-1 group-hover:text-[#1447E6] dark:group-hover:text-blue-400 transition-colors">
-                {item.title}
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                {item.desc}
-              </p>
+              {/* Background Gradient Effect */}
+              <div className="absolute inset-0 bg-linear-to-br from-blue-50/50 to-transparent dark:from-blue-900/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+              <div className="relative flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 group-hover:scale-110 transition-all duration-300 shadow-sm text-[#1447E6] dark:text-blue-400">
+                  {IconMap[item.icon] || <Sparkles className="w-6 h-6" />}
+                </div>
+
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <h3 className="text-[15px] font-bold text-zinc-800 dark:text-zinc-100 mb-1 group-hover:text-[#1447E6] dark:group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                    {item.title}
+                    <Sparkles className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
+              </div>
             </button>
           ))}
         </div>
       </div>
 
-
       {/* Model Info */}
-
     </div>
   );
 };
