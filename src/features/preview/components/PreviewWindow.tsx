@@ -193,22 +193,32 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
   const handleDeleteFile = async () => {
     if (!selectedFile || !chatId) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedFile.name}?`)) return;
 
-    try {
-      const fullPath = selectedFile.id;
-      const lastSlashIndex = fullPath.lastIndexOf("/");
-      const dirPath = lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
-      const filename = selectedFile.name;
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete File",
+      message: `Are you sure you want to delete ${selectedFile.name}?`,
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const fullPath = selectedFile.id;
+          const lastSlashIndex = fullPath.lastIndexOf("/");
+          const dirPath =
+            lastSlashIndex > -1
+              ? fullPath.substring(0, lastSlashIndex)
+              : undefined;
+          const filename = selectedFile.name;
 
-      await fileService.deleteFile(filename, { path: dirPath }, chatId);
-      
-      setSelectedFile(null);
-      await fetchFiles();
-    } catch (error) {
-      console.error("Failed to delete file:", error);
-      // You might want to add a toast notification here
-    }
+          await fileService.deleteFile(filename, { path: dirPath }, chatId);
+
+          setSelectedFile(null);
+          await fetchFiles();
+        } catch (error) {
+          console.error("Failed to delete file:", error);
+          // You might want to add a toast notification here
+        }
+      },
+    });
   };
 
   const handleCopy = async () => {
@@ -261,53 +271,68 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
   const handleRenameNode = async (node: FileNode) => {
     if (!node || !chatId) return;
-    const newName = prompt("Enter new name:", node.name);
-    if (!newName || newName === node.name) return;
 
-    try {
-      const fullPath = node.id;
-      const lastSlashIndex = fullPath.lastIndexOf("/");
-      const dirPath =
-        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+    setInputModal({
+      isOpen: true,
+      title: "Rename",
+      initialValue: node.name,
+      onConfirm: async (newName) => {
+        if (!newName || newName === node.name) return;
 
-      await fileService.moveFile(
-        node.name,
-        newName,
-        dirPath,
-        dirPath,
-        chatId,
-      );
+        try {
+          const fullPath = node.id;
+          const lastSlashIndex = fullPath.lastIndexOf("/");
+          const dirPath =
+            lastSlashIndex > -1
+              ? fullPath.substring(0, lastSlashIndex)
+              : undefined;
 
-      await fetchFiles();
-    } catch (error) {
-      console.error("Failed to rename node:", error);
-    }
+          await fileService.moveFile(
+            node.name,
+            newName,
+            dirPath,
+            dirPath,
+            chatId,
+          );
+
+          await fetchFiles();
+        } catch (error) {
+          console.error("Failed to rename node:", error);
+        }
+      },
+    });
   };
 
   const handleDeleteNode = async (node: FileNode) => {
     if (!node || !chatId) return;
-    if (
-      !window.confirm(`Are you sure you want to delete ${node.name}?`)
-    )
-      return;
 
-    try {
-      const fullPath = node.id;
-      const lastSlashIndex = fullPath.lastIndexOf("/");
-      const dirPath =
-        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
-      const filename = node.name;
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete",
+      message: `Are you sure you want to delete ${node.name}?`,
+      type: "danger",
+      onConfirm: async () => {
+        try {
+          const fullPath = node.id;
+          const lastSlashIndex = fullPath.lastIndexOf("/");
+          const dirPath =
+            lastSlashIndex > -1
+              ? fullPath.substring(0, lastSlashIndex)
+              : undefined;
+          const filename = node.name;
 
-      await fileService.deleteFile(filename, { path: dirPath }, chatId);
+          await fileService.deleteFile(filename, { path: dirPath }, chatId);
 
-      if (selectedFile && selectedFile.id === node.id) {
-        setSelectedFile(null);
-      }
+          if (selectedFile && selectedFile.id === node.id) {
+            setSelectedFile(null);
+          }
 
-      await fetchFiles();
-    } catch (error) {
-      console.error("Failed to delete node:", error);
-    }
+          await fetchFiles();
+        } catch (error) {
+          console.error("Failed to delete node:", error);
+        }
+      },
+    });
   };
 
   const handleDownloadNode = async (node: FileNode) => {
@@ -598,6 +623,21 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
           )}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+      />
+      <InputModal
+        isOpen={inputModal.isOpen}
+        onClose={() => setInputModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={inputModal.onConfirm}
+        title={inputModal.title}
+        initialValue={inputModal.initialValue}
+      />
     </div>
   );
 };
