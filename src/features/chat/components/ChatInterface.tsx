@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, ArrowDown } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { SettingsMenu } from "./SettingsMenu";
@@ -55,10 +55,13 @@ interface ChatInterfaceProps {
   onEdit?: (messageId: string, newContent: string) => void;
   isLoading: boolean;
   isStreaming?: boolean;
+  onStop?: () => void;
   modelConfig: ModelConfig;
   onModelConfigChange: (config: ModelConfig) => void;
   onProviderChange?: (provider: AIProvider) => void;
   onVersionChange?: (messageId: string, newIndex: number) => void;
+  onAIVersionChange?: (messageId: string, newIndex: number) => void;
+  onRegenVersionChange?: (messageId: string, aiIndex: number, regenIndex: number) => void;
   isPreviewOpen?: boolean;
   onPreviewRequest?: (content: string) => void;
   onOpenSettings?: () => void;
@@ -71,6 +74,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   input,
   setInput,
   onSend,
+  onStop,
   onRegenerate,
   onEdit,
   isLoading,
@@ -78,6 +82,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   modelConfig,
   onModelConfigChange,
   onVersionChange,
+  onAIVersionChange,
+  onRegenVersionChange,
   isPreviewOpen = false,
   onPreviewRequest,
   onOpenSettings,
@@ -100,6 +106,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Dropdown States
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -140,10 +147,32 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Auto-scroll to bottom
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !userHasScrolledUp) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading, isStreaming, editingId, input]);
+  }, [messages, isLoading, isStreaming, editingId, input, userHasScrolledUp]);
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+      if (isAtBottom && userHasScrolledUp) {
+        setUserHasScrolledUp(false);
+      } else if (!isAtBottom && !userHasScrolledUp) {
+        setUserHasScrolledUp(true);
+      }
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+      setUserHasScrolledUp(false);
+    }
+  };
 
   // Auto-focus textarea after sending message
   useEffect(() => {
@@ -202,6 +231,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     console.log("🚀 Sending message, will focus after render");
     shouldFocusRef.current = true;
+    setUserHasScrolledUp(false);
     onSend(input, attachments);
     clearAttachments();
     if (textareaRef.current) {
@@ -237,6 +267,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleSendClickWrapper = (text: string) => {
+    setUserHasScrolledUp(false);
     onSend(text, []);
     shouldFocusRef.current = true;
   };
@@ -269,7 +300,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto scroll-smooth" ref={scrollRef}>
+      <div
+        className="flex-1 overflow-y-auto scroll-smooth"
+        ref={scrollRef}
+        onScroll={handleScroll}
+      >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
           {/* Welcome Screen */}
           {messages.length === 0 && (
@@ -352,6 +387,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onRegenerate={onRegenerate}
               onEdit={onEdit}
               onVersionChange={onVersionChange}
+              onAIVersionChange={onAIVersionChange}
+              onRegenVersionChange={onRegenVersionChange}
               onViewImage={setViewingImage}
               editingId={editingId}
               editValue={editValue}
@@ -368,6 +405,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {isLoading && <LoadingIndicator modelConfig={modelConfig} />}
         </div>
       </div>
+
+      {/* Scroll to Bottom Button */}
+      {userHasScrolledUp && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-32 right-8 p-2.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg text-zinc-600 dark:text-zinc-400 hover:text-[#1447E6] dark:hover:text-blue-400 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 z-20 group"
+          title={language === "th" ? "เลื่อนลงล่างสุด" : "Scroll to bottom"}
+        >
+          <ArrowDown className="w-5 h-5 group-hover:animate-bounce" />
+        </button>
+      )}
 
       {/* Image Lightbox */}
       <ImageLightbox
@@ -389,6 +437,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         attachments={attachments}
         onRemoveAttachment={removeAttachment}
         onSend={handleSendClick}
+        onStop={onStop}
         onFileSelect={() => fileInputRef.current?.click()}
         onPaste={handlePaste}
         onDragOver={handleDragOver}

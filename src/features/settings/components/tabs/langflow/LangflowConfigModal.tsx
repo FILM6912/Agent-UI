@@ -7,14 +7,18 @@ import {
   HelpCircle,
   Save,
   ExternalLink,
+  Radio,
 } from "lucide-react";
+import { ApiType } from "@/types";
 
 interface LangflowConfigModalProps {
   urlInput: string;
   apiKeyInput: string;
+  apiTypeInput: ApiType;
   currentUrl: string;
   onUrlChange: (url: string) => void;
   onApiKeyChange: (key: string) => void;
+  onApiTypeChange: (type: ApiType) => void;
   onSave: () => void;
   onClose: () => void;
   t: (key: string) => string;
@@ -23,9 +27,11 @@ interface LangflowConfigModalProps {
 export const LangflowConfigModal: React.FC<LangflowConfigModalProps> = ({
   urlInput,
   apiKeyInput,
+  apiTypeInput,
   currentUrl,
   onUrlChange,
   onApiKeyChange,
+  onApiTypeChange,
   onSave,
   onClose,
   t,
@@ -102,6 +108,41 @@ export const LangflowConfigModal: React.FC<LangflowConfigModalProps> = ({
             />
             <p className="text-xs text-zinc-500 mt-1.5 ml-1">
               {t("settings.apiKeyHint")}
+            </p>
+          </div>
+
+          {/* API Type Selector */}
+          <div>
+            <label className="text-sm font-semibold text-zinc-300 mb-2 flex items-center gap-2">
+              <Radio className="w-4 h-4 text-zinc-400" />
+              {t("settings.apiType")}
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => onApiTypeChange("langflow")}
+                className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+                  apiTypeInput === "langflow"
+                    ? "bg-indigo-600/20 border-indigo-500 text-indigo-300"
+                    : "bg-zinc-800 dark:bg-zinc-900 border-zinc-700 dark:border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                }`}
+              >
+                {t("settings.apiTypeLangflow")}
+              </button>
+              <button
+                type="button"
+                onClick={() => onApiTypeChange("openai")}
+                className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+                  apiTypeInput === "openai"
+                    ? "bg-emerald-600/20 border-emerald-500 text-emerald-300"
+                    : "bg-zinc-800 dark:bg-zinc-900 border-zinc-700 dark:border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300"
+                }`}
+              >
+                {t("settings.apiTypeOpenAI")}
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1.5 ml-1">
+              {t("settings.apiTypeHint")}
             </p>
           </div>
 

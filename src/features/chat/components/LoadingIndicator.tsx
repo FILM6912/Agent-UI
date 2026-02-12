@@ -19,7 +19,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           {modelConfig.name.toUpperCase()}
         </span>
       </div>
-      <div className="pl-4 py-2">
+      <div className="pl-4 py-2 flex items-center gap-4">
         <div className="flex space-x-1.5">
           <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
           <div className="w-2 h-2 bg-zinc-400 dark:bg-zinc-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>

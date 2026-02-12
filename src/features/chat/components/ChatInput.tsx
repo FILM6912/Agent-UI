@@ -6,9 +6,12 @@ import {
   MicOff,
   X,
   File as FileIcon,
+  Square,
 } from "lucide-react";
 import { Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useResizeObserver } from "@/hooks/useResizeObserver";
 import { ModelSelector } from "./ModelSelector";
 import { MCPServerList } from "./MCPServerList";
 
@@ -26,6 +29,7 @@ interface ChatInputProps {
   isDragging: boolean;
   isLoading: boolean;
   isStreaming: boolean;
+  onStop?: () => void;
   isListening: boolean;
   speechError: string | null;
   onToggleListening: () => void;
@@ -54,6 +58,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   attachments,
   onRemoveAttachment,
   onSend,
+  onStop,
   onFileSelect,
   onPaste,
   onDragOver,
@@ -80,17 +85,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   mcpMenuRef,
 }) => {
   const { t } = useLanguage();
+  const isSmallScreen = useMediaQuery("(max-width: 1024px)");
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const { width: containerWidth } = useResizeObserver(containerRef);
 
-  const autoResize = () => {
+  // Consider "small" if window is small OR container is narrow (< 650px)
+  const isNarrowContainer = containerWidth !== undefined && containerWidth < 650;
+  const isResponsiveSmall = isSmallScreen || isNarrowContainer;
+
+  // Persistent state for layout mode to prevent flickering
+  const [isModeMulti, setModeMulti] = React.useState(false);
+  const isModeMultiRef = React.useRef(isModeMulti);
+
+  // Derived state for layout
+  const isStacked = isModeMulti || isResponsiveSmall;
+
+  const autoResize = React.useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       const newHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = newHeight + "px";
 
-      // Manage overflow to avoid scrollbar when not needed
-      // Force hidden in single-line mode (found by checking isModeMulti state)
-      // Note: isModeMulti is defined later but available when this is called
-      if (!isModeMulti) {
+      // Manage overflow
+      if (!isStacked) {
         textareaRef.current.style.overflowY = "hidden";
       } else {
         if (newHeight > textareaRef.current.clientHeight) {
@@ -100,7 +117,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         }
       }
     }
-  };
+  }, [isStacked, textareaRef]);
+
+  // Handle auto-resize on any state change that affects layout or content
+  React.useLayoutEffect(() => {
+    autoResize();
+  }, [input, isStacked, autoResize]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -113,10 +135,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // Persistent state for layout mode to prevent flickering
-  const [isModeMulti, setModeMulti] = React.useState(false);
-  const isModeMultiRef = React.useRef(isModeMulti);
-
   // Sync ref
   React.useEffect(() => {
     isModeMultiRef.current = isModeMulti;
@@ -127,14 +145,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (!textareaRef.current) return;
 
     // Use ref to check current mode to avoid adding isModeMulti to dependency array
-    // This prevents the "Maximum update depth exceeded" error loop
     const currentMode = isModeMultiRef.current;
-    const hasNewline = input.includes("\n");
 
-    // We check scrollHeight. Note: styling affects scrollHeight.
-    // In single-line mode, padding is now px-4 py-4.
-    // Base height is min-h-[56px].
-    // If scrollHeight > 76 (allowing for some buffer), it means wrapping.
+    const hasNewline = input.includes("\n");
     const isOverflowing = textareaRef.current.scrollHeight > 76;
 
     if (!currentMode) {
@@ -318,6 +331,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       opacity: 0.8;
       filter: brightness(1.3);
     }
+
+    .action-bar-transition {
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
   `;
 
   return (
@@ -326,6 +343,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       <div className="absolute bottom-6 left-0 w-full px-4 z-20 pointer-events-none">
         <div className="max-w-5xl mx-auto pointer-events-auto">
           <div
+            ref={containerRef}
             className="cosmic-container relative w-full group transition-all duration-500"
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
@@ -390,11 +408,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               )}
 
               {/* Input Area */}
-              <div className={`w-full flex ${isModeMulti ? "flex-col" : "items-start"}`}>
+              <div className={`w-full flex transition-all duration-500 ease-in-out ${isStacked ? "flex-col" : "items-center"}`}>
 
                 {/* Left Actions - Rendered first in Single Line mode, or inside wrapper in Multi Line */}
-                {!isModeMulti && (
-                  <div className="flex items-center gap-2 self-end mb-[2px] py-3 pl-3">
+                {!isStacked && (
+                  <div className="flex items-center gap-2 py-2 pl-3 animate-in fade-in slide-in-from-left-2 duration-500">
                     <button
                       onClick={onFileSelect}
                       className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-xl transition-colors"
@@ -416,7 +434,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   value={input}
                   onChange={(e) => {
                     setInput(e.target.value);
-                    autoResize();
                   }}
                   onKeyDown={handleKeyDown}
                   onPaste={onPaste}
@@ -426,8 +443,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 />
 
                 {/* Right Actions - Rendered last in Single Line mode */}
-                {!isModeMulti && (
-                  <div className="flex items-center gap-2 self-end mb-[2px] pr-3 py-3">
+                {!isStacked && (
+                  <div className="flex items-center gap-2 pr-3 py-2 animate-in fade-in slide-in-from-right-2 duration-500">
                     <ModelSelector
                       isOpen={showModelMenu}
                       onToggle={() => setShowModelMenu(!showModelMenu)}
@@ -478,35 +495,40 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       </div>
 
                       <button
-                        onClick={() => {
-                          onSend();
-                          // Keep focus on textarea after clicking send
-                          setTimeout(() => {
-                            textareaRef.current?.focus();
-                          }, 0);
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (isStreaming) {
+                            onStop?.();
+                          } else {
+                            onSend();
+                            // Keep focus on textarea after clicking send
+                            setTimeout(() => {
+                              textareaRef.current?.focus();
+                            }, 0);
+                          }
                         }}
                         disabled={
-                          (!input.trim() && attachments.length === 0) ||
-                          isLoading ||
-                          isStreaming
+                          !isStreaming && ((!input.trim() && attachments.length === 0) || isLoading)
                         }
-                        className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
-                          !isLoading &&
-                          !isStreaming
+                        className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
+                          ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
+                          : (input.trim() || attachments.length > 0) &&
+                          !isLoading
                           ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                           }`}
-                        title={t("chat.send") || "Send"}
+                        title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                       >
-                        <Send className="w-4 h-4" />
+                        {isStreaming ? <Square className="w-3.5 h-3.5" /> : <Send className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 )}
 
                 {/* Multi-line Action Bar (Bottom) */}
-                {isModeMulti && (
-                  <div className="flex items-center justify-between px-3 pb-3">
+                {isStacked && (
+                  <div className="flex items-center justify-between px-3 pb-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     {/* Left Actions Group */}
                     <div className="flex items-center gap-2">
                       <button
@@ -577,26 +599,29 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
                         <button
                           onClick={() => {
-                            onSend();
-                            // Keep focus on textarea after clicking send
-                            setTimeout(() => {
-                              textareaRef.current?.focus();
-                            }, 0);
+                            if (isStreaming) {
+                              onStop?.();
+                            } else {
+                              onSend();
+                              // Keep focus on textarea after clicking send
+                              setTimeout(() => {
+                                textareaRef.current?.focus();
+                              }, 0);
+                            }
                           }}
                           disabled={
-                            (!input.trim() && attachments.length === 0) ||
-                            isLoading ||
-                            isStreaming
+                            !isStreaming && ((!input.trim() && attachments.length === 0) || isLoading)
                           }
-                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${(input.trim() || attachments.length > 0) &&
-                            !isLoading &&
-                            !isStreaming
+                          className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
+                            ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
+                            : (input.trim() || attachments.length > 0) &&
+                            !isLoading
                             ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                             }`}
-                          title={t("chat.send") || "Send"}
+                          title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                         >
-                          <Send className="w-4 h-4" />
+                          {isStreaming ? <Square className="w-3.5 h-3.5" /> : <Send className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>

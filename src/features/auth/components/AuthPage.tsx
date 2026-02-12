@@ -99,7 +99,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-50 dark:bg-[#050505] relative overflow-hidden font-sans selection:bg-indigo-500/30 text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
+    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-50 dark:bg-[#050505] relative overflow-hidden selection:bg-indigo-500/30 text-zinc-900 dark:text-zinc-100 transition-colors duration-300">
       {/* --- Settings Menu (Top Right) --- */}
       <div className="absolute top-6 right-6 z-50" ref={menuRef}>
         <button

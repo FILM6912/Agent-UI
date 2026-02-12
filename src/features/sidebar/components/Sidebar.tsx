@@ -15,6 +15,7 @@ import {
   Moon,
   Laptop,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import { ChatSession, AIProvider } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -22,8 +23,9 @@ import { useTheme } from "@/hooks/useTheme";
 
 interface SidebarProps {
   history: ChatSession[];
-  onNewChat: () => void;
   activeChatId: string | null;
+  loadingChatId: string | null;
+  onNewChat: () => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
   activeProvider: AIProvider;
@@ -37,8 +39,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   history,
-  onNewChat,
   activeChatId,
+  loadingChatId,
+  onNewChat,
   onSelectChat,
   onDeleteChat,
   activeProvider,
@@ -54,14 +57,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isUserHovered, setIsUserHovered] = useState(false);
+  const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
 
   // Sidebar expanded state relies purely on isOpen prop now
   const showExpanded = isOpen;
 
   const filteredHistory = history.filter(
     (session) =>
-      session.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      session.messages.length > 0,
+      session &&
+      session.id &&
+      !session.id.startsWith("suggestion-") &&
+      (session.title || "").toLowerCase().includes(searchQuery.toLowerCase()) &&
+      (session.messages || []).length > 0,
   );
 
   const toggleLanguage = () => {
@@ -199,7 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* History Section - Only visible when open */}
       <div
-        className={`mt-6 flex-1 overflow-y-auto px-3 scrollbar-hide w-full overflow-x-hidden ${!showExpanded ? "hidden" : ""}`}
+        className={`mt-6 flex-1 overflow-y-auto px-3 scrollbar-hide w-full overflow-x-hidden ${!showExpanded ? "invisible" : ""}`}
       >
         <div className="text-xs font-semibold text-black/80 dark:text-white/80 mb-2 px-3 uppercase tracking-wider flex items-center justify-between animate-in fade-in duration-300">
           <span>{t("sidebar.history")}</span>
@@ -214,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             filteredHistory.map((session) => (
               <div
                 key={session.id}
-                className="group relative flex items-center"
+                className="sidebar-item group relative flex items-center"
               >
                 <button
                   onClick={() => onSelectChat(session.id)}
@@ -224,13 +232,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
                   }`}
                 >
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
-                  ></div>
+                  {loadingChatId === session.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
+                  ) : (
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
+                    ></div>
+                  )}
                   <span className="truncate flex-1 font-medium">
-                    {session.title}
+                    {session.title || "Untitled Chat"}
                   </span>
-                  {session.messages.length > 0 &&
+                  {(session.messages || []).length > 0 &&
                     activeChatId !== session.id && (
                       <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums">
                         {session.messages.length}
@@ -238,13 +250,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </button>
 
-                {/* Delete Button - Appears on hover */}
+                {/* Delete Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteChat(session.id);
                   }}
-                  className="absolute right-2 p-1.5 text-zinc-400 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-md hover:bg-red-100 dark:hover:bg-red-400/10"
+                  className="sidebar-delete absolute right-2 p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-md hover:bg-red-500/10 dark:hover:bg-red-400/20 cursor-pointer"
                   title={t("sidebar.deleteChat")}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -262,24 +274,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div
           className={`flex items-center ${showExpanded ? "gap-2" : "flex-col gap-2"}`}
         >
-          {/* User Profile */}
-          <div
-            onClick={showExpanded ? undefined : toggleSidebar}
-            className={`flex items-center rounded-xl group transition-colors ${
-              showExpanded
-                ? `gap-3 px-2 py-2 cursor-default flex-1`
-                : "justify-center w-9 h-9 hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
-            }`}
-          >
-            <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-transform flex-shrink-0 relative">
-              <User className="w-5 h-5 text-white" />
-              {!showExpanded && (
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-black rounded-full"></div>
-              )}
-            </div>
-
-            {showExpanded && (
-              <>
+          {showExpanded ? (
+            <>
+              {/* User Profile - Expanded */}
+              <div
+                className="flex items-center rounded-xl group transition-colors gap-3 px-2 py-2 cursor-default flex-1"
+              >
+                <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-transform shrink-0 relative">
+                  <User className="w-5 h-5 text-white" />
+                </div>
                 <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                   <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">
                     Watcharaphon Pam...
@@ -291,20 +294,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
 
-          {/* Logout Button */}
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className={`flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 ${
-              showExpanded ? "p-2" : "w-9 h-9"
-            }`}
-            title={t("sidebar.logout")}
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+              {/* Logout Button - Expanded */}
+              <button
+                onClick={() => setShowLogoutConfirm(true)}
+                className={`flex items-center justify-center rounded-xl transition-all duration-200 hover:bg-red-100 dark:hover:bg-red-500/15 p-2 cursor-pointer ${enableHover ? "text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400" : "text-red-500 dark:text-red-400"}`}
+                title={t("sidebar.logout")}
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </>
+          ) : (
+            /* User Profile + Logout Combined - Collapsed */
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              onMouseEnter={() => setIsUserHovered(true)}
+              onMouseLeave={() => setIsUserHovered(false)}
+              className="relative flex items-center justify-center w-10 h-10 rounded-xl cursor-pointer transition-colors"
+              title={t("sidebar.logout")}
+            >
+              <div className={`w-9 h-9 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center shadow-lg shadow-blue-500/10 transition-transform relative ${isUserHovered ? "scale-105" : ""}`}>
+                {(enableHover ? isUserHovered : true) ? (
+                  <LogOut className="w-4 h-4 text-red-400" />
+                ) : (
+                  <User className="w-5 h-5 text-white" />
+                )}
+                <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white dark:border-black rounded-full transition-colors ${(enableHover ? isUserHovered : true) ? "bg-red-500" : "bg-emerald-500"}`}></div>
+              </div>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -316,7 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div
-      className={`h-full flex-shrink-0 bg-zinc-50 dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-16"}`}
+      className={`h-full flex-shrink-0 bg-zinc-50 dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-all duration-300 ease-in-out ${isOpen ? "w-64" : "w-[50px]"}`}
     >
       {SidebarContent}
     </div>

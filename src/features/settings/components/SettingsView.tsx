@@ -54,7 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   return (
-    <div className="flex h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 font-sans overflow-hidden transition-colors duration-200">
+    <div className="flex h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-900 dark:text-zinc-200 overflow-hidden transition-colors duration-200">
       {/* Sidebar */}
       <div
         className={`border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090b] flex flex-col transition-all duration-300 ${isSidebarOpen ? "w-64" : "w-16"}`}

@@ -1,5 +1,7 @@
 export type AIProvider = "google" | "openai";
 
+export type ApiType = 'langflow' | 'openai';
+
 export interface ModelConfig {
   provider: AIProvider;
   baseUrl: string;
@@ -12,6 +14,7 @@ export interface ModelConfig {
   voiceDelay?: number;
   langflowUrl?: string;
   langflowApiKey?: string;
+  apiType?: ApiType;
 }
 
 export interface Agent {
@@ -40,12 +43,35 @@ export interface Attachment {
   mimeType?: string;
 }
 
+export interface AIRegenVersion {
+  content: string;
+  attachments?: Attachment[];
+  steps?: ProcessStep[];
+  suggestions?: string[];
+  timestamp: number;
+}
+
+export interface AIVersion {
+  content: string;
+  attachments?: Attachment[];
+  steps?: ProcessStep[];
+  suggestions?: string[];
+  timestamp: number;
+  regenVersions?: AIRegenVersion[];
+  currentRegenIndex?: number;
+}
+
 export interface MessageVersion {
   content: string;
   attachments?: Attachment[];
   steps?: ProcessStep[];
   suggestions?: string[];
   timestamp: number;
+  // For user messages: AI versions with regen versions
+  aiVersions?: AIVersion[];
+  currentAIIndex?: number;
+  // For assistant messages: tail messages (legacy)
+  tail?: Message[];
 }
 
 export interface Message {

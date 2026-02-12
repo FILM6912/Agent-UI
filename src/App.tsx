@@ -28,10 +28,12 @@ import {
   generateSuggestions,
   fetchHistoryFromLangFlow,
   fetchAllSessionsFromLangFlow,
+  deleteSession,
 } from "@/features/chat/api/langflowService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
+import { generateUUID } from "@/lib/utils";
 
 // Define AppLayout props interface
 interface AppLayoutProps {
@@ -56,6 +58,7 @@ interface AppLayoutProps {
   inputValue: string;
   setInputValue: (value: string) => void;
   handleSend: (message: string, attachments?: Attachment[]) => Promise<void>;
+  handleStop: () => void;
   handleRegenerate: (messageId: string) => Promise<void>;
   handleEditUserMessage: (
     messageId: string,
@@ -63,7 +66,10 @@ interface AppLayoutProps {
   ) => Promise<void>;
   isLoading: boolean;
   isStreaming: boolean;
+  loadingChatId: string | null;
   handleVersionChange: (messageId: string, newIndex: number) => void;
+  handleAIVersionChange: (messageId: string, newIndex: number) => void;
+  handleRegenVersionChange: (messageId: string, aiIndex: number, regenIndex: number) => void;
   isPreviewOpen: boolean;
   handlePreviewRequest: (html: string) => void;
   setIsPreviewOpen: (open: boolean) => void;
@@ -101,11 +107,15 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     inputValue,
     setInputValue,
     handleSend,
+    handleStop,
     handleRegenerate,
     handleEditUserMessage,
     isLoading,
     isStreaming,
+    loadingChatId,
     handleVersionChange,
+    handleAIVersionChange,
+    handleRegenVersionChange,
     isPreviewOpen,
     handlePreviewRequest,
     setIsPreviewOpen,
@@ -118,7 +128,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     setIsLangFlowConfigOpen,
     chatInputRef,
   }) => (
-    <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden font-sans relative transition-colors duration-200">
+    <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
       {isMobile && isSidebarOpen && (
         <div
@@ -132,6 +142,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         <Sidebar
           history={history}
           activeChatId={activeChatId}
+          loadingChatId={loadingChatId}
           onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
           onDeleteChat={onRequestDeleteChat}
@@ -169,6 +180,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               input={inputValue}
               setInput={setInputValue}
               onSend={handleSend}
+              onStop={handleStop}
               onRegenerate={handleRegenerate}
               onEdit={handleEditUserMessage}
               isLoading={isLoading}
@@ -177,6 +189,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               onModelConfigChange={setModelConfig}
               onProviderChange={handleProviderChange}
               onVersionChange={handleVersionChange}
+              onAIVersionChange={handleAIVersionChange}
+              onRegenVersionChange={handleRegenVersionChange}
               isPreviewOpen={isPreviewOpen}
               onPreviewRequest={handlePreviewRequest}
               onOpenSettings={() => navigate("/settings/general")}
@@ -209,6 +223,12 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           isSidebarOpen={isSidebarOpen}
           previewContent={previewContent}
           isLoading={isLoading || isStreaming}
+          steps={currentMessages.length > 0 ? (
+            (() => {
+              const assistantMessages = [...currentMessages].reverse().filter(m => m.role === 'assistant');
+              return assistantMessages.length > 0 ? assistantMessages[0].steps : undefined;
+            })()
+          ) : undefined}
         />
       )}
 
@@ -272,16 +292,18 @@ export default function App() {
 
   // Sync URL to State
   useEffect(() => {
+    console.log('>>> URL Sync: pathname changed:', location.pathname);
     const match = location.pathname.match(/\/chat\/([^/]+)/);
     if (match) {
       const id = decodeURIComponent(match[1]);
+      console.log('>>> URL Sync: Matched ID:', id, 'Current activeChatId:', activeChatId);
       if (id !== activeChatId) {
-        console.log('>>> URL Sync: Decoded Chat ID:', id);
-        console.log('>>> Current Sessions Keys:', Object.keys(sessions));
+        console.log('>>> URL Sync: Updating activeChatId to:', id);
         setActiveChatId(id);
       }
     } else if (location.pathname === "/chat") {
       // On /chat without ID, clear activeChatId
+      console.log('>>> URL Sync: /chat detected, clearing activeChatId');
       setActiveChatId("");
     }
   }, [location.pathname]);
@@ -319,12 +341,14 @@ export default function App() {
   const [activeChatId, setActiveChatId] = useState<string>(() => {
     // Get first session ID from sessions
     const sessionIds = Object.keys(sessions);
-    return sessionIds.length > 0 ? sessionIds[0] : crypto.randomUUID();
+    return sessionIds.length > 0 ? sessionIds[0] : generateUUID();
   });
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Error Modal State
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -375,12 +399,14 @@ export default function App() {
     const savedLangflowConfig = localStorage.getItem("langflow_config");
     let langflowUrl = "";
     let langflowApiKey = "";
+    let apiType: 'langflow' | 'openai' = 'langflow';
 
     if (savedLangflowConfig) {
       try {
         const config = JSON.parse(savedLangflowConfig);
         langflowUrl = config.url || "";
         langflowApiKey = config.apiKey || "";
+        apiType = config.apiType || "langflow";
       } catch (error) {
         console.error("Failed to load LangFlow config:", error);
       }
@@ -399,6 +425,7 @@ export default function App() {
       voiceDelay: 0.5,
       langflowUrl,
       langflowApiKey,
+      apiType,
     };
   });
 
@@ -415,7 +442,17 @@ export default function App() {
     });
   }, [t]);
 
-  // Fetch ALL sessions on mount/config change (Replaces local storage logic)
+  // Ref for checking streaming status in useEffects without dependency
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
+  const activeChatIdRef = useRef(activeChatId);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
   // Fetch ALL sessions on mount/config change (Replaces local storage logic)
   useEffect(() => {
     console.log('>>> App.tsx: useEffect [modelConfig] triggered', modelConfig);
@@ -433,46 +470,72 @@ export default function App() {
 
     const loadSessions = async () => {
       console.log('>>> App.tsx: loadSessions starting...');
+      // If we are currently streaming, we might not want to fetch right now to avoid state clobbering
+      // or we should be very careful about merging.
+      // Ideally, we shouldn't act on stale fetches if streaming started.
+
       const fetchedSessions = await fetchAllSessionsFromLangFlow(modelConfig);
       console.log('>>> App.tsx: fetchedSessions count:', fetchedSessions.length);
 
       if (fetchedSessions.length > 0) {
-        const newSessionsMap: Record<string, ChatSession> = {};
-        fetchedSessions.forEach(s => newSessionsMap[s.id] = s);
-
-        // PRESERVE LOCAL-ONLY SESSIONS
-        if (activeChatId && sessions[activeChatId] && !newSessionsMap[activeChatId]) {
-          newSessionsMap[activeChatId] = sessions[activeChatId];
-        }
-
-        setSessions(newSessionsMap);
-
-        // If active chat is empty or not in list, select latest
-        if (!activeChatId || !newSessionsMap[activeChatId]) {
-          if (fetchedSessions.length > 0) {
-            setActiveChatId(fetchedSessions[0].id);
-          }
-        }
-      } else {
-        // No sessions from API. 
-        // If we have nothing locally either, create new.
-        if (Object.keys(sessions).length === 0) {
-          const newId = crypto.randomUUID();
-          setSessions({
-            [newId]: {
-              id: newId,
-              title: "New Task",
-              messages: [],
-              updatedAt: Date.now()
+        setSessions(prev => {
+          const newSessionsMap: Record<string, ChatSession> = {};
+          fetchedSessions.forEach(s => {
+            const existing = prev[s.id];
+            // If session exists and has messages, preserve local messages (which might be full)
+            // fetchAllSessionsFromLangFlow now returns minimal stubs.
+            if (existing && existing.messages.length > 0) {
+              newSessionsMap[s.id] = { ...s, messages: existing.messages };
+            } else {
+              newSessionsMap[s.id] = s;
             }
           });
-          setActiveChatId(newId);
+
+          // If streaming, PRESERVE the active session from local state entirely
+          const currentActiveId = activeChatIdRef.current;
+
+          if (isStreamingRef.current && currentActiveId && prev[currentActiveId]) {
+            console.log('>>> App.tsx: Streaming in progress, preserving active session', currentActiveId);
+            newSessionsMap[currentActiveId] = prev[currentActiveId];
+          }
+          // Also preserve local-only sessions
+          else if (currentActiveId && prev[currentActiveId] && !newSessionsMap[currentActiveId]) {
+            newSessionsMap[currentActiveId] = prev[currentActiveId];
+          }
+
+          return newSessionsMap;
+        });
+
+        // If active chat is empty, select latest from server
+        // Use Ref to get the LATEST active chat ID
+        const currentActiveId = activeChatIdRef.current;
+        if (!currentActiveId && fetchedSessions.length > 0) {
+            setActiveChatId(fetchedSessions[0].id);
         }
+      } else {
+        // No sessions from API.
+        // If we have nothing locally either, create new.
+        setSessions(prev => {
+          if (Object.keys(prev).length === 0) {
+            const newId = generateUUID();
+            // Schedule activeChatId update
+            setTimeout(() => setActiveChatId(newId), 0);
+            return {
+              [newId]: {
+                id: newId,
+                title: "New Task",
+                messages: [],
+                updatedAt: Date.now()
+              }
+            };
+          }
+          return prev;
+        });
       }
     };
 
     loadSessions();
-  }, [modelConfig]); // OFF: activeChatId
+  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
 
   // Fetch History from LangFlow (Existing one, maybe redundant now?)
 
@@ -493,53 +556,74 @@ export default function App() {
     if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
 
     const loadHistory = async () => {
-      // Create a local variable or ref to avoid race conditions if needed
-      // For now, simpler is better.
-      const messages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
+      if (isStreamingRef.current) return;
+
+      const serverMessages = await fetchHistoryFromLangFlow(modelConfig, activeChatId);
 
       setSessions(prev => {
-        const currentSession = prev[activeChatId];
+        const session = prev[activeChatId];
+        if (!session && serverMessages.length === 0) return prev;
 
-        // If session doesn't exist in our map yet, and we got no messages, ignore.
-        if (!currentSession && messages.length === 0) return prev;
+        const localMessages = session?.messages || [];
+        
+        // Use localMessages as the base to preserve branches (tails)
+        const updatedLocalMessages = localMessages.map(localMsg => {
+          // Skip sync for messages with multiple versions (branching) to preserve version history
+          if (localMsg.versions && localMsg.versions.length > 1) {
+            return localMsg;
+          }
 
-        // If session exists locally but we got nothing from server, it might be a new chat.
-        // We generally shouldn't overwrite a local session with empty list unless we are sure.
-        // But if the server returns [], it means empty on server. 
-        // If local has messages and server has 0, we risk wiping local unsynced messages? 
-        // No, local messages are only "optimistic" steps or user input. 
-        // Usually we want server truth. 
-        // EXCEPT for "New Chat" which starts with empty messages locally anyway.
-        // So safe to return prev if both empty.
+          const serverMsg = serverMessages.find(sm => sm.id === localMsg.id);
+          if (!serverMsg) return localMsg;
 
-        if (currentSession && currentSession.messages.length === 0 && messages.length === 0) {
-          return prev;
-        }
+          // Clone versions and update only the LATEST one with server data
+          const updatedVersions = localMsg.versions ? [...localMsg.versions] : [];
+          const latestIdx = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
+          const currentIdx = localMsg.currentVersionIndex ?? 0;
 
-        if (messages.length > 0) {
+          if (updatedVersions[latestIdx]) {
+            updatedVersions[latestIdx] = {
+              ...updatedVersions[latestIdx],
+              content: serverMsg.content,
+              steps: serverMsg.steps || updatedVersions[latestIdx].steps
+            };
+          }
+
           return {
-            ...prev,
-            [activeChatId]: {
-              ...(currentSession || {
-                id: activeChatId,
-                title: "Chat",
-                updatedAt: Date.now()
-              }),
-              messages: messages,
-              updatedAt: Date.now()
-              // Updating timestamp here keeps it fresh in sort order? 
-              // Maybe preserve original updatedAt if not changed. 
-              // But fetching history usually means we viewed it.
-            }
+            ...localMsg, // Keep all local meta (versions, currentVersionIndex)
+            content: (currentIdx === latestIdx) ? serverMsg.content : localMsg.content,
+            steps: (currentIdx === latestIdx) ? serverMsg.steps : localMsg.steps,
+            versions: updatedVersions,
           };
-        }
+        });
 
-        return prev;
+        // Add any NEW messages from the server that aren't in local
+        const newServerMessages = serverMessages.filter(sm => !localMessages.find(lm => lm.id === sm.id));
+        const finalMessages = [...updatedLocalMessages, ...newServerMessages];
+
+        return {
+          ...prev,
+          [activeChatId]: {
+            ...session,
+            id: activeChatId,
+            messages: finalMessages,
+            updatedAt: Date.now()
+          }
+        };
       });
     };
 
     loadHistory();
   }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+
+  useEffect(() => {
+    if (loadingChatId) {
+      const timer = setTimeout(() => {
+        setLoadingChatId(null);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingChatId]);
 
   const history = useMemo(() => {
     return (Object.values(sessions) as ChatSession[]).sort(
@@ -577,6 +661,10 @@ export default function App() {
     attachments?: Attachment[],
     chatId?: string,
   ) => {
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     // Use provided chatId or fall back to activeChatId
     const sessionId = chatId || activeChatId;
 
@@ -584,9 +672,10 @@ export default function App() {
       setIsLoading(true);
     }
 
+    isStreamingRef.current = true;
     setIsStreaming(true);
 
-    let assistantMsgId = targetMessageId || crypto.randomUUID();
+    let assistantMsgId = targetMessageId || generateUUID();
     let messageInitialized = !!targetMessageId;
     let accumulatedContent = "";
 
@@ -610,7 +699,8 @@ export default function App() {
         prompt,
         modelConfig,
         attachments,
-        sessionId
+        sessionId,
+        abortController.signal
       );
       let isFirstChunk = true;
 
@@ -621,49 +711,58 @@ export default function App() {
         }
 
         if (!messageInitialized) {
-          const initialAssistantMsg: Message = {
-            id: assistantMsgId,
-            role: "assistant",
-            content: "",
-            timestamp: Date.now(),
-            steps: chunk.type === "steps" ? chunk.steps : undefined,
-            versions: [
-              {
-                content: "",
-                steps: chunk.type === "steps" ? chunk.steps : undefined,
-                timestamp: Date.now(),
-              },
-            ],
-            currentVersionIndex: 0,
-          };
-
-          // Set initial content if it's a text chunk
-          if (chunk.type === "text" && chunk.content) {
-            accumulatedContent += chunk.content;
-            initialAssistantMsg.content = accumulatedContent;
-            if (initialAssistantMsg.versions) {
-              initialAssistantMsg.versions[0].content = accumulatedContent;
-            }
-          }
-
-          setSessions((prev) => {
-            // Ensure session exists before updating
-            if (!prev[sessionId]) {
-              console.error(`Session ${sessionId} not found`);
-              return prev;
-            }
-
-            return {
-              ...prev,
-              [sessionId]: {
-                ...prev[sessionId],
-                messages: [...prev[sessionId].messages, initialAssistantMsg],
-              },
+          // If we have a target message ID, we are updating an existing message (Linked Branching/Regenerate)
+          // So we skip the creation/append step and fall through to the update logic
+          if (!targetMessageId) {
+             const initialAssistantMsg: Message = {
+              id: assistantMsgId,
+              role: "assistant",
+              content: "",
+              timestamp: Date.now(),
+              steps: chunk.type === "steps" ? chunk.steps : undefined,
+              versions: [
+                {
+                  content: "",
+                  steps: chunk.type === "steps" ? chunk.steps : undefined,
+                  timestamp: Date.now(),
+                },
+              ],
+              currentVersionIndex: 0,
             };
-          });
+  
+            // Set initial content if it's a text chunk
+            if (chunk.type === "text" && chunk.content) {
+              accumulatedContent += chunk.content;
+              initialAssistantMsg.content = accumulatedContent;
+              if (initialAssistantMsg.versions) {
+                initialAssistantMsg.versions[0].content = accumulatedContent;
+              }
+            }
+  
+            setSessions((prev) => {
+              // Ensure session exists before updating
+              if (!prev[sessionId]) {
+                console.error(`Session ${sessionId} not found in first chunk handler`);
+                return prev;
+              }
+  
+              return {
+                ...prev,
+                [sessionId]: {
+                  ...prev[sessionId],
+                  messages: [...prev[sessionId].messages, initialAssistantMsg],
+                },
+              };
+            });
+            
+            // Skip the rest of the loop ONLY if we created a new message
+            // If we are updating (fallthrough), we want the update logic to run immediately for this chunk
+            messageInitialized = true;
+            continue;
+          }
+          
           messageInitialized = true;
-          // Skip the rest of the loop for this chunk since we already handled it
-          continue;
+          // Fall through to update logic for existing message...
         }
 
         if (
@@ -671,37 +770,104 @@ export default function App() {
           chunk.type === "steps"
         ) {
           if (chunk.type === "text" && chunk.content) {
-            accumulatedContent += chunk.content;
+            if (chunk.isFullText) {
+              accumulatedContent = chunk.content;
+            } else {
+              accumulatedContent += chunk.content;
+            }
+          }
+
+          // Auto-open right sidebar if tools are used
+          if (chunk.type === "steps" && !isPreviewOpen && !isSettingsOpen) {
+            setIsPreviewOpen(true);
           }
 
           setSessions((prev) => {
             const session = prev[sessionId];
+            if (!session) {
+              console.warn(`[Stream Update] Session ${sessionId} vanished during streaming.`);
+              return prev;
+            }
+
             const updatedMessages = session.messages.map((msg) => {
-              if (msg.id === assistantMsgId) {
-                const updatedVersions = msg.versions ? [...msg.versions] : [];
-                const currentIndex = msg.currentVersionIndex ?? 0;
-
-                if (updatedVersions[currentIndex]) {
-                  if (chunk.type === "text") {
-                    updatedVersions[currentIndex] = {
-                      ...updatedVersions[currentIndex],
-                      content: accumulatedContent,
-                    };
-                  } else if (chunk.type === "steps") {
-                    updatedVersions[currentIndex] = {
-                      ...updatedVersions[currentIndex],
-                      steps: chunk.steps,
-                    };
+                if (msg.id === assistantMsgId) {
+                // Check if this is a regenerate (has aiVersions in current version)
+                const currentVersionIndex = msg.currentVersionIndex || 0;
+                const currentMessageVersion = msg.versions?.[currentVersionIndex];
+                
+                if (currentMessageVersion?.aiVersions && currentMessageVersion.aiVersions.length > 0) {
+                  const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+                  const currentAIVersion = currentMessageVersion.aiVersions[currentAIIndex];
+                  const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
+                  const currentRegenVersions = currentAIVersion?.regenVersions || [];
+                  
+                  const updatedAIVersions = [...currentMessageVersion.aiVersions];
+                  const updatedRegenVersions = [...currentRegenVersions];
+                  
+                  // Write to current regen version
+                  if (updatedRegenVersions[currentRegenIndex]) {
+                    if (chunk.type === "text") {
+                      updatedRegenVersions[currentRegenIndex] = {
+                        ...updatedRegenVersions[currentRegenIndex],
+                        content: accumulatedContent,
+                      };
+                    } else if (chunk.type === "steps") {
+                      updatedRegenVersions[currentRegenIndex] = {
+                        ...updatedRegenVersions[currentRegenIndex],
+                        steps: chunk.steps,
+                      };
+                    }
                   }
-                }
+                  
+                  updatedAIVersions[currentAIIndex] = {
+                    ...currentAIVersion,
+                    regenVersions: updatedRegenVersions,
+                  };
+                  
+                  const updatedMessageVersion = {
+                    ...currentMessageVersion,
+                    aiVersions: updatedAIVersions,
+                  };
+                  
+                  const updatedVersions = [...(msg.versions || [])];
+                  updatedVersions[currentVersionIndex] = updatedMessageVersion;
+                  
+                  return {
+                    ...msg,
+                    content: chunk.type === "text" ? accumulatedContent : msg.content,
+                    steps: chunk.type === "steps" ? chunk.steps : msg.steps,
+                    versions: updatedVersions,
+                  };
+                } else {
+                  // Original version logic for non-regenerate messages
+                  const updatedVersions = msg.versions ? [...msg.versions] : [];
+                  // Always write to the LATEST version when streaming (append-only logic)
+                  // This protects against state desync where currentVersionIndex might be stale (e.g. 0)
+                  const currentIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
 
-                return {
-                  ...msg,
-                  content:
-                    chunk.type === "text" ? accumulatedContent : msg.content,
-                  steps: chunk.type === "steps" ? chunk.steps : msg.steps,
-                  versions: updatedVersions,
-                };
+                  if (updatedVersions[currentIndex]) {
+                    if (chunk.type === "text") {
+                      updatedVersions[currentIndex] = {
+                        ...updatedVersions[currentIndex],
+                        content: accumulatedContent,
+                      };
+                    } else if (chunk.type === "steps") {
+                      updatedVersions[currentIndex] = {
+                        ...updatedVersions[currentIndex],
+                        steps: chunk.steps,
+                      };
+                    }
+                  }
+
+                  return {
+                    ...msg,
+                    content:
+                      chunk.type === "text" ? accumulatedContent : msg.content,
+                    steps: chunk.type === "steps" ? chunk.steps : msg.steps,
+                    versions: updatedVersions,
+                    currentVersionIndex: currentIndex, // Force UI to show the version we are writing to
+                  };
+                }
               }
               return msg;
             });
@@ -717,6 +883,62 @@ export default function App() {
         }
       }
 
+      // Mark streaming as complete immediately after loop finishes
+      // so the send button becomes available without waiting for suggestions
+      isStreamingRef.current = false;
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+
+      // Perform authoritative sync after streaming finishes
+      try {
+        const serverMessages = await fetchHistoryFromLangFlow(modelConfig, sessionId);
+        if (serverMessages.length > 0) {
+          setSessions((prev) => {
+            const session = prev[sessionId];
+            if (!session) return prev;
+
+            const updatedMessages = session.messages.map((localMsg) => {
+              // Skip sync for messages with multiple versions (branching) to preserve version history
+              if (localMsg.versions && localMsg.versions.length > 1) {
+                return localMsg;
+              }
+
+              const serverMsg = serverMessages.find(sm => sm.id === localMsg.id);
+              if (!serverMsg) return localMsg;
+
+              const updatedVersions = localMsg.versions ? [...localMsg.versions] : [];
+              const latestIndex = updatedVersions.length > 0 ? updatedVersions.length - 1 : 0;
+              const currentIdx = localMsg.currentVersionIndex ?? 0;
+
+              if (updatedVersions[latestIndex]) {
+                updatedVersions[latestIndex] = {
+                  ...updatedVersions[latestIndex],
+                  content: serverMsg.content,
+                  steps: serverMsg.steps || updatedVersions[latestIndex].steps,
+                };
+              }
+
+              return {
+                ...localMsg,
+                content: (currentIdx === latestIndex) ? serverMsg.content : localMsg.content,
+                steps: (currentIdx === latestIndex) ? serverMsg.steps : localMsg.steps,
+                versions: updatedVersions,
+              };
+            });
+
+            return {
+              ...prev,
+              [sessionId]: {
+                ...session,
+                messages: updatedMessages,
+              },
+            };
+          });
+        }
+      } catch (syncError) {
+        console.warn("Post-stream sync failed:", syncError);
+      }
+
       // Add suggestions after streaming is complete
       const language = localStorage.getItem("language") === "th" ? "th" : "en";
       let suggestions: string[] = [];
@@ -724,8 +946,17 @@ export default function App() {
       try {
         // Try AI generation first
         suggestions = await generateSuggestions(historyToUse, prompt, accumulatedContent, modelConfig);
-      } catch (e) {
+      } catch (e: any) {
         console.warn("AI generation failed, falling back to random", e);
+        // Show error if it's a specific API error as requested
+        if (e.message && e.message.includes("LangFlow API Error")) {
+          setErrorModalConfig({
+            title: "การสร้างคำแนะนำล้มเหลว",
+            message: `เกิดข้อผิดพลาดจากระบบ: ${e.message}`,
+            type: "error",
+          });
+          setShowErrorModal(true);
+        }
       }
 
       // Fallback to random if empty
@@ -766,6 +997,16 @@ export default function App() {
       const isModelError =
         errorMsg.includes("model is required") ||
         errorMsg.includes("No model selected");
+
+      const isAbortError =
+        errorMsg.includes("AbortError") ||
+        errorMsg.includes("The user aborted a request") ||
+        error.name === "AbortError";
+
+      if (isAbortError) {
+        console.log("Streaming was aborted by user");
+        return;
+      }
 
       // Show error modal instead of alert
       if (isModelError) {
@@ -811,8 +1052,20 @@ export default function App() {
       }
     } finally {
       setIsLoading(false);
+      isStreamingRef.current = false;
       setIsStreaming(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    isStreamingRef.current = false;
+    setIsStreaming(false);
   };
 
   const handleSend = async (
@@ -826,6 +1079,10 @@ export default function App() {
     )
       return;
 
+    console.log('>>> handleSend: called with message:', message);
+
+
+
     // Check if model is selected before sending
     if (!modelConfig.modelId) {
       setErrorModalConfig({
@@ -838,36 +1095,125 @@ export default function App() {
     }
 
     const currentPrompt = message;
-    const isFirstUserMessage = currentMessages.length === 0;
+    const isAtChatRoot = location.pathname === "/chat" || location.pathname === "/";
+    
+    // Use Ref to get the LATEST active chat ID
+    const currentActiveId = activeChatIdRef.current;
+    
+    // Check if we really need a new chat
+    // 1. If we are at root (/chat)
+    // 2. If NO active ID exists
+    // 3. If the active session doesn't exist in our state
+    // 4. If the active session exists but has NO messages (empty new chat)
+    const isNewChat = isAtChatRoot || !currentActiveId || !sessions[currentActiveId] || (sessions[currentActiveId]?.messages.length === 0);
 
-    // Create new chat ID if this is the first message and no active chat
-    let chatId = activeChatId;
-    if (isFirstUserMessage && (!activeChatId || !sessions[activeChatId])) {
-      chatId = crypto.randomUUID();
+    // Create new chat ID if this is a new chat
+    let chatId = currentActiveId;
 
-      // Create new session
+    if (isNewChat) {
+      // Only generate new ID if we truly need one (no ID or at root)
+      if (isAtChatRoot || !currentActiveId) {
+        chatId = generateUUID();
+        console.log('>>> handleSend: New Chat ID generated:', chatId);
+      } else {
+        // Reuse existing ID (e.g. from URL) even if session is missing from state
+        chatId = currentActiveId;
+        console.log('>>> handleSend: Reusing active Chat ID:', chatId);
+      }
+
+      const userMsg: Message = {
+        id: generateUUID(),
+        role: "user",
+        content: currentPrompt,
+        attachments: attachments,
+        timestamp: Date.now(),
+        versions: [
+          {
+            content: currentPrompt,
+            attachments: attachments,
+            timestamp: Date.now(),
+          },
+        ],
+        currentVersionIndex: 0,
+      };
+
+      // Create new session AND add message atomically
       setSessions((prev) => ({
         ...prev,
         [chatId]: {
           id: chatId,
           title: currentPrompt.substring(0, 30),
-          messages: [],
+          messages: [userMsg],
           updatedAt: Date.now(),
         },
       }));
 
       // Navigate to new chat URL with ID
+      console.log('>>> handleSend: Navigating to new chat:', chatId);
+      // DEBUG: Alert before navigation
+
+
+      setActiveChatId(chatId);
       navigate(`/chat/${chatId}`);
+
+      // Fallback: Force navigation again after a short delay if URL hasn't changed
+      setTimeout(() => {
+        if (!window.location.pathname.includes(chatId)) {
+          console.warn('>>> handleSend: Navigation fallback triggered for:', chatId);
+          navigate(`/chat/${chatId}`);
+        }
+      }, 100);
+
+      setInputValue("");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          chatInputRef.current?.focus();
+        });
+      });
+
+      // Generate Title Async
+      generateChatTitle(currentPrompt, modelConfig)
+        .then((aiTitle) => {
+          setSessions((prev) => {
+            if (!prev[chatId]) return prev;
+            return {
+              ...prev,
+              [chatId]: { ...prev[chatId], title: aiTitle },
+            };
+          });
+        })
+        .catch(() => { });
+
+      // Execute Request (history is empty for new chat)
+      try {
+        // Execute Request (history is empty for new chat)
+        await executeChatRequest(
+          currentPrompt,
+          [],
+          undefined,
+          attachments,
+          chatId,
+        );
+      } catch (e: any) {
+        console.error("Chat execution failed:", e);
+        let errorMessage = `เกิดข้อผิดพลาด: ${e.message}`;
+        if (e.message && e.message.includes("Failed to fetch")) {
+          errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
+        }
+        setErrorModalConfig({
+          title: "การส่งข้อความล้มเหลว",
+          message: errorMessage,
+          type: "error",
+        });
+        setShowErrorModal(true);
+      }
+
+      return; // Exit here for new chat flow
     }
 
-    // Ensure active session exists
-    if (!sessions[chatId] && chatId !== activeChatId) {
-      // Session was just created, wait for state update
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-
+    // Existing Chat Flow
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: "user",
       content: currentPrompt,
       attachments: attachments,
@@ -902,16 +1248,13 @@ export default function App() {
         ...prev,
         [chatId]: {
           ...currentSession,
-          title: isFirstUserMessage
-            ? currentPrompt.substring(0, 30)
-            : currentSession.title,
           messages: [...currentSession.messages, userMsg],
           updatedAt: Date.now(),
         },
       };
     });
 
-    if (isFirstUserMessage) {
+    if (currentMessages.length === 0) {
       generateChatTitle(currentPrompt, modelConfig)
         .then((aiTitle) => {
           setSessions((prev) => {
@@ -925,13 +1268,27 @@ export default function App() {
         .catch(() => { });
     }
 
-    await executeChatRequest(
-      currentPrompt,
-      historyBeforeNewMessage,
-      undefined,
-      attachments,
-      chatId,
-    );
+    try {
+      await executeChatRequest(
+        currentPrompt,
+        historyBeforeNewMessage,
+        undefined,
+        attachments,
+        chatId,
+      );
+    } catch (e: any) {
+      console.error("Chat execution failed:", e);
+      let errorMessage = `เกิดข้อผิดพลาด: ${e.message}`;
+        if (e.message && e.message.includes("Failed to fetch")) {
+          errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
+        }
+      setErrorModalConfig({
+        title: "การส่งข้อความล้มเหลว",
+        message: errorMessage,
+        type: "error",
+      });
+      setShowErrorModal(true);
+    }
   };
 
   const handleEditUserMessage = async (
@@ -940,27 +1297,52 @@ export default function App() {
   ) => {
     if (isLoading || isStreaming) return;
 
-    const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+    // Snapshot state for calculation
+    const currentSession = sessions[activeChatId];
+    if (!currentSession) return;
+    const currentMessagesRaw = currentSession.messages;
+    const msgIndex = currentMessagesRaw.findIndex((m) => m.id === messageId);
     if (msgIndex === -1) return;
 
-    const historyToUse = currentMessages.slice(0, msgIndex);
-    const originalMsg = currentMessages[msgIndex];
+    const originalMsg = currentMessagesRaw[msgIndex];
+    const finalAttachments = originalMsg.attachments;
 
-    const nextMsg = currentMessages[msgIndex + 1];
-    const targetAssistantId =
-      nextMsg && nextMsg.role === "assistant" ? nextMsg.id : undefined;
+    // Robustly find the next assistant message and its index
+    const assistantIndex = currentMessagesRaw.slice(msgIndex + 1).findIndex(m => m.role === "assistant");
+    const assistantMsg = assistantIndex !== -1 ? currentMessagesRaw[msgIndex + 1 + assistantIndex] : null;
+    const actualAssistantIndex = assistantIndex !== -1 ? msgIndex + 1 + assistantIndex : -1;
+    
+    const targetAssistantId = assistantMsg?.id;
+    const historyToUse = currentMessagesRaw.slice(0, msgIndex);
+
+    console.log('>>> handleEditUserMessage calculated:', { msgIndex, actualAssistantIndex, targetAssistantId });
 
     setSessions((prev) => {
       const session = prev[activeChatId];
+      if (!session) return prev;
+
       const updatedMessages = session.messages.map((msg) => {
+        // Handle User Message update
         if (msg.id === messageId) {
-          const currentVersions = msg.versions || [
+          const currentVersions = [...(msg.versions || [
             {
               content: msg.content,
               attachments: msg.attachments,
               timestamp: msg.timestamp,
             },
-          ];
+          ])];
+
+          const tailStartIndex = assistantMsg ? actualAssistantIndex + 1 : msgIndex + 1;
+          const currentTail = session.messages.slice(tailStartIndex);
+
+          const currentIndex = msg.currentVersionIndex ?? 0;
+          if (currentVersions[currentIndex]) {
+            currentVersions[currentIndex] = {
+              ...currentVersions[currentIndex],
+              tail: currentTail
+            };
+          }
+
           const newVersion: MessageVersion = {
             content: newContent,
             attachments: msg.attachments,
@@ -974,14 +1356,26 @@ export default function App() {
             currentVersionIndex: currentVersions.length,
           };
         }
-        if (msg.id === targetAssistantId) {
-          const currentVersions = msg.versions || [
+
+        // Handle Assistant Message update (linked version)
+        if (assistantMsg && msg.id === assistantMsg.id) {
+          const currentVersions = [...(msg.versions || [
             {
               content: msg.content,
               steps: msg.steps,
               timestamp: msg.timestamp,
             },
-          ];
+          ])];
+
+          const currentTail = session.messages.slice(actualAssistantIndex + 1);
+          const currentIndex = msg.currentVersionIndex ?? 0;
+          if (currentVersions[currentIndex]) {
+            currentVersions[currentIndex] = {
+              ...currentVersions[currentIndex],
+              tail: currentTail
+            };
+          }
+
           const newVersion: MessageVersion = {
             content: "",
             timestamp: Date.now(),
@@ -995,14 +1389,18 @@ export default function App() {
             currentVersionIndex: currentVersions.length,
           };
         }
+
         return msg;
       });
+
+      const truncatedSize = assistantMsg ? actualAssistantIndex + 1 : msgIndex + 1;
+      const finalMessages = updatedMessages.slice(0, truncatedSize);
 
       return {
         ...prev,
         [activeChatId]: {
           ...session,
-          messages: updatedMessages,
+          messages: finalMessages,
         },
       };
     });
@@ -1011,100 +1409,324 @@ export default function App() {
       newContent,
       historyToUse,
       targetAssistantId,
-      originalMsg.attachments,
+      finalAttachments,
     );
   };
 
   const handleRegenerate = async (messageId: string) => {
     if (isLoading || isStreaming) return;
 
-    const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+    const currentSession = sessions[activeChatId];
+    if (!currentSession) return;
+    const currentMessagesRaw = currentSession.messages;
+    const msgIndex = currentMessagesRaw.findIndex((m) => m.id === messageId);
     if (msgIndex === -1) return;
 
-    const historyToUse = currentMessages.slice(0, msgIndex);
+    const historyToUse = currentMessagesRaw.slice(0, msgIndex);
     const lastUserMsg = [...historyToUse]
       .reverse()
       .find((m) => m.role === "user");
 
     if (!lastUserMsg) return;
 
+    const targetPrompt = lastUserMsg.content;
+    const targetAttachments = lastUserMsg.attachments;
+
     setSessions((prev) => {
       const session = prev[activeChatId];
+      if (!session) return prev;
+
       const updatedMessages = session.messages.map((msg) => {
         if (msg.id === messageId) {
-          const currentVersions = msg.versions || [
-            {
+          const currentVersionIndex = msg.currentVersionIndex || 0;
+          const currentVersions = msg.versions || [];
+          
+          // Get current message version
+          const currentMessageVersion = currentVersions[currentVersionIndex] || {
+            content: msg.content,
+            steps: msg.steps,
+            attachments: msg.attachments,
+            suggestions: msg.suggestions,
+            timestamp: msg.timestamp,
+          };
+          
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const currentAIVersions = currentMessageVersion.aiVersions || [];
+          
+          // If no aiVersions exist, create the first one with current content
+          if (currentAIVersions.length === 0) {
+            const firstRegenVersion = {
               content: msg.content,
               steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
               timestamp: msg.timestamp,
-            },
-          ];
-
-          const newVersion: MessageVersion = {
+            };
+            
+            // Create new empty regen version for streaming
+            const newRegenVersion = {
+              content: "",
+              timestamp: Date.now(),
+            };
+            
+            const firstAIVersion = {
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+              timestamp: msg.timestamp,
+              regenVersions: [firstRegenVersion, newRegenVersion],
+              currentRegenIndex: 1, // Point to the new empty version
+            };
+            
+            const updatedMessageVersion = {
+              ...currentMessageVersion,
+              aiVersions: [firstAIVersion],
+              currentAIIndex: 0,
+            };
+            
+            const updatedVersions = [...currentVersions];
+            if (updatedVersions[currentVersionIndex]) {
+              updatedVersions[currentVersionIndex] = updatedMessageVersion;
+            } else {
+              updatedVersions.push(updatedMessageVersion);
+            }
+            
+            return {
+              ...msg,
+              content: "",
+              steps: undefined,
+              versions: updatedVersions,
+            };
+          }
+          
+          // Save current content to current AI version
+          const updatedAIVersions = [...currentAIVersions];
+          if (updatedAIVersions[currentAIIndex]) {
+            updatedAIVersions[currentAIIndex] = {
+              ...updatedAIVersions[currentAIIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+            };
+          }
+          
+          // Add new regen version to current AI version
+          const currentAIVersion = updatedAIVersions[currentAIIndex];
+          const currentRegenVersions = currentAIVersion.regenVersions || [];
+          const currentRegenIndex = currentAIVersion.currentRegenIndex || 0;
+          
+          // Save current content to current regen version before creating new one
+          const updatedRegenVersions = [...currentRegenVersions];
+          
+          // If regenVersions is empty, save current content as first regen version
+          if (updatedRegenVersions.length === 0) {
+            const firstRegenVersion = {
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+              timestamp: msg.timestamp,
+            };
+            updatedRegenVersions.push(firstRegenVersion);
+          } else if (updatedRegenVersions[currentRegenIndex]) {
+            updatedRegenVersions[currentRegenIndex] = {
+              ...updatedRegenVersions[currentRegenIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+              suggestions: msg.suggestions,
+            };
+          }
+          
+          // Create new regen version
+          const newRegenVersion = {
             content: "",
             timestamp: Date.now(),
           };
-
+          
+          updatedAIVersions[currentAIIndex] = {
+            ...currentAIVersion,
+            regenVersions: [...updatedRegenVersions, newRegenVersion],
+            currentRegenIndex: updatedRegenVersions.length,
+          };
+          
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+          };
+          
+          const updatedVersions = [...currentVersions];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
           return {
             ...msg,
             content: "",
             steps: undefined,
-            versions: [...currentVersions, newVersion],
-            currentVersionIndex: currentVersions.length,
+            versions: updatedVersions,
           };
         }
         return msg;
       });
 
+      const finalMessages = updatedMessages.slice(0, msgIndex + 1);
+
       return {
         ...prev,
         [activeChatId]: {
           ...session,
-          messages: updatedMessages,
+          messages: finalMessages,
         },
       };
     });
 
     await executeChatRequest(
-      lastUserMsg.content,
+      targetPrompt,
       historyToUse,
       messageId,
-      lastUserMsg.attachments,
+      targetAttachments,
     );
   };
 
   const handleVersionChange = (messageId: string, newIndex: number) => {
     setSessions((prev) => {
       const session = prev[activeChatId];
-      const msgIndex = session.messages.findIndex((m) => m.id === messageId);
+      if (!session) return prev;
+
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
       if (msgIndex === -1) return prev;
 
-      const targetMsg = session.messages[msgIndex];
+      const targetMsg = currentMessages[msgIndex];
+      if (!targetMsg.versions || !targetMsg.versions[newIndex]) return prev;
+
       const updates = new Map<string, number>();
       updates.set(messageId, newIndex);
 
+      let linkedMsg: Message | undefined;
+      let linkedIndex = -1;
+
       if (targetMsg.role === "user") {
-        const nextMsg = session.messages[msgIndex + 1];
-        if (nextMsg && nextMsg.role === "assistant" && nextMsg.versions) {
-          if (nextMsg.versions[newIndex]) {
-            updates.set(nextMsg.id, newIndex);
-          }
+        const foundAssistantIndex = currentMessages.slice(msgIndex + 1).findIndex(m => m.role === "assistant");
+        if (foundAssistantIndex !== -1) {
+          linkedIndex = msgIndex + 1 + foundAssistantIndex;
+          linkedMsg = currentMessages[linkedIndex];
+          updates.set(linkedMsg.id, newIndex);
+        }
+      } else if (targetMsg.role === "assistant") {
+        const foundUserIndex = [...currentMessages.slice(0, msgIndex)].reverse().findIndex(m => m.role === "user");
+        if (foundUserIndex !== -1) {
+          linkedIndex = msgIndex - 1 - foundUserIndex;
+          linkedMsg = currentMessages[linkedIndex];
+          updates.set(linkedMsg.id, newIndex);
         }
       }
 
-      const updatedMessages = session.messages.map((msg) => {
+      // Identify point of divergence
+      const calculatedTailStartIndex = (targetMsg.role === "user" && linkedMsg) ? linkedIndex + 1 : msgIndex + 1;
+      const currentTail = currentMessages.slice(calculatedTailStartIndex);
+
+      // 1. Calculate new tail from TARGET or LINKED version
+      let newTail: Message[] = [];
+      const linkedVersion = (linkedMsg && linkedMsg.versions) ? linkedMsg.versions[newIndex] : null;
+      const targetVersion = targetMsg.versions[newIndex];
+
+      if (linkedVersion?.tail) {
+        newTail = linkedVersion.tail;
+      } else if (targetVersion?.tail) {
+        newTail = targetVersion.tail;
+      }
+
+      // 2. Construct new message list with IMMUTABLE updates
+      const baseMessages = currentMessages.slice(0, calculatedTailStartIndex).map((msg) => {
+        // Clone message if it's the target or linked one
         if (updates.has(msg.id)) {
-          const indexToUse = updates.get(msg.id)!;
-          if (msg.versions && msg.versions[indexToUse]) {
-            const targetVersion = msg.versions[indexToUse];
-            return {
-              ...msg,
-              content: targetVersion.content,
-              steps: targetVersion.steps,
-              attachments: targetVersion.attachments || msg.attachments,
-              currentVersionIndex: indexToUse,
+          const idxToUse = updates.get(msg.id)!;
+          const currentIdx = msg.currentVersionIndex ?? 0;
+          const updatedVersions = msg.versions ? [...msg.versions] : [];
+          
+          // Save CURRENT tail to CURRENT version slot before switching
+          if (updatedVersions[currentIdx]) {
+            updatedVersions[currentIdx] = {
+              ...updatedVersions[currentIdx],
+              tail: currentTail
             };
           }
+
+          const targetV = updatedVersions[idxToUse];
+          return {
+            ...msg,
+            content: targetV.content,
+            steps: targetV.steps,
+            attachments: targetV.attachments || msg.attachments,
+            currentVersionIndex: idxToUse,
+            versions: updatedVersions,
+          };
+        }
+        return msg;
+      });
+
+      return {
+        ...prev,
+        [activeChatId]: {
+          ...session,
+          messages: [...baseMessages, ...newTail],
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  };
+
+  // Handle AI version change (for assistant messages)
+  const handleAIVersionChange = (messageId: string, newIndex: number) => {
+    setSessions((prev) => {
+      const session = prev[activeChatId];
+      if (!session) return prev;
+
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return prev;
+
+      const targetMsg = currentMessages[msgIndex];
+      const currentVersionIndex = targetMsg.currentVersionIndex || 0;
+      const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
+      
+      if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[newIndex]) return prev;
+
+      const updatedMessages = currentMessages.map((msg) => {
+        if (msg.id === messageId) {
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
+          
+          // Save current content to current AI version before switching
+          if (updatedAIVersions[currentAIIndex]) {
+            updatedAIVersions[currentAIIndex] = {
+              ...updatedAIVersions[currentAIIndex],
+              content: msg.content,
+              steps: msg.steps,
+              attachments: msg.attachments,
+            };
+          }
+
+          const targetAIVersion = updatedAIVersions[newIndex];
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+            currentAIIndex: newIndex,
+          };
+          
+          const updatedVersions = [...(msg.versions || [])];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
+          return {
+            ...msg,
+            content: targetAIVersion.content,
+            steps: targetAIVersion.steps,
+            attachments: targetAIVersion.attachments || msg.attachments,
+            suggestions: targetAIVersion.suggestions,
+            versions: updatedVersions,
+          };
         }
         return msg;
       });
@@ -1114,40 +1736,100 @@ export default function App() {
         [activeChatId]: {
           ...session,
           messages: updatedMessages,
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  };
+
+  // Handle regen version change (for AI versions)
+  const handleRegenVersionChange = (messageId: string, aiIndex: number, regenIndex: number) => {
+    setSessions((prev) => {
+      const session = prev[activeChatId];
+      if (!session) return prev;
+
+      const currentMessages = session.messages;
+      const msgIndex = currentMessages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return prev;
+
+      const targetMsg = currentMessages[msgIndex];
+      const currentVersionIndex = targetMsg.currentVersionIndex || 0;
+      const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
+      
+      if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[aiIndex]) return prev;
+      
+      const targetAIVersion = currentMessageVersion.aiVersions[aiIndex];
+      if (!targetAIVersion.regenVersions || !targetAIVersion.regenVersions[regenIndex]) return prev;
+
+      const updatedMessages = currentMessages.map((msg) => {
+        if (msg.id === messageId) {
+          const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
+          const currentAIVersion = currentMessageVersion.aiVersions?.[currentAIIndex];
+          const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
+          
+          const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
+          
+          // Save current content to current regen version before switching
+          if (updatedAIVersions[aiIndex] && updatedAIVersions[aiIndex].regenVersions) {
+            const updatedRegenVersions = [...updatedAIVersions[aiIndex].regenVersions!];
+            if (updatedRegenVersions[currentRegenIndex]) {
+              updatedRegenVersions[currentRegenIndex] = {
+                ...updatedRegenVersions[currentRegenIndex],
+                content: msg.content,
+                steps: msg.steps,
+                attachments: msg.attachments,
+              };
+            }
+            updatedAIVersions[aiIndex] = {
+              ...updatedAIVersions[aiIndex],
+              regenVersions: updatedRegenVersions,
+            };
+          }
+
+          const targetRegenVersion = updatedAIVersions[aiIndex].regenVersions![regenIndex];
+          
+          // Update currentRegenIndex in the target AI version
+          updatedAIVersions[aiIndex] = {
+            ...updatedAIVersions[aiIndex],
+            currentRegenIndex: regenIndex,
+          };
+          
+          const updatedMessageVersion = {
+            ...currentMessageVersion,
+            aiVersions: updatedAIVersions,
+            currentAIIndex: aiIndex, // Update currentAIIndex to the AI version being switched to
+          };
+          
+          const updatedVersions = [...(msg.versions || [])];
+          updatedVersions[currentVersionIndex] = updatedMessageVersion;
+          
+          return {
+            ...msg,
+            content: targetRegenVersion.content,
+            steps: targetRegenVersion.steps,
+            attachments: targetRegenVersion.attachments || msg.attachments,
+            suggestions: targetRegenVersion.suggestions,
+            versions: updatedVersions,
+          };
+        }
+        return msg;
+      });
+
+      return {
+        ...prev,
+        [activeChatId]: {
+          ...session,
+          messages: updatedMessages,
+          updatedAt: Date.now(),
         },
       };
     });
   };
 
   const handleNewChat = () => {
-    const newId = crypto.randomUUID();
-
-    // Explicitly create incomplete/empty session locally so the user lands on it.
-    // This will be "optimistic" state. 
-    // If the API fetch runs, it should merge or we should ensure local new sessions aren't wiped.
-    // Actually, if we just set it here, the useEffect polling might wipe it if it's not on server.
-    // However, the useEffect logic `if (fetchedSessions.length > 0)` replaces the whole map.
-    // We should probably merge instead of replace, OR we should rely on the fact that
-    // `activeChatId` logic handles the "empty" case.
-
-    // Better approach: Just create it in state. 
-    // If the next polling cycle doesn't see it, it might vanish IF we replace *all* sessions.
-    // But our syncing logic does `setSessions(newSessionsMap)`. This is destructive.
-    // We should modify the sync logic to preserve sessions that are empty (local only).
-
-    // Step 1: Create local session
-    setSessions(prev => ({
-      ...prev,
-      [newId]: {
-        id: newId,
-        title: "New Task",
-        messages: [],
-        updatedAt: Date.now()
-      }
-    }));
-
-    // Step 2: Navigate to it
-    navigate(`/chat/${newId}`);
+    // Clear active chat first, then navigate
+    setActiveChatId("");
+    navigate("/chat");
 
     setPreviewContent(null);
     setIsSettingsOpen(false);
@@ -1156,12 +1838,16 @@ export default function App() {
     }
   };
 
-  const confirmDeleteChat = () => {
+  const confirmDeleteChat = async () => {
+
     if (!chatToDelete) return;
     const id = chatToDelete;
 
     // Close the modal immediately
     setChatToDelete(null);
+
+    // Call API to delete from server
+    await deleteSession(modelConfig, id);
 
     setSessions((prev) => {
       const newSessions = { ...prev };
@@ -1173,7 +1859,7 @@ export default function App() {
     // If deleted the active chat, navigate to /chat or another chat
     if (activeChatId === id) {
       const remainingSessions = Object.values(sessions).filter(
-        (s) => s.id !== id,
+        (s) => s.id !== id && !s.id.startsWith("suggestion-"),
       ) as ChatSession[];
 
       if (remainingSessions.length === 0) {
@@ -1208,6 +1894,7 @@ export default function App() {
     navigate(`/chat/${id}`);
     setPreviewContent(null); // Reset preview on chat switch
     setIsSettingsOpen(false);
+    setLoadingChatId(id);
     if (isMobile) {
       setIsSidebarOpen(false);
     }
@@ -1293,7 +1980,10 @@ export default function App() {
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
                 isStreaming={isStreaming}
+                loadingChatId={loadingChatId}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}
@@ -1341,7 +2031,10 @@ export default function App() {
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
                 isStreaming={isStreaming}
+                loadingChatId={loadingChatId}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}
@@ -1390,6 +2083,8 @@ export default function App() {
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 handleVersionChange={handleVersionChange}
+                handleAIVersionChange={handleAIVersionChange}
+                handleRegenVersionChange={handleRegenVersionChange}
                 isPreviewOpen={isPreviewOpen}
                 handlePreviewRequest={handlePreviewRequest}
                 setIsPreviewOpen={setIsPreviewOpen}

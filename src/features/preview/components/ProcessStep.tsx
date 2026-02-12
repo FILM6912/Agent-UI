@@ -7,7 +7,7 @@ import {
   FileEdit,
   CheckCircle2,
   Loader2,
-  Sparkles,
+  Wrench,
 } from "lucide-react";
 import { ProcessStep as ProcessStepType } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -16,12 +16,13 @@ import remarkGfm from "remark-gfm";
 
 interface ProcessStepProps {
   step: ProcessStepType;
+  forceExpanded?: boolean;
 }
 
-export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
+export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false }) => {
   const { t } = useLanguage();
   // Default expanded state
-  const [expanded, setExpanded] = useState(step.isExpanded ?? true);
+  const [expanded, setExpanded] = useState(forceExpanded || (step.isExpanded ?? true));
 
   const getIcon = () => {
     switch (step.type) {
@@ -31,7 +32,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
         );
       case "command":
         return (
-          <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+          <Wrench className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
         );
       case "edit":
         return (
@@ -40,7 +41,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
       case "error":
         return <div className="w-2 h-2 rounded-full bg-red-500" />;
       default:
-        return <Sparkles className="w-4 h-4 text-zinc-400" />;
+        return <Wrench className="w-4 h-4 text-zinc-400" />;
     }
   };
 
@@ -78,35 +79,30 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center justify-center w-4 h-4 text-zinc-500 dark:text-zinc-600 group-hover:text-zinc-800 dark:group-hover:text-zinc-400 transition-colors">
-          {expanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
+          {!forceExpanded && (
+            expanded ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )
           )}
         </div>
 
         <div className="flex items-center gap-3 flex-1 overflow-hidden min-w-0">
-          <div className="flex-shrink-0 flex items-center justify-center">
+          <div className="shrink-0 flex items-center justify-center">
             {getIcon()}
           </div>
 
           <span
-            className="text-sm font-medium whitespace-nowrap flex-shrink-0 text-zinc-800 dark:text-zinc-200"
+            className="text-sm font-medium whitespace-nowrap shrink-0 text-zinc-800 dark:text-zinc-200"
           >
             {getTitle()}
           </span>
 
-          {/* Show preview snippet always to preserve position */}
-          {step.content && (
-            <div className="flex-1 min-w-0 ml-2">
-              <div className="text-xs text-blue-600 dark:text-blue-400 truncate max-w-[200px] font-medium">
-                {step.content.split("\n")[0].replace(/\*\*/g, "")}
-              </div>
-            </div>
-          )}
+
         </div>
 
-        <div className="flex items-center gap-3 pl-2 flex-shrink-0">
+          <div className="flex items-center gap-3 pl-2 shrink-0">
           {step.duration && (
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
               {step.duration}
@@ -180,7 +176,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                           Input
                         </div>
                         <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-                          <pre className="whitespace-pre-wrap break-words">
+                          <pre className="whitespace-pre-wrap break-all">
                             {(() => {
                               try {
                                 const parsed = JSON.parse(inputContent);
@@ -259,7 +255,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step }) => {
                                 <p className="my-1 last:mb-0">{children}</p>
                               ),
                               strong: ({ children }) => (
-                                <strong className="font-bold text-blue-600 dark:text-blue-400">
+                                <strong className="font-bold">
                                   {children}
                                 </strong>
                               ),

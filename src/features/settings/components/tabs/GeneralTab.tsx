@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
+import { useAppearance, FontFamily } from "@/hooks/useAppearance";
 import { ChatSession } from "@/types";
 
 interface GeneralTabProps {
@@ -22,19 +23,38 @@ interface GeneralTabProps {
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({
-  chatHistory,
   onClearAllChats,
 }) => {
   const { t, language, setLanguage, updateTranslations, exportTranslations } =
     useLanguage();
   const { theme, setTheme } = useTheme();
+  const { fontSize, setFontSize, fontFamily, setFontFamily } = useAppearance();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showFontDropdown, setShowFontDropdown] = useState(false);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const fontDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Click outside handler for language dropdown
+  const fonts: FontFamily[] = [
+    "noto-sans",
+    "noto-serif",
+    "noto-mono",
+    "sarabun",
+    "kanit",
+    "prompt",
+    "mitr",
+    "chakra-petch",
+    "bai-jamjuree",
+    "system-sans",
+    "system-serif",
+    "system-mono",
+    "sans",
+    "mono",
+  ];
+
+  // Click outside handler for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -44,13 +64,20 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
       ) {
         setShowLanguageDropdown(false);
       }
+      if (
+        showFontDropdown &&
+        fontDropdownRef.current &&
+        !fontDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowFontDropdown(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showLanguageDropdown]);
+  }, [showLanguageDropdown, showFontDropdown]);
 
   const handleExportCSV = () => {
     const csvContent = exportTranslations();
@@ -185,7 +212,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
               </button>
 
               {showLanguageDropdown && (
-                <div className="absolute top-full right-0 mt-1 w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute top-full right-0 mt-1 w-full bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden z-100 animate-in fade-in slide-in-from-top-1 duration-150">
                   <button
                     onClick={() => {
                       setLanguage("en");
@@ -216,6 +243,94 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Appearance Group (Font & Size) */}
+        <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-visible shadow-sm dark:shadow-none">
+          <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-white/2">
+             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 flex items-center gap-2">
+               <Languages className="w-4 h-4 text-indigo-500" />
+               {t("settings.appearance")}
+             </h3>
+          </div>
+          
+          {/* Font Family Row */}
+          <div className="p-4 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
+            <div>
+              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                {t("settings.fontFamily")}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">
+                {t(`settings.font${fontFamily.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`)}
+              </div>
+            </div>
+            
+            <div className="relative min-w-[160px]" ref={fontDropdownRef}>
+              <button
+                onClick={() => setShowFontDropdown(!showFontDropdown)}
+                className="w-full flex items-center justify-between bg-zinc-100 dark:bg-[#1e1e20] text-zinc-900 dark:text-zinc-200 text-sm border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <span className={`truncate ${fontFamily.includes('mono') ? 'font-mono' : ''}`}>
+                  {t(`settings.font${fontFamily.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`)}
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-zinc-500 transition-transform ml-2 shrink-0 ${showFontDropdown ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {showFontDropdown && (
+                <div className="absolute top-full right-0 mt-1 w-full sm:w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-y-auto max-h-[300px] z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {fonts.map((font) => (
+                    <button
+                      key={font}
+                      onClick={() => {
+                        setFontFamily(font);
+                        setShowFontDropdown(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                        fontFamily === font
+                          ? "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 font-medium"
+                          : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <span className={font === 'mono' || font === 'system-mono' ? 'font-mono' : ''}>
+                        {t(`settings.font${font.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('')}`)}
+                      </span>
+                      {fontFamily === font && <Check className="w-4 h-4" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Text Size Row */}
+          <div className="p-4 flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                {t("settings.fontSize")}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">
+                {t(`settings.size${fontSize.charAt(0).toUpperCase() + fontSize.slice(1)}`)}
+              </div>
+            </div>
+            <div className="flex bg-zinc-100 dark:bg-[#1e1e20] rounded-lg p-1 border border-zinc-200 dark:border-zinc-800 overflow-x-auto max-w-[200px] sm:max-w-none">
+              {(['xs', 'sm', 'base', 'lg', 'xl'] as const).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setFontSize(size)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+                    fontSize === size
+                      ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
+                      : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
+                  }`}
+                  style={{ fontSize: size === 'xs' ? '12px' : size === 'xl' ? '14px' : '13px' }}
+                >
+                  {t(`settings.size${size.charAt(0).toUpperCase() + size.slice(1)}`)}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -282,7 +397,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
           </div>
           <button
             onClick={() => setShowClearAllConfirm(true)}
-            className="bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-500 border border-red-200 dark:border-red-500/30 px-4 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            className="bg-red-50 dark:bg-red-500/10 hover:bg-red-500/15 dark:hover:bg-red-500/20 text-red-600 dark:text-red-500 border border-red-200 dark:border-red-500/30 px-4 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer"
           >
             {t("settings.clearAll")}
           </button>
@@ -292,7 +407,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
       {/* Clear All Chats Confirmation Modal */}
       {showClearAllConfirm && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
           onClick={() => setShowClearAllConfirm(false)}
         >
           <div
