@@ -85,26 +85,28 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     if (previewContent) setActiveTab("web");
   }, [previewContent]);
 
+  const fetchFiles = async () => {
+    if (!chatId) return;
+    try {
+      const response = await fileService.listFiles(undefined, chatId, true);
+      
+      const mapFileItemToNode = (f: FileItem): FileNode => ({
+        id: f.path,
+        name: f.name,
+        type: f.type === "directory" ? "folder" : "file",
+        children: f.children ? f.children.map(mapFileItemToNode) : (f.type === "directory" ? [] : undefined),
+        content: undefined,
+      });
+
+      const nodes: FileNode[] = response.files.map(mapFileItemToNode);
+      setFileSystem(nodes);
+    } catch (error) {
+      console.error("Failed to fetch files", error);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "files" && chatId) {
-      const fetchFiles = async () => {
-        try {
-          const response = await fileService.listFiles(undefined, chatId, true);
-          
-          const mapFileItemToNode = (f: FileItem): FileNode => ({
-            id: f.path,
-            name: f.name,
-            type: f.type === "directory" ? "folder" : "file",
-            children: f.children ? f.children.map(mapFileItemToNode) : (f.type === "directory" ? [] : undefined),
-            content: undefined,
-          });
-
-          const nodes: FileNode[] = response.files.map(mapFileItemToNode);
-          setFileSystem(nodes);
-        } catch (error) {
-          console.error("Failed to fetch files", error);
-        }
-      };
       fetchFiles();
     }
   }, [activeTab, chatId]);
@@ -140,12 +142,45 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     else setViewMode("code");
   };
 
-  const handleSaveContent = () => {
-    if (!selectedFile) return;
-    setSelectedFile((prev) =>
-      prev ? { ...prev, content: editContent } : null,
-    );
-    setViewMode("code");
+  const handleSaveContent = async () => {
+    if (!selectedFile || !chatId) return;
+    
+    try {
+      const fullPath = selectedFile.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath = lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+      const filename = selectedFile.name;
+
+      await fileService.writeFile(filename, editContent, { path: dirPath }, chatId);
+
+      setSelectedFile((prev) =>
+        prev ? { ...prev, content: editContent } : null,
+      );
+      setViewMode("code");
+    } catch (error) {
+      console.error("Failed to save file:", error);
+      // You might want to add a toast notification here
+    }
+  };
+
+  const handleDeleteFile = async () => {
+    if (!selectedFile || !chatId) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedFile.name}?`)) return;
+
+    try {
+      const fullPath = selectedFile.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath = lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+      const filename = selectedFile.name;
+
+      await fileService.deleteFile(filename, { path: dirPath }, chatId);
+      
+      setSelectedFile(null);
+      await fetchFiles();
+    } catch (error) {
+      console.error("Failed to delete file:", error);
+      // You might want to add a toast notification here
+    }
   };
 
   const handleCopy = async () => {
@@ -404,7 +439,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         )}
                       </button>
                       <button
-                        onClick={() => setSelectedFile(null)}
+                        onClick={handleDeleteFile}
                         className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
                         title="Delete File"
                       >

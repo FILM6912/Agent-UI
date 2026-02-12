@@ -56,11 +56,13 @@ class FileService:
                     for entry in it:
                         is_dir = entry.is_dir()
                         item_path = entry.path
+                        # Use relative path for API consistency and security
+                        rel_path = os.path.relpath(item_path, chat_dir).replace("\\", "/")
                         stat = entry.stat()
                         
                         file_item = FileItem(
                             name=entry.name,
-                            path=item_path,
+                            path=rel_path,
                             type="directory" if is_dir else "file",
                             size=stat.st_size if not is_dir else 0,
                             modified=stat.st_mtime,
