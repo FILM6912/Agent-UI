@@ -18,7 +18,7 @@ export const CodeBlock = React.memo<CodeBlockProps>(
   ({ className, children, onPreviewRequest, ...props }) => {
     const match = /language-(\w+)/.exec(className || "");
     const language = match ? match[1] : "";
-    const content = String(children).replace(/\n$/, "");
+    const content = String(children).replace(/\n$/, ""); 
     const isInline = !match && !content.includes("\n");
 
     const isPreviewable = ["html", "svg"].includes(language);
