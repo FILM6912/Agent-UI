@@ -218,19 +218,25 @@ class FileService:
             raise HTTPException(status_code=400, detail="Cannot read directory as file")
         
         try:
+            # Try reading as UTF-8 first
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            
-            return FileReadResponse(
-                filename=filename,
-                path=file_path,
-                content=content,
-                mime_type=get_mime_type(filename),
-                size=os.path.getsize(file_path),
-                chat_id=chat_id
-            )
         except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="File is not text-readable")
+            try:
+                # Fallback to latin-1 (which can read any byte sequence)
+                with open(file_path, "r", encoding="latin-1") as f:
+                    content = f.read()
+            except Exception:
+                raise HTTPException(status_code=400, detail="File is not text-readable")
+
+        return FileReadResponse(
+            filename=filename,
+            path=file_path,
+            content=content,
+            mime_type=get_mime_type(filename),
+            size=os.path.getsize(file_path),
+            chat_id=chat_id
+        )
 
     async def write_file(
         self,
