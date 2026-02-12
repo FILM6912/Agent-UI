@@ -104,11 +104,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         </span>
       </div>
 
-      {isAssistant && msg.steps && (
+      {isAssistant && msg.steps && msg.steps.some(s => s.type !== 'thinking') && (
         <div className="w-full mb-4 space-y-1">
-          {msg.steps.map((step) => (
-            <ProcessStep key={step.id} step={step} />
-          ))}
+          {msg.steps
+            .filter(step => step.type !== 'thinking')
+            .map((step) => (
+              <ProcessStep key={step.id} step={step} />
+            ))}
         </div>
       )}
 
@@ -186,7 +188,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                             <Loader2 className="w-4 h-4 text-blue-400 absolute animate-spin opacity-40" />
                           </>
                         ) : (
-                          <div className={`w-1.5 h-1.5 rounded-full transition-colors bg-zinc-400 group-open/think:bg-blue-500`} />
+                          <Brain className="w-3.5 h-3.5 text-zinc-400 group-open/think:text-blue-500 transition-colors" />
                         )}
                       </div>
                       {block.label}
@@ -219,9 +221,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 mainContent = mainContent.replace('<|end_of_solution|>', '');
               }
 
-              // Remove <think>... </think> (closed)
+              // COMPLETELY remove thinking content between <think> tags (both closed and open)
+              // This is to prevent any "thinking" from showing up in the UI
               mainContent = mainContent.replace(/<think>[\s\S]*?<\/think>/g, '');
-              // Remove <think>... (open/incomplete at end)
               mainContent = mainContent.replace(/<think>[\s\S]*$/, '');
 
               mainContent = mainContent.trim();
