@@ -89,14 +89,17 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     if (activeTab === "files" && chatId) {
       const fetchFiles = async () => {
         try {
-          const response = await fileService.listFiles(undefined, chatId);
-          const nodes: FileNode[] = response.files.map((f: FileItem) => ({
+          const response = await fileService.listFiles(undefined, chatId, true);
+          
+          const mapFileItemToNode = (f: FileItem): FileNode => ({
             id: f.path,
             name: f.name,
             type: f.type === "directory" ? "folder" : "file",
-            children: f.type === "directory" ? [] : undefined,
+            children: f.children ? f.children.map(mapFileItemToNode) : (f.type === "directory" ? [] : undefined),
             content: undefined,
-          }));
+          });
+
+          const nodes: FileNode[] = response.files.map(mapFileItemToNode);
           setFileSystem(nodes);
         } catch (error) {
           console.error("Failed to fetch files", error);

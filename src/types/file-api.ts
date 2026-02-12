@@ -5,6 +5,7 @@ export interface FileItem {
   size: number;
   modified: number;
   mime_type?: string | null;
+  children?: FileItem[];
 }
 
 export interface FileListResponse {

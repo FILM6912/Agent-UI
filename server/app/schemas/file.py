@@ -10,6 +10,8 @@ class FileItem(BaseModel):
     modified: float
     mime_type: Optional[str] = None
     chat_id: str
+    children: Optional[List['FileItem']] = None
+
 
 
 class FileListResponse(BaseModel):

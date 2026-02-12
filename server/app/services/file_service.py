@@ -34,7 +34,7 @@ class FileService:
     def _get_chat_dir(self, chat_id: str) -> str:
         return os.path.join(settings.UPLOAD_DIR, chat_id)
 
-    async def list_files(self, chat_id: str, path: Optional[str] = None) -> FileListResponse:
+    async def list_files(self, chat_id: str, path: Optional[str] = None, recursive: bool = False) -> FileListResponse:
         chat_dir = self._get_chat_dir(chat_id)
         
         # Auto-create chat directory if it doesn't exist (e.g. new chat)
@@ -49,22 +49,34 @@ class FileService:
         if not os.path.isdir(base_dir):
             raise HTTPException(status_code=400, detail="Path is not a directory")
         
-        files = []
+        def scan_directory(directory: str) -> List[FileItem]:
+            items = []
+            try:
+                with os.scandir(directory) as it:
+                    for entry in it:
+                        is_dir = entry.is_dir()
+                        item_path = entry.path
+                        stat = entry.stat()
+                        
+                        file_item = FileItem(
+                            name=entry.name,
+                            path=item_path,
+                            type="directory" if is_dir else "file",
+                            size=stat.st_size if not is_dir else 0,
+                            modified=stat.st_mtime,
+                            mime_type=get_mime_type(entry.name) if not is_dir else None,
+                            chat_id=chat_id,
+                            children=scan_directory(item_path) if is_dir and recursive else None
+                        )
+                        items.append(file_item)
+                
+                items.sort(key=lambda x: (x.type == "file", x.name.lower()))
+                return items
+            except PermissionError:
+                return []
+
         try:
-            for item in os.listdir(base_dir):
-                item_path = os.path.join(base_dir, item)
-                stat = os.stat(item_path)
-                files.append(FileItem(
-                    name=item,
-                    path=item_path,
-                    type="directory" if os.path.isdir(item_path) else "file",
-                    size=stat.st_size if os.path.isfile(item_path) else 0,
-                    modified=stat.st_mtime,
-                    mime_type=get_mime_type(item) if os.path.isfile(item_path) else None,
-                    chat_id=chat_id
-                ))
-            
-            files.sort(key=lambda x: (x.type == "file", x.name.lower()))
+            files = scan_directory(base_dir)
             return FileListResponse(files=files, path=base_dir, count=len(files), chat_id=chat_id)
         except PermissionError:
             raise HTTPException(status_code=403, detail="Permission denied")

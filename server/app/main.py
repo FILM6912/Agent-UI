@@ -7,6 +7,7 @@ import uvicorn
 
 from app.core.config import get_settings
 from app.api.v1.router import api_router
+from FDocs import f_docs
 
 settings = get_settings()
 
@@ -26,6 +27,7 @@ app = FastAPI(
     description=settings.DESCRIPTION,
     lifespan=lifespan
 )
+app = f_docs(app)
 
 app.add_middleware(
     CORSMiddleware,

@@ -27,9 +27,10 @@ router = APIRouter()
 @router.get("/", response_model=FileListResponse, operation_id="list_files")
 async def list_files(
     chat_id: str = Query(..., description="Chat ID"),
-    path: Optional[str] = Query(None, description="Directory path to list")
+    path: Optional[str] = Query(None, description="Directory path to list"),
+    recursive: bool = Query(False, description="List files recursively")
 ):
-    return await file_service.list_files(chat_id, path)
+    return await file_service.list_files(chat_id, path, recursive)
 
 
 @router.post("/upload", response_model=FileUploadResponse, operation_id="upload_file")

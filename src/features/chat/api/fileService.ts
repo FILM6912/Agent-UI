@@ -48,10 +48,11 @@ class FileService implements FileApiClient {
     return response.json();
   }
 
-  async listFiles(path?: string, chatId?: string): Promise<FileListResponse> {
+  async listFiles(path?: string, chatId?: string, recursive: boolean = false): Promise<FileListResponse> {
     const params = new URLSearchParams();
     if (path) params.append('path', path);
     if (chatId) params.append('chat_id', chatId);
+    if (recursive) params.append('recursive', 'true');
     
     const query = params.toString();
     // Add trailing slash to avoid 307 redirect which causes CORS issues
@@ -129,6 +130,9 @@ class FileService implements FileApiClient {
     if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
+    // Use encodeURIComponent for filename to handle special characters, but slashes might be needed if filename includes path
+    // However, the API expects filename as the last path segment and 'path' query param for the directory
+    // If filename contains slashes, it might be interpreted as path segments
     return this.request<FileReadResponse>(`/api/v1/files/read/${encodeURIComponent(filename)}${query ? `?${query}` : ''}`);
   }
 
