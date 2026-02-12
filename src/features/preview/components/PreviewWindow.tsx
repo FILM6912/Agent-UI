@@ -375,6 +375,47 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     }
   };
 
+  const handleFileDrop = async (
+    sourceNode: FileNode,
+    targetNode: FileNode | null,
+  ) => {
+    if (!sourceNode || !chatId) return;
+
+    // Prevent moving to itself
+    if (targetNode && targetNode.id === sourceNode.id) return;
+
+    const sourcePath = sourceNode.id;
+    const lastSlashIndex = sourcePath.lastIndexOf("/");
+    const sourceDir =
+      lastSlashIndex > -1 ? sourcePath.substring(0, lastSlashIndex) : undefined;
+
+    const destDir = targetNode ? targetNode.id : undefined;
+
+    // Prevent moving to same directory
+    if (sourceDir === destDir) return;
+
+    // Prevent moving folder into itself or its children
+    if (
+      sourceNode.type === "folder" &&
+      destDir &&
+      destDir.startsWith(sourcePath + "/")
+    )
+      return;
+
+    try {
+      await fileService.moveFile(
+        sourceNode.name,
+        sourceNode.name,
+        sourceDir,
+        destDir,
+        chatId,
+      );
+      await fetchFiles();
+    } catch (error) {
+      console.error("Failed to move file:", error);
+    }
+  };
+
   const handleFileTreeSelect = async (path: string, node: FileNode) => {
     if (node.type === "file" && !node.content && chatId) {
       try {
@@ -612,10 +653,26 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 overflow-y-auto p-2 font-mono bg-background transition-colors duration-200">
+                  <div
+                    className="flex-1 overflow-y-auto p-2 font-mono bg-background transition-colors duration-200"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        const sourceNode = JSON.parse(
+                          e.dataTransfer.getData("application/json"),
+                        );
+                        handleFileDrop(sourceNode, null);
+                      } catch (err) {}
+                    }}
+                  >
                     {fileSystem.map((node, idx) => (
                       <FileTreeItem
-                        key={idx}
+                        key={node.id || idx}
                         node={node}
                         level={0}
                         path={node.name}
@@ -625,6 +682,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         onDelete={handleDeleteNode}
                         onRename={handleRenameNode}
                         onDownload={handleDownloadNode}
+                        onFileDrop={handleFileDrop}
                         expandedPaths={expandedPaths}
                       />
                     ))}

@@ -131,15 +131,13 @@ async def get_file_info(
 
 @router.post("/move", response_model=FileMoveResponse, operation_id="move_file")
 async def move_file(
-    chat_id: str = Form(..., description="Chat ID"),
-    request: FileMoveRequest = ...
+    request: FileMoveRequest
 ):
-    return await file_service.move_file(chat_id, request)
+    return await file_service.move_file(request.chat_id, request)
 
 
 @router.post("/copy", response_model=FileCopyResponse, operation_id="copy_file")
 async def copy_file(
-    chat_id: str = Form(..., description="Chat ID"),
-    request: FileCopyRequest = ...
+    request: FileCopyRequest
 ):
-    return await file_service.copy_file(chat_id, request)
+    return await file_service.copy_file(request.chat_id, request)

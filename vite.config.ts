@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       host: "0.0.0.0",
+      watch: {
+        ignored: ["**/server/**"],
+      },
       proxy: {
         '/api': {
           target: 'http://192.168.99.1:7860',

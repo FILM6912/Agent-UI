@@ -37,6 +37,7 @@ interface FileTreeItemProps {
   onDelete?: (node: FileNode) => void;
   onRename?: (node: FileNode) => void;
   onDownload?: (node: FileNode) => void;
+  onFileDrop?: (sourceNode: FileNode, targetNode: FileNode | null) => void;
   expandedPaths: Set<string>;
 }
 
@@ -68,18 +69,63 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   onDelete,
   onRename,
   onDownload,
+  onFileDrop,
   expandedPaths,
 }) => {
   const isExpanded = expandedPaths.has(path);
   const isSelected = selectedFile === path;
 
   const [isHovered, setIsHovered] = React.useState(false);
+  const [isDragOver, setIsDragOver] = React.useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("application/json", JSON.stringify(node));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (node.type === "folder") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (node.type === "folder") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      try {
+        const sourceNode = JSON.parse(e.dataTransfer.getData("application/json"));
+        if (onFileDrop && sourceNode.id !== node.id) {
+          onFileDrop(sourceNode, node);
+        }
+      } catch (err) {
+        console.error("Failed to parse drag data", err);
+      }
+    }
+  };
 
   return (
     <div>
       <div
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
-          isSelected
+          isDragOver
+            ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-500/50"
+            : isSelected
             ? "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
             : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300"
         }`}
@@ -162,7 +208,24 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
       </div>
 
       {node.type === "folder" && isExpanded && node.children && (
-        <div>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              const sourceNode = JSON.parse(e.dataTransfer.getData("application/json"));
+              if (onFileDrop && sourceNode.id !== node.id) {
+                onFileDrop(sourceNode, node);
+              }
+            } catch (err) {
+              console.error("Failed to parse drag data", err);
+            }
+          }}
+        >
           {node.children.map((child, idx) => (
             <FileTreeItem
               key={`${path}/${child.name}-${idx}`}
@@ -174,6 +237,8 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               onSelect={onSelect}
               onDelete={onDelete}
               onRename={onRename}
+              onDownload={onDownload}
+              onFileDrop={onFileDrop}
               expandedPaths={expandedPaths}
             />
           ))}

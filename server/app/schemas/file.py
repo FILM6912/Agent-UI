@@ -97,6 +97,7 @@ class FileMoveRequest(BaseModel):
     destination: str = Field(..., description="Destination file/directory name")
     source_path: Optional[str] = Field(None, description="Source directory path")
     dest_path: Optional[str] = Field(None, description="Destination directory path")
+    chat_id: str = Field(..., description="Chat ID")
 
 
 class FileMoveResponse(BaseModel):
@@ -110,6 +111,7 @@ class FileCopyRequest(BaseModel):
     destination: str = Field(..., description="Destination file/directory name")
     source_path: Optional[str] = Field(None, description="Source directory path")
     dest_path: Optional[str] = Field(None, description="Destination directory path")
+    chat_id: str = Field(..., description="Chat ID")
 
 
 class FileCopyResponse(BaseModel):
