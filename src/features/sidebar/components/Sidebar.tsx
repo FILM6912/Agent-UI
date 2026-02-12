@@ -49,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeProvider,
   onProviderChange,
   onOpenSettings,
+  onOpenFiles,
   isOpen = true,
   toggleSidebar,
   isMobile = false,

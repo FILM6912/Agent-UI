@@ -31,6 +31,7 @@ import {
   fetchAllSessionsFromLangFlow,
   deleteSession,
 } from "@/features/chat/api/langflowService";
+import { fileService } from "@/features/chat/api/fileService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
@@ -227,6 +228,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           isSidebarOpen={isSidebarOpen}
           previewContent={previewContent}
           isLoading={isLoading || isStreaming}
+          chatId={activeChatId}
           steps={currentMessages.length > 0 ? (
             (() => {
               const assistantMessages = [...currentMessages].reverse().filter(m => m.role === 'assistant');
@@ -1124,6 +1126,11 @@ export default function App() {
         chatId = currentActiveId;
         console.log('>>> handleSend: Reusing active Chat ID:', chatId);
       }
+
+      // Initialize chat directory on server
+      fileService.listFiles(undefined, chatId).catch(err => {
+        console.error('Failed to initialize chat directory:', err);
+      });
 
       const userMsg: Message = {
         id: generateUUID(),

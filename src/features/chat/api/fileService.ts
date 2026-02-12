@@ -54,7 +54,8 @@ class FileService implements FileApiClient {
     if (chatId) params.append('chat_id', chatId);
     
     const query = params.toString();
-    return this.request<FileListResponse>(`/api/v1/files${query ? `?${query}` : ''}`);
+    // Add trailing slash to avoid 307 redirect which causes CORS issues
+    return this.request<FileListResponse>(`/api/v1/files/${query ? `?${query}` : ''}`);
   }
 
   async uploadFile(file: File, options?: FileUploadOptions, chatId?: string): Promise<FileUploadResponse> {

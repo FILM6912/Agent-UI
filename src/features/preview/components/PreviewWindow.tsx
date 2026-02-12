@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
+import fileService from "../../chat/api/fileService";
+import { FileItem } from "@/types/file-api";
 import { FileTreeItem, FileNode } from "./FileTreeItem";
 import { FileContentRenderer } from "./FileContentRenderer";
 import { ProcessTab } from "./ProcessTab";
@@ -32,6 +34,7 @@ interface PreviewWindowProps {
   previewContent?: string | null;
   isLoading?: boolean;
   steps?: ProcessStep[];
+  chatId?: string;
 }
 
 export const PreviewWindow: React.FC<PreviewWindowProps> = ({
@@ -42,13 +45,14 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   previewContent,
   isLoading = false,
   steps,
+  chatId,
 }) => {
   const { t } = useLanguage();
   const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<"process" | "files" | "web">(
     "process",
   );
-  const [fileSystem] = useState<FileNode[]>(INITIAL_FILE_SYSTEM);
+  const [fileSystem, setFileSystem] = useState<FileNode[]>(INITIAL_FILE_SYSTEM);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const selectedFileName = selectedFile?.name ?? null;
   const [editContent, setEditContent] = useState<string>("");
@@ -80,6 +84,27 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   useEffect(() => {
     if (previewContent) setActiveTab("web");
   }, [previewContent]);
+
+  useEffect(() => {
+    if (activeTab === "files" && chatId) {
+      const fetchFiles = async () => {
+        try {
+          const response = await fileService.listFiles(undefined, chatId);
+          const nodes: FileNode[] = response.files.map((f: FileItem) => ({
+            id: f.path,
+            name: f.name,
+            type: f.type === "directory" ? "folder" : "file",
+            children: f.type === "directory" ? [] : undefined,
+            content: undefined,
+          }));
+          setFileSystem(nodes);
+        } catch (error) {
+          console.error("Failed to fetch files", error);
+        }
+      };
+      fetchFiles();
+    }
+  }, [activeTab, chatId]);
 
   const toggleFolder = (path: string) => {
     setExpandedPaths((prev) => {
@@ -168,8 +193,28 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     setIframeKey((prev) => prev + 1);
   };
 
-  const handleFileTreeSelect = (_path: string, node: FileNode) => {
-    handleFileSelect(node);
+  const handleFileTreeSelect = async (path: string, node: FileNode) => {
+    if (node.type === "file" && !node.content && chatId) {
+      try {
+        const lastSlash = path.lastIndexOf("/");
+        const dirPath =
+          lastSlash > -1 ? path.substring(0, lastSlash) : undefined;
+        const response = await fileService.readFile(
+          node.name,
+          { path: dirPath },
+          chatId,
+        );
+        const content = response.content;
+
+        const nodeWithContent = { ...node, content };
+        handleFileSelect(nodeWithContent);
+      } catch (error) {
+        console.error("Failed to read file:", error);
+        handleFileSelect(node);
+      }
+    } else {
+      handleFileSelect(node);
+    }
   };
 
   const mobileClasses = `fixed inset-0 z-50 bg-background flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`;

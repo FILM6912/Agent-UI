@@ -36,6 +36,11 @@ class FileService:
 
     async def list_files(self, chat_id: str, path: Optional[str] = None) -> FileListResponse:
         chat_dir = self._get_chat_dir(chat_id)
+        
+        # Auto-create chat directory if it doesn't exist (e.g. new chat)
+        if not os.path.exists(chat_dir):
+            os.makedirs(chat_dir, exist_ok=True)
+
         base_dir = resolve_path(path, base_dir=chat_dir)
         
         if not os.path.exists(base_dir):

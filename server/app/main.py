@@ -81,6 +81,14 @@ combined_app = FastAPI(
     lifespan=lifespan,
 )
 
+combined_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 if __name__ == "__main__":
     uvicorn.run(
