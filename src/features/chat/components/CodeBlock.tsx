@@ -1,5 +1,11 @@
 import React, { useState } from "react";
 import { Play } from "lucide-react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  vscDarkPlus,
+  vs,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useTheme } from "../../../hooks/useTheme";
 
 interface CodeBlockProps {
   className?: string;
@@ -17,6 +23,7 @@ export const CodeBlock = React.memo<CodeBlockProps>(
 
     const isPreviewable = ["html", "svg"].includes(language);
     const [isPreview, setIsPreview] = useState(false);
+    const { isDark } = useTheme();
 
     if (isInline) {
       return (
@@ -84,14 +91,26 @@ export const CodeBlock = React.memo<CodeBlockProps>(
             />
           </div>
         ) : (
-          <div className="p-4 overflow-x-auto text-sm">
-            <code
-              className={`font-mono text-zinc-800 dark:text-zinc-300 ${className}`}
-              {...props}
-            >
-              {children}
-            </code>
-          </div>
+          <SyntaxHighlighter
+            language={language}
+            style={isDark ? vscDarkPlus : vs}
+            customStyle={{
+              margin: 0,
+              padding: "1rem",
+              fontSize: "0.875rem",
+              lineHeight: "1.5",
+              background: "transparent",
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily: "monospace",
+              },
+            }}
+            wrapLongLines={true}
+            {...props}
+          >
+            {content}
+          </SyntaxHighlighter>
         )}
       </div>
     );

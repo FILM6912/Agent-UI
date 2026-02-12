@@ -31,6 +31,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22.14.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.1.2",
     "electron": "^40.2.1",
