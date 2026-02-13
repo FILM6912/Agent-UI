@@ -253,7 +253,7 @@ class FileService:
         file_path = os.path.join(target_dir, filename)
         
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
+            with open(file_path, "w", encoding="utf-8", newline="") as f:
                 f.write(content)
             
             return FileWriteResponse(
