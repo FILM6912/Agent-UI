@@ -9,87 +9,160 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   content,
   isExcel = false,
 }) => {
+  const [activeSheet, setActiveSheet] = React.useState<string>("");
+  const [parsedData, setParsedData] = React.useState<{
+    sheetNames: string[];
+    sheets: Record<string, string[][]>;
+  } | null>(null);
+
   let headers: string[] = [];
   let dataRows: string[][] = [];
 
-  try {
+  React.useEffect(() => {
     if (isExcel) {
-      // Try to parse as JSON first
       try {
+        // Try to parse as JSON first
         const data = JSON.parse(content);
+        
+        // Handle multi-sheet format
+        if (data.sheetNames && data.sheets) {
+          const sheets: Record<string, string[][]> = {};
+          
+          Object.keys(data.sheets).forEach(name => {
+            const sheetData = data.sheets[name];
+            if (Array.isArray(sheetData) && sheetData.length > 0) {
+              sheets[name] = sheetData.map((row: any[]) => row.map((c: any) => String(c || "")));
+            } else {
+              sheets[name] = [];
+            }
+          });
+
+          setParsedData({
+            sheetNames: data.sheetNames,
+            sheets: sheets
+          });
+          
+          if (!activeSheet || !data.sheetNames.includes(activeSheet)) {
+            setActiveSheet(data.sheetNames[0] || "");
+          }
+          return;
+        }
+        
+        // Handle legacy single-sheet array format
         if (Array.isArray(data) && data.length > 0) {
-          headers = data[0].map((h: any) => String(h || ""));
-          dataRows = data.slice(1).map((row: any[]) => row.map((c: any) => String(c || "")));
+          const processedData = data.map((row: any[]) => row.map((c: any) => String(c || "")));
+          setParsedData({
+            sheetNames: ["Sheet1"],
+            sheets: { "Sheet1": processedData }
+          });
+          setActiveSheet("Sheet1");
+          return;
         }
       } catch (e) {
-        // If JSON parse fails, check if it looks like raw binary (starts with PK)
-        if (content.startsWith("PK")) {
-          return (
-            <div className="flex items-center justify-center h-full text-zinc-400">
-              <div className="text-center">
-                <p>Unable to preview Excel file content.</p>
-                <p className="text-xs mt-2 text-zinc-500">The file content appears to be raw binary data.</p>
-              </div>
-            </div>
-          );
-        }
-        throw e;
+        console.error("Error parsing Excel content:", e);
       }
     } else {
+      // CSV format
       const rows = content.split("\n").filter((r) => r.trim());
-      headers = rows[0]?.split(",").map((h) => h.trim()) || [];
-      dataRows = rows.slice(1).map((r) => r.split(",").map((c) => c.trim()));
+      const processedHeaders = rows[0]?.split(",").map((h) => h.trim()) || [];
+      const processedRows = rows.slice(1).map((r) => r.split(",").map((c) => c.trim()));
+      
+      // Add header to rows for consistent rendering with Excel data which includes headers in data
+      setParsedData({
+        sheetNames: ["CSV"],
+        sheets: { "CSV": [processedHeaders, ...processedRows] }
+      });
+      setActiveSheet("CSV");
     }
-  } catch (error) {
-    console.error("Failed to parse spreadsheet content:", error);
-    // Fallback or empty state
+  }, [content, isExcel]);
+
+  // Determine current sheet data
+  if (parsedData && activeSheet && parsedData.sheets[activeSheet]) {
+    const sheetData = parsedData.sheets[activeSheet];
+    if (sheetData.length > 0) {
+      headers = sheetData[0];
+      dataRows = sheetData.slice(1);
+    }
+  }
+
+  // Error state for raw binary
+  if (isExcel && content.startsWith("PK")) {
+    return (
+      <div className="flex items-center justify-center h-full text-zinc-400">
+        <div className="text-center">
+          <p>Unable to preview Excel file content.</p>
+          <p className="text-xs mt-2 text-zinc-500">The file content appears to be raw binary data.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-auto h-full bg-zinc-950 p-4">
-      <div className="inline-block min-w-full">
-        <table className="border-collapse border border-zinc-700">
-          <thead>
-            <tr className="bg-zinc-800">
-              <th className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-400 w-12 sticky left-0 bg-zinc-800 z-10">
-                #
-              </th>
-              {headers.map((h, i) => (
-                <th
-                  key={i}
-                  className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-300 min-w-[100px]"
-                >
-                  {h}
+    <div className="flex flex-col h-full bg-zinc-950">
+      <div className="flex-1 overflow-auto p-4">
+        <div className="inline-block min-w-full">
+          <table className="border-collapse border border-zinc-700">
+            <thead>
+              <tr className="bg-zinc-800">
+                <th className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-400 w-12 sticky left-0 bg-zinc-800 z-10">
+                  #
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {dataRows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-zinc-800/50 transition-colors">
-                <td className="border border-zinc-700 px-3 py-2 text-xs text-zinc-500 font-mono sticky left-0 bg-zinc-950 z-10">
-                  {rIdx + 1}
-                </td>
-                {row.map((cell, cIdx) => (
-                  <td
-                    key={cIdx}
-                    className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300 whitespace-nowrap"
+                {headers.map((h, i) => (
+                  <th
+                    key={i}
+                    className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-300 min-w-[100px]"
                   >
-                    {cell}
-                  </td>
-                ))}
-                {/* Fill empty cells if row length doesn't match header length */}
-                {Array.from({ length: Math.max(0, headers.length - row.length) }).map((_, i) => (
-                  <td
-                    key={`empty-${i}`}
-                    className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
-                  />
+                    {h}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {dataRows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-zinc-800/50 transition-colors">
+                  <td className="border border-zinc-700 px-3 py-2 text-xs text-zinc-500 font-mono sticky left-0 bg-zinc-950 z-10">
+                    {rIdx + 1}
+                  </td>
+                  {row.map((cell, cIdx) => (
+                    <td
+                      key={cIdx}
+                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300 whitespace-nowrap"
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                  {/* Fill empty cells if row length doesn't match header length */}
+                  {Array.from({ length: Math.max(0, headers.length - row.length) }).map((_, i) => (
+                    <td
+                      key={`empty-${i}`}
+                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
+                    />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+      
+      {/* Sheet Tabs */}
+      {parsedData && parsedData.sheetNames.length > 1 && (
+        <div className="flex items-center gap-1 bg-zinc-900 border-t border-zinc-800 p-1 overflow-x-auto">
+          {parsedData.sheetNames.map((name) => (
+            <button
+              key={name}
+              onClick={() => setActiveSheet(name)}
+              className={`px-4 py-1.5 text-xs font-medium rounded-t transition-colors whitespace-nowrap ${
+                activeSheet === name
+                  ? "bg-zinc-800 text-zinc-100 border-t-2 border-emerald-500"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

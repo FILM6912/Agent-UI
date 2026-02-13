@@ -177,8 +177,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     // Check if we need to reload content
     // Reload if:
     // 1. No content
-    // 2. It's Excel but content starts with "PK" (raw binary) or doesn't look like JSON array
-    const needsReload = !content || (isExcel && (content.startsWith("PK") || !content.trim().startsWith("[")));
+    // 2. It's Excel but content starts with "PK" (raw binary) or doesn't look like JSON object with sheetNames
+    const needsReload = !content || (isExcel && (content.startsWith("PK") || !content.trim().startsWith("{")));
 
     if (needsReload) {
       const fullPath = node.id;
@@ -193,14 +193,23 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
           const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
           content = URL.createObjectURL(blob);
         } else if (isExcel) {
-          // For Excel, fetch as blob and convert to CSV
+          // For Excel, fetch as blob and parse all sheets
           const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
           const arrayBuffer = await blob.arrayBuffer();
           const workbook = XLSX.read(arrayBuffer, { type: "array" });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          content = JSON.stringify(jsonData);
+          
+          const sheets: Record<string, any[][]> = {};
+          workbook.SheetNames.forEach(name => {
+            const worksheet = workbook.Sheets[name];
+            sheets[name] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          });
+          
+          const result = {
+            sheetNames: workbook.SheetNames,
+            sheets: sheets
+          };
+          
+          content = JSON.stringify(result);
         } else {
           // For text files
           const response = await fileService.readFile(node.name, { path: dirPath }, chatId);
