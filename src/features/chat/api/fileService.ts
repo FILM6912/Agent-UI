@@ -137,19 +137,23 @@ class FileService implements FileApiClient {
   }
 
   async writeFile(filename: string, content: string, options?: FileWriteOptions, chatId?: string): Promise<FileWriteResponse> {
-    const formData = new FormData();
-    formData.append('content', content);
-    if (options?.path) {
-      formData.append('path', options.path);
+    if (!chatId) {
+      throw new Error("Chat ID is required");
     }
-    if (chatId) {
-      formData.append('chat_id', chatId);
-    }
+
+    const body = {
+      content,
+      path: options?.path || null,
+      chat_id: chatId
+    };
 
     const url = `${this.baseUrl}/api/v1/files/write/${encodeURIComponent(filename)}`;
     const response = await fetch(url, {
       method: 'PUT',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

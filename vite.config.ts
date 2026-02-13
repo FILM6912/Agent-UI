@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        '/api': {
+        '/api/v1': {
           target: 'http://192.168.99.1:7860',
           changeOrigin: true,
           secure: false,

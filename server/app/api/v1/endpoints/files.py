@@ -9,6 +9,7 @@ from app.schemas.file import (
     MultipleFileUploadResponse,
     FileReadResponse,
     FileWriteResponse,
+    FileWriteRequest,
     DirectoryCreateResponse,
     FileDeleteResponse,
     FileSearchResponse,
@@ -84,12 +85,10 @@ async def read_file(
 
 @router.put("/write/{filename:path}", response_model=FileWriteResponse, operation_id="write_file")
 async def write_file(
-    chat_id: str = Form(..., description="Chat ID"),
-    filename: str = ...,
-    content: str = Form(..., description="Content to write"),
-    path: Optional[str] = Form(None, description="Target directory path")
+    filename: str,
+    request: FileWriteRequest
 ):
-    return await file_service.write_file(chat_id, filename, content, path)
+    return await file_service.write_file(request.chat_id, filename, request.content, request.path)
 
 
 @router.post("/directory", response_model=DirectoryCreateResponse, operation_id="create_directory", status_code=status.HTTP_201_CREATED)

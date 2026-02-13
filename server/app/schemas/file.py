@@ -46,6 +46,12 @@ class FileReadResponse(BaseModel):
     chat_id: str
 
 
+class FileWriteRequest(BaseModel):
+    chat_id: str = Field(..., description="Chat ID")
+    content: str = Field(..., description="Content to write")
+    path: Optional[str] = Field(None, description="Target directory path")
+
+
 class FileWriteResponse(BaseModel):
     success: bool
     filename: str
