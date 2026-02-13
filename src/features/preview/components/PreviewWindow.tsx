@@ -174,6 +174,19 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     const ext = node.name.split(".").pop()?.toLowerCase();
     const isBinary = ["png", "jpg", "jpeg", "gif", "webp", "pdf"].includes(ext || "");
     const isExcel = ["xlsx", "xls"].includes(ext || "");
+    const isImage = ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext || "");
+    
+    const blobToDataURL = (blob: Blob): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result;
+          if (typeof result === "string") resolve(result);
+          else reject(new Error("Failed to convert blob to data URL"));
+        };
+        reader.onerror = () => reject(new Error("Failed to read blob"));
+        reader.readAsDataURL(blob);
+      });
     
     let content = node.content;
     
@@ -212,7 +225,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
              }
           }
           
-          content = URL.createObjectURL(blob);
+          content = isImage ? await blobToDataURL(blob) : URL.createObjectURL(blob);
         } else if (isExcel) {
           // For Excel, fetch as blob and parse all sheets
           const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
