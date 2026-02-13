@@ -228,6 +228,12 @@ class FileService implements FileApiClient {
     });
   }
 
+  async deleteChatFolder(chatId: string): Promise<FileDeleteResponse> {
+    return this.request<FileDeleteResponse>(`/api/v1/files/chat/${encodeURIComponent(chatId)}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getMCPTools() {
     return this.request('/api/v1/files/mcp/tools');
   }

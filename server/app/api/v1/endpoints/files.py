@@ -141,3 +141,8 @@ async def copy_file(
     request: FileCopyRequest
 ):
     return await file_service.copy_file(request.chat_id, request)
+
+
+@router.delete("/chat/{chat_id}", response_model=FileDeleteResponse, operation_id="delete_chat_folder")
+async def delete_chat_folder(chat_id: str):
+    return await file_service.delete_chat_folder(chat_id)

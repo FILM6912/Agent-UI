@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     DESCRIPTION: str = "API for file management with MCP support"
     API_V1_STR: str = "/api/v1"
-    UPLOAD_DIR: str = "uploads"
+    UPLOAD_DIR: str = "files"
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     

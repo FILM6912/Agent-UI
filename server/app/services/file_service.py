@@ -415,5 +415,27 @@ class FileService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Copy failed: {str(e)}")
 
+    async def delete_chat_folder(self, chat_id: str) -> FileDeleteResponse:
+        chat_dir = self._get_chat_dir(chat_id)
+        
+        if not os.path.exists(chat_dir):
+            return FileDeleteResponse(
+                success=True,
+                message=f"Chat folder not found (already deleted or never existed)",
+                path=chat_dir,
+                chat_id=chat_id
+            )
+        
+        try:
+            shutil.rmtree(chat_dir)
+            return FileDeleteResponse(
+                success=True,
+                message=f"Deleted all files for chat {chat_id}",
+                path=chat_dir,
+                chat_id=chat_id
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Delete chat folder failed: {str(e)}")
+
 
 file_service = FileService()

@@ -1860,6 +1860,13 @@ export default function App() {
     // Call API to delete from server
     await deleteSession(modelConfig, id);
 
+    // Delete all files associated with this chat
+    try {
+      await fileService.deleteChatFolder(id);
+    } catch (error) {
+      console.warn("Failed to delete chat files:", error);
+    }
+
     setSessions((prev) => {
       const newSessions = { ...prev };
       delete newSessions[id];
