@@ -145,7 +145,7 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
             }}
             wrapLongLines={false}
           >
-            {editContent + "\n"}
+            {editContent}
           </SyntaxHighlighter>
         </div>
         <textarea
