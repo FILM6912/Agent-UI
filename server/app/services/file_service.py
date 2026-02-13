@@ -249,8 +249,12 @@ class FileService:
     ) -> FileWriteResponse:
         chat_dir = self._get_chat_dir(chat_id)
         target_dir = resolve_path(path, base_dir=chat_dir)
-        os.makedirs(target_dir, exist_ok=True)
-        file_path = os.path.join(target_dir, filename)
+        
+        # Resolve full path to ensure it's safe and within allowed directory
+        file_path = resolve_path(filename, base_dir=target_dir)
+        
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         
         try:
             with open(file_path, "w", encoding="utf-8", newline="") as f:
