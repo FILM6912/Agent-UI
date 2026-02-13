@@ -36,8 +36,11 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   React.useEffect(() => {
     if (isExcel) {
       try {
-        // Try to parse as JSON first
-        const data = JSON.parse(content);
+        const trimmed = (content || "").trim();
+        if (!trimmed || !(trimmed.startsWith("{") || trimmed.startsWith("["))) {
+          return;
+        }
+        const data = JSON.parse(trimmed);
         
         // Handle multi-sheet format
         if (data.sheetNames && data.sheets) {
@@ -101,6 +104,17 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
       setActiveSheet("CSV");
     }
   }, [content, isExcel]);
+
+  if (isExcel && !parsedData) {
+    return (
+      <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500">
+        <div className="flex flex-col items-center gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
+          <span>Loading spreadsheet...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Determine current sheet data
   if (parsedData && activeSheet && parsedData.sheets[activeSheet]) {

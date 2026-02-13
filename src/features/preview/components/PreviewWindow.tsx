@@ -308,8 +308,17 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                   }
                   const base64 = window.btoa(binary);
                   
+                  // Flatten range to plain numbers to avoid circular refs
+                  const tlCol = Math.floor((image.range?.tl as any)?.nativeCol ?? 0);
+                  const tlRow = Math.floor((image.range?.tl as any)?.nativeRow ?? 0);
+                  const brCol = Math.floor((image.range?.br as any)?.nativeCol ?? tlCol);
+                  const brRow = Math.floor((image.range?.br as any)?.nativeRow ?? tlRow);
+                  
                   images.push({
-                    range: image.range,
+                    range: {
+                      tl: { nativeCol: tlCol, nativeRow: tlRow },
+                      br: { nativeCol: brCol, nativeRow: brRow },
+                    },
                     base64: `data:image/${imgModel.extension};base64,${base64}`,
                     extension: imgModel.extension
                   });

@@ -255,7 +255,17 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
       return <SpreadsheetViewer content={selectedFile.content || ""} />;
     case "xlsx":
     case "xls":
-      return <SpreadsheetViewer content={selectedFile.content || ""} isExcel />;
+      if (!selectedFile.content) {
+        return (
+          <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500">
+            <div className="flex flex-col items-center gap-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
+              <span>Loading spreadsheet...</span>
+            </div>
+          </div>
+        );
+      }
+      return <SpreadsheetViewer content={selectedFile.content} isExcel />;
     case "md":
       return (
         <div className="p-6 md:p-8 max-w-3xl mx-auto prose prose-zinc dark:prose-invert prose-sm">
