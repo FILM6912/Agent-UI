@@ -2,12 +2,14 @@ import React, { useRef, useEffect } from "react";
 import { Terminal } from "lucide-react";
 import { ProcessStep as ProcessStepType } from "@/types";
 import { ProcessStepCard } from "./ProcessStepCard";
+import { useLanguage } from "@/hooks/useLanguage";
 
 interface ProcessTabProps {
   steps?: ProcessStepType[];
 }
 
 export const ProcessTab: React.FC<ProcessTabProps> = ({ steps }) => {
+  const { t } = useLanguage();
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export const ProcessTab: React.FC<ProcessTabProps> = ({ steps }) => {
                 <Terminal className="w-8 h-8 opacity-40 relative z-10" />
               </div>
               <p className="text-sm font-semibold opacity-40 tracking-[0.2em] uppercase">
-                Waiting for agent activity
+                {t("preview.waitingForAgent")}
               </p>
             </div>
           )}

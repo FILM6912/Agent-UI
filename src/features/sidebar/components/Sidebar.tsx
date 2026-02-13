@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Plus,
+  Folder,
   Search,
   LayoutGrid,
   History,
@@ -31,6 +32,7 @@ interface SidebarProps {
   activeProvider: AIProvider;
   onProviderChange: (provider: AIProvider) => void;
   onOpenSettings: () => void;
+  onOpenFiles?: () => void;
   isOpen?: boolean;
   toggleSidebar?: () => void;
   isMobile?: boolean;
@@ -47,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeProvider,
   onProviderChange,
   onOpenSettings,
+  onOpenFiles,
   isOpen = true,
   toggleSidebar,
   isMobile = false,
@@ -179,6 +182,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </>
           ) : (
             <SquarePen className="w-5 h-5" />
+          )}
+        </button>
+
+        {/* Files Button */}
+        <button
+          onClick={onOpenFiles}
+          className={
+            showExpanded
+              ? "w-full flex items-center gap-3 px-3 py-2 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100 rounded-lg transition-colors font-medium mb-1"
+              : "w-9 h-9 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors mb-1"
+          }
+          title={!showExpanded ? "Files" : undefined}
+        >
+          {showExpanded ? (
+            <>
+              <Folder className="w-4 h-4 flex-shrink-0" />
+              <span>Files</span>
+            </>
+          ) : (
+            <Folder className="w-5 h-5" />
           )}
         </button>
 

@@ -11,6 +11,7 @@ import { Sidebar } from "@/features/sidebar";
 import { ChatInterface, getPresetModels } from "@/features/chat";
 import { PreviewWindow } from "@/features/preview";
 import { SettingsView } from "@/features/settings";
+import { FileView } from "@/features/files";
 import { ErrorModal } from "@/components/ErrorModal";
 import { LangFlowConfigModal } from "@/components/LangFlowConfigModal";
 import { AuthPage } from "@/features/auth";
@@ -30,6 +31,7 @@ import {
   fetchAllSessionsFromLangFlow,
   deleteSession,
 } from "@/features/chat/api/langflowService";
+import { fileService } from "@/features/chat/api/fileService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
@@ -81,6 +83,7 @@ interface AppLayoutProps {
   isLangFlowConfigOpen: boolean;
   setIsLangFlowConfigOpen: (open: boolean) => void;
   chatInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  onOpenFiles: () => void;
 }
 
 // AppLayout component extracted outside to prevent recreation
@@ -127,6 +130,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     isLangFlowConfigOpen,
     setIsLangFlowConfigOpen,
     chatInputRef,
+    onOpenFiles,
   }) => (
     <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
@@ -151,6 +155,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           onOpenSettings={() => {
             navigate("/settings/general");
           }}
+          onOpenFiles={onOpenFiles}
           isOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isMobile={isMobile}
@@ -223,6 +228,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
           isSidebarOpen={isSidebarOpen}
           previewContent={previewContent}
           isLoading={isLoading || isStreaming}
+          chatId={activeChatId}
           steps={currentMessages.length > 0 ? (
             (() => {
               const assistantMessages = [...currentMessages].reverse().filter(m => m.role === 'assistant');
@@ -1121,6 +1127,11 @@ export default function App() {
         console.log('>>> handleSend: Reusing active Chat ID:', chatId);
       }
 
+      // Initialize chat directory on server
+      fileService.listFiles(undefined, chatId).catch(err => {
+        console.error('Failed to initialize chat directory:', err);
+      });
+
       const userMsg: Message = {
         id: generateUUID(),
         role: "user",
@@ -1849,6 +1860,13 @@ export default function App() {
     // Call API to delete from server
     await deleteSession(modelConfig, id);
 
+    // Delete all files associated with this chat
+    try {
+      await fileService.deleteChatFolder(id);
+    } catch (error) {
+      console.warn("Failed to delete chat files:", error);
+    }
+
     setSessions((prev) => {
       const newSessions = { ...prev };
       delete newSessions[id];
@@ -1897,6 +1915,20 @@ export default function App() {
     setLoadingChatId(id);
     if (isMobile) {
       setIsSidebarOpen(false);
+    }
+  };
+
+  const handleOpenFiles = () => {
+    if (activeChatId) {
+      navigate(`/files/${activeChatId}`);
+    } else {
+       // If no active chat, try to find the most recent one
+       const sessionIds = Object.keys(sessions);
+       if (sessionIds.length > 0) {
+          // Sort by updated at
+          const latest = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+          navigate(`/files/${latest.id}`);
+       }
     }
   };
 
@@ -1995,6 +2027,7 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
             ) : (
               <Navigate to="/login" />
@@ -2046,6 +2079,7 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
             ) : (
               <Navigate to="/login" />
@@ -2096,7 +2130,18 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                onOpenFiles={handleOpenFiles}
               />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/files/:chatId"
+          element={
+            isAuthenticated ? (
+              <FileView />
             ) : (
               <Navigate to="/login" />
             )

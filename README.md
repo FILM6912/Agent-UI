@@ -89,28 +89,57 @@ import AuthPage from "../auth/components/AuthPage";
 - **Internationalization**: Custom Context-based (EN/TH)
 - **Desktop**: Electron (optional)
 
+## 📂 File Management System
+
+This project includes a robust file management system powered by FastAPI and FastMCP.
+
+### Server (API + MCP)
+- **Framework**: FastAPI
+- **MCP Integration**: FastMCP (gofastmcp.com/integrations/fastapi)
+- **Features**:
+  - Chat-isolated file storage
+  - Directory traversal protection
+  - Async file operations
+  - REST API + MCP Resource endpoints
+
+### Client (UI)
+- **Integration**: React + Tailwind
+- **Features**:
+  - File Browser
+  - File Editor
+  - Drag & Drop Upload
+  - Chat-aware context
+
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Node.js 18+
+- Python 3.8+
 - npm or yarn
 
-### Installation
-
+### 1. Start the API Server
 ```bash
-# Install dependencies
+cd server
+pip install -r requirements.txt
+python app/main.py
+```
+The server will start at `http://localhost:8000` with:
+- REST API: `http://localhost:8000/api/v1`
+- MCP Endpoint: `http://localhost:8000/mcp`
+- Swagger UI: `http://localhost:8000/docs`
+
+### 2. Start the UI
+```bash
+# In the root directory
 npm install
-
-# Run development server
 npm run dev
+```
+The UI will start at `http://localhost:5173`.
 
-# Build for production
+### Build for Production
+```bash
 npm run build
 
-# Preview production build
-npm run preview
-```
 
 ### Electron Desktop App
 

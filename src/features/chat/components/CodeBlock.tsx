@@ -1,5 +1,34 @@
 import React, { useState } from "react";
-import { Play } from "lucide-react";
+import { Play, Copy, Check } from "lucide-react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  vscDarkPlus,
+  vs,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useTheme } from "../../../hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
+import { getLanguageConfig } from "@/lib/languageUtils";
+
+const CopyButton = ({ code }: { code: string }) => {
+  const { t } = useLanguage();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors"
+      title={copied ? t("codeBlock.copied") : t("codeBlock.copy")}
+    >
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+};
 
 interface CodeBlockProps {
   className?: string;
@@ -12,11 +41,13 @@ export const CodeBlock = React.memo<CodeBlockProps>(
   ({ className, children, onPreviewRequest, ...props }) => {
     const match = /language-(\w+)/.exec(className || "");
     const language = match ? match[1] : "";
-    const content = String(children).replace(/\n$/, "");
+    const content = String(children).replace(/\n$/, ""); 
     const isInline = !match && !content.includes("\n");
 
     const isPreviewable = ["html", "svg"].includes(language);
     const [isPreview, setIsPreview] = useState(false);
+    const { isDark } = useTheme();
+    const config = getLanguageConfig(language);
 
     if (isInline) {
       return (
@@ -33,17 +64,16 @@ export const CodeBlock = React.memo<CodeBlockProps>(
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#0c0c0e] overflow-hidden my-4 w-full shadow-md group">
         <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-[#18181b] border-b border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700"></div>
+            <div className="flex items-center justify-center" style={{ color: config.color }}>
+              {config.icon}
             </div>
-            <span className="text-xs text-zinc-500 font-mono font-medium ml-2">
-              {language || "text"}
+            <span className="text-xs font-mono font-medium" style={{ color: config.color }}>
+              {config.label}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
+            <CopyButton code={content} />
             {/* Run Button for HTML */}
             {language === "html" && onPreviewRequest && (
               <button
@@ -84,14 +114,26 @@ export const CodeBlock = React.memo<CodeBlockProps>(
             />
           </div>
         ) : (
-          <div className="p-4 overflow-x-auto text-sm">
-            <code
-              className={`font-mono text-zinc-800 dark:text-zinc-300 ${className}`}
-              {...props}
-            >
-              {children}
-            </code>
-          </div>
+          <SyntaxHighlighter
+            language={language}
+            style={isDark ? vscDarkPlus : vs}
+            customStyle={{
+              margin: 0,
+              padding: "1rem",
+              fontSize: "0.875rem",
+              lineHeight: "1.5",
+              background: "transparent",
+            }}
+            codeTagProps={{
+              style: {
+                fontFamily: "monospace",
+              },
+            }}
+            wrapLongLines={true}
+            {...props}
+          >
+            {content}
+          </SyntaxHighlighter>
         )}
       </div>
     );
