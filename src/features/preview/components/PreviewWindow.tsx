@@ -27,7 +27,7 @@ import { FileContentRenderer } from "./FileContentRenderer";
 import { ProcessTab } from "./ProcessTab";
 import { useClipboard } from "../hooks/useClipboard";
 import { useWindowResize } from "../hooks/useWindowResize";
-import { INITIAL_FILE_SYSTEM, MOCK_DASHBOARD_HTML } from "../data/mockData";
+import { MOCK_DASHBOARD_HTML } from "../data/mockData";
 
 interface PreviewWindowProps {
   isOpen?: boolean;
@@ -55,15 +55,13 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   const [activeTab, setActiveTab] = useState<"process" | "files" | "web">(
     "process",
   );
-  const [fileSystem, setFileSystem] = useState<FileNode[]>(INITIAL_FILE_SYSTEM);
+  const [fileSystem, setFileSystem] = useState<FileNode[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const selectedFileName = selectedFile?.name ?? null;
   const [editContent, setEditContent] = useState<string>("");
   const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
   const [iframeKey, setIframeKey] = useState(0);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
-    new Set(["src", "src/components", "public"]),
-  );
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
 
@@ -109,6 +107,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     y: number;
     node: FileNode;
   } | null>(null);
+  const [isFilesLoading, setIsFilesLoading] = useState(false);
 
   useEffect(() => {
     const content = previewContent || MOCK_DASHBOARD_HTML;
@@ -127,6 +126,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
   const fetchFiles = async () => {
     if (!chatId) return;
+    setIsFilesLoading(true);
     try {
       const response = await fileService.listFiles(undefined, chatId, true);
       
@@ -142,6 +142,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
       setFileSystem(nodes);
     } catch (error) {
       console.error("Failed to fetch files", error);
+    } finally {
+      setIsFilesLoading(false);
     }
   };
 
@@ -682,23 +684,40 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       } catch (err) {}
                     }}
                   >
-                    {fileSystem.map((node, idx) => (
-                      <FileTreeItem
-                        key={node.id || idx}
-                        node={node}
-                        level={0}
-                        path={node.name}
-                        selectedFile={selectedFileName}
-                        onToggle={toggleFolder}
-                        onSelect={handleFileTreeSelect}
-                        onDelete={handleDeleteNode}
-                        onRename={handleRenameNode}
-                        onDownload={handleDownloadNode}
-                        onFileDrop={handleFileDrop}
-                        onContextMenu={handleContextMenu}
-                        expandedPaths={expandedPaths}
-                      />
-                    ))}
+                    {isFilesLoading ? (
+                      <div className="space-y-1 p-2">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 py-1.5 px-2"
+                          >
+                            <div className="w-4 h-4 rounded bg-zinc-200 dark:bg-zinc-700 animate-pulse" />
+                            <div
+                              className="h-3 rounded bg-zinc-200 dark:bg-zinc-700 animate-pulse"
+                              style={{ width: `${60 + Math.random() * 80}px` }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      fileSystem.map((node, idx) => (
+                        <FileTreeItem
+                          key={node.id || idx}
+                          node={node}
+                          level={0}
+                          path={node.name}
+                          selectedFile={selectedFileName}
+                          onToggle={toggleFolder}
+                          onSelect={handleFileTreeSelect}
+                          onDelete={handleDeleteNode}
+                          onRename={handleRenameNode}
+                          onDownload={handleDownloadNode}
+                          onFileDrop={handleFileDrop}
+                          onContextMenu={handleContextMenu}
+                          expandedPaths={expandedPaths}
+                        />
+                      ))
+                    )}
                   </div>
                   
                   {contextMenu && (
