@@ -1,5 +1,19 @@
 import React from "react";
 
+interface SheetImage {
+  range: {
+    tl: { nativeCol: number; nativeRow: number };
+    br: { nativeCol: number; nativeRow: number };
+  };
+  base64: string;
+  extension: string;
+}
+
+interface ParsedSheet {
+  rows: string[][];
+  images: SheetImage[];
+}
+
 interface SpreadsheetViewerProps {
   content: string;
   isExcel?: boolean;
@@ -12,11 +26,12 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   const [activeSheet, setActiveSheet] = React.useState<string>("");
   const [parsedData, setParsedData] = React.useState<{
     sheetNames: string[];
-    sheets: Record<string, string[][]>;
+    sheets: Record<string, ParsedSheet>;
   } | null>(null);
 
   let headers: string[] = [];
   let dataRows: string[][] = [];
+  let currentSheetImages: SheetImage[] = [];
 
   React.useEffect(() => {
     if (isExcel) {
@@ -26,14 +41,25 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
         
         // Handle multi-sheet format
         if (data.sheetNames && data.sheets) {
-          const sheets: Record<string, string[][]> = {};
+          const sheets: Record<string, ParsedSheet> = {};
           
           Object.keys(data.sheets).forEach(name => {
-            const sheetData = data.sheets[name];
-            if (Array.isArray(sheetData) && sheetData.length > 0) {
-              sheets[name] = sheetData.map((row: any[]) => row.map((c: any) => String(c || "")));
+            const rawSheet = data.sheets[name];
+            
+            // Check if it's the new format with data and images
+            if (rawSheet && typeof rawSheet === 'object' && !Array.isArray(rawSheet) && rawSheet.data) {
+               sheets[name] = {
+                 rows: Array.isArray(rawSheet.data) ? rawSheet.data.map((row: any[]) => row.map((c: any) => String(c || ""))) : [],
+                 images: Array.isArray(rawSheet.images) ? rawSheet.images : []
+               };
+            } else if (Array.isArray(rawSheet)) {
+              // Legacy/Fallback array format
+              sheets[name] = {
+                rows: rawSheet.map((row: any[]) => row.map((c: any) => String(c || ""))),
+                images: []
+              };
             } else {
-              sheets[name] = [];
+              sheets[name] = { rows: [], images: [] };
             }
           });
 
@@ -53,7 +79,7 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
           const processedData = data.map((row: any[]) => row.map((c: any) => String(c || "")));
           setParsedData({
             sheetNames: ["Sheet1"],
-            sheets: { "Sheet1": processedData }
+            sheets: { "Sheet1": { rows: processedData, images: [] } }
           });
           setActiveSheet("Sheet1");
           return;
@@ -70,7 +96,7 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
       // Add header to rows for consistent rendering with Excel data which includes headers in data
       setParsedData({
         sheetNames: ["CSV"],
-        sheets: { "CSV": [processedHeaders, ...processedRows] }
+        sheets: { "CSV": { rows: [processedHeaders, ...processedRows], images: [] } }
       });
       setActiveSheet("CSV");
     }
@@ -79,10 +105,11 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
   // Determine current sheet data
   if (parsedData && activeSheet && parsedData.sheets[activeSheet]) {
     const sheetData = parsedData.sheets[activeSheet];
-    if (sheetData.length > 0) {
-      headers = sheetData[0];
-      dataRows = sheetData.slice(1);
+    if (sheetData.rows.length > 0) {
+      headers = sheetData.rows[0];
+      dataRows = sheetData.rows.slice(1);
     }
+    currentSheetImages = sheetData.images || [];
   }
 
   // Error state for raw binary
@@ -97,9 +124,41 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
     );
   }
 
+  const renderImagesForCell = (rowIndex: number, colIndex: number) => {
+    const images = currentSheetImages.filter(img => 
+      Math.floor(img.range.tl.nativeRow) === rowIndex && 
+      Math.floor(img.range.tl.nativeCol) === colIndex
+    );
+    
+    if (images.length === 0) return null;
+    
+    return (
+      <>
+        {images.map((img, idx) => (
+          <div 
+            key={idx} 
+            className="absolute z-10 pointer-events-none"
+            style={{
+              top: 0,
+              left: 0,
+              // Simple rendering: just show the image with max dimensions
+              // In a real app we'd calculate exact position/size based on col width/row height
+            }}
+          >
+            <img 
+              src={img.base64} 
+              alt="Embedded" 
+              className="max-w-[200px] max-h-[200px] object-contain shadow-md bg-white/5"
+            />
+          </div>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-zinc-950">
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 relative">
         <div className="inline-block min-w-full">
           <table className="border-collapse border border-zinc-700">
             <thead>
@@ -110,9 +169,10 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                 {headers.map((h, i) => (
                   <th
                     key={i}
-                    className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-300 min-w-[100px]"
+                    className="border border-zinc-700 px-3 py-2 text-left text-xs font-semibold text-zinc-300 min-w-[100px] relative group"
                   >
                     {h}
+                    {renderImagesForCell(0, i)}
                   </th>
                 ))}
               </tr>
@@ -126,17 +186,20 @@ export const SpreadsheetViewer: React.FC<SpreadsheetViewerProps> = ({
                   {row.map((cell, cIdx) => (
                     <td
                       key={cIdx}
-                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300 whitespace-nowrap"
+                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300 whitespace-nowrap relative"
                     >
                       {cell}
+                      {renderImagesForCell(rIdx + 1, cIdx)}
                     </td>
                   ))}
                   {/* Fill empty cells if row length doesn't match header length */}
                   {Array.from({ length: Math.max(0, headers.length - row.length) }).map((_, i) => (
                     <td
                       key={`empty-${i}`}
-                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
-                    />
+                      className="border border-zinc-700 px-3 py-2 text-sm text-zinc-300 relative"
+                    >
+                      {renderImagesForCell(rIdx + 1, row.length + i)}
+                    </td>
                   ))}
                 </tr>
               ))}

@@ -17,6 +17,7 @@ interface FileContentRendererProps {
   viewMode: "code" | "preview";
   isDark: boolean;
   onEditContentChange: (content: string) => void;
+  error?: string | null;
 }
 
 const getLanguage = (filename: string) => {
@@ -91,9 +92,29 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
   viewMode,
   isDark,
   onEditContentChange,
+  error,
 }) => {
   const { t } = useLanguage();
   const ext = selectedFile.name.split(".").pop()?.toLowerCase();
+  
+  const [imageError, setImageError] = React.useState(false);
+  
+  // Reset error state when file changes
+  React.useEffect(() => {
+    setImageError(false);
+  }, [selectedFile.id]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-red-500 p-8 text-center">
+         <div className="flex flex-col items-center gap-2">
+           <span className="text-4xl">⚠️</span>
+           <p>Failed to load file</p>
+           <p className="text-sm text-zinc-500">{error}</p>
+         </div>
+      </div>
+    );
+  }
 
   if (viewMode === "code") {
     return (
@@ -152,12 +173,36 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
     case "jpeg":
     case "gif":
     case "webp":
+      if (!selectedFile.content) {
+        return (
+          <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500">
+            <div className="flex flex-col items-center gap-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
+              <span>Loading image...</span>
+            </div>
+          </div>
+        );
+      }
+      
+      if (imageError) {
+        return (
+          <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-900 text-red-500 p-8 text-center">
+             <div className="flex flex-col items-center gap-2">
+               <span className="text-4xl">⚠️</span>
+               <p>Failed to load image</p>
+               <p className="text-sm text-zinc-500">The image data might be corrupted or the format is unsupported.</p>
+             </div>
+          </div>
+        );
+      }
+
       return (
         <div className="flex items-center justify-center h-full bg-[url('https://transparenttextures.com/patterns/stardust.png')] bg-zinc-200 dark:bg-zinc-900 p-8">
           <img
             src={selectedFile.content}
             alt={selectedFile.name}
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-zinc-300 dark:border-zinc-800"
+            onError={() => setImageError(true)}
           />
         </div>
       );

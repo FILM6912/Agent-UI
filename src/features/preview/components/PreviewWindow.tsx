@@ -20,6 +20,7 @@ import {
   Edit2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
 import fileService from "../../chat/api/fileService";
@@ -67,6 +68,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -166,6 +168,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
 
   const handleFileSelect = async (node: FileNode) => {
     setSelectedFile(node);
+    setLoadError(null);
     
     // Determine file type
     const ext = node.name.split(".").pop()?.toLowerCase();
@@ -176,9 +179,14 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     
     // Check if we need to reload content
     // Reload if:
-    // 1. No content
-    // 2. It's Excel but content starts with "PK" (raw binary) or doesn't look like JSON object with sheetNames
-    const needsReload = !content || (isExcel && (content.startsWith("PK") || !content.trim().startsWith("{")));
+  // - No content
+  // - Binary content is not a URL (blob:, http(s):, data:)
+  // - Excel content looks like raw binary or not JSON
+  const looksLikeUrl = (s: string) => s.startsWith("blob:") || s.startsWith("http://") || s.startsWith("https://") || s.startsWith("data:");
+  const needsReload =
+    !content ||
+    (isBinary && !looksLikeUrl(content)) ||
+    (isExcel && (content.startsWith("PK") || !content.trim().startsWith("{")));
 
     if (needsReload) {
       const fullPath = node.id;
@@ -191,23 +199,136 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
           // We can construct it manually or fetch it as blob and create object URL
           // Using object URL is safer and cleaner for auth/headers if needed later
           const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
+          
+          if (blob.type === 'application/json') {
+             // This suggests an error response that was returned as a blob
+             const text = await blob.text();
+             console.error("Failed to download file, received JSON:", text);
+             try {
+               const error = JSON.parse(text);
+               throw new Error(error.detail || error.error || "Failed to download file");
+             } catch (e) {
+               throw new Error("Failed to download file: " + text);
+             }
+          }
+          
           content = URL.createObjectURL(blob);
         } else if (isExcel) {
           // For Excel, fetch as blob and parse all sheets
           const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
           const arrayBuffer = await blob.arrayBuffer();
-          const workbook = XLSX.read(arrayBuffer, { type: "array" });
           
-          const sheets: Record<string, any[][]> = {};
-          workbook.SheetNames.forEach(name => {
-            const worksheet = workbook.Sheets[name];
-            sheets[name] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          });
-          
-          const result = {
-            sheetNames: workbook.SheetNames,
-            sheets: sheets
-          };
+          let result;
+          try {
+            // Try ExcelJS first for images support
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(arrayBuffer);
+            
+            const sheets: Record<string, any> = {};
+            const sheetNames: string[] = [];
+            
+            workbook.eachSheet((worksheet) => {
+              sheetNames.push(worksheet.name);
+              
+              // Extract data
+              const data: string[][] = [];
+              worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+                const rowVals: any = row.values;
+                let rowData: string[] = [];
+                
+                if (Array.isArray(rowVals)) {
+                  // ExcelJS values are 1-based, index 0 is undefined
+                  rowData = rowVals.slice(1).map((v: any) => {
+                    if (v === null || v === undefined) return "";
+                    if (typeof v === 'object') {
+                       // Handle rich text or other objects
+                       if (v.richText) return v.richText.map((rt: any) => rt.text).join("");
+                       if (v.text) return v.text;
+                       if (v.result !== undefined) return v.result?.toString() ?? ""; // Formula result
+                       return JSON.stringify(v);
+                    }
+                    return v.toString();
+                  });
+                } else if (typeof rowVals === 'object') {
+                   // Fallback for object-based values
+                   row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                     const v = cell.value;
+                     let strVal = "";
+                     if (v === null || v === undefined) strVal = "";
+                     else if (typeof v === 'object') {
+                        if ((v as any).richText) strVal = (v as any).richText.map((rt: any) => rt.text).join("");
+                        else if ((v as any).text) strVal = (v as any).text;
+                        else if ((v as any).result !== undefined) strVal = (v as any).result?.toString() ?? "";
+                        else strVal = JSON.stringify(v);
+                     } else {
+                        strVal = v.toString();
+                     }
+                     rowData[colNumber - 1] = strVal;
+                   });
+                }
+                
+                // Fill any gaps in the row
+                for (let i = 0; i < rowData.length; i++) {
+                   if (rowData[i] === undefined) rowData[i] = "";
+                }
+                
+                data[rowNumber - 1] = rowData;
+              });
+              
+              // Fill empty rows
+              for (let i = 0; i < data.length; i++) {
+                if (!data[i]) data[i] = [];
+              }
+              
+              // Extract images
+              const images: any[] = [];
+              worksheet.getImages().forEach((image) => {
+                const imgId = image.imageId;
+                const imgModel = workbook.getImage(imgId);
+                
+                if (imgModel && imgModel.buffer) {
+                  // Convert buffer to base64
+                  const bytes = new Uint8Array(imgModel.buffer as ArrayBufferLike);
+                  let binary = '';
+                  for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                  }
+                  const base64 = window.btoa(binary);
+                  
+                  images.push({
+                    range: image.range,
+                    base64: `data:image/${imgModel.extension};base64,${base64}`,
+                    extension: imgModel.extension
+                  });
+                }
+              });
+              
+              sheets[worksheet.name] = {
+                data,
+                images
+              };
+            });
+            
+            result = {
+              sheetNames,
+              sheets,
+              type: "exceljs"
+            };
+            
+          } catch (e) {
+            console.error("ExcelJS failed, falling back to XLSX", e);
+            const workbook = XLSX.read(arrayBuffer, { type: "array" });
+            const sheets: Record<string, any[][]> = {};
+            workbook.SheetNames.forEach(name => {
+              const worksheet = workbook.Sheets[name];
+              sheets[name] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            });
+            
+            result = {
+              sheetNames: workbook.SheetNames,
+              sheets
+            };
+          }
           
           content = JSON.stringify(result);
         } else {
@@ -232,11 +353,11 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
           return updateNode(prev);
         });
 
-        setSelectedFile((prev) =>
-          prev && prev.id === node.id ? { ...prev, content } : prev
-        );
+        const nodeWithContent = { ...node, content };
+        setSelectedFile(nodeWithContent);
       } catch (error) {
         console.error("Failed to load file content:", error);
+        setLoadError(error instanceof Error ? error.message : "Failed to load file");
       }
     }
 
@@ -487,27 +608,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   };
 
   const handleFileTreeSelect = async (path: string, node: FileNode) => {
-    if (node.type === "file" && !node.content && chatId) {
-      try {
-        const lastSlash = path.lastIndexOf("/");
-        const dirPath =
-          lastSlash > -1 ? path.substring(0, lastSlash) : undefined;
-        const response = await fileService.readFile(
-          node.name,
-          { path: dirPath },
-          chatId,
-        );
-        const content = response.content;
-
-        const nodeWithContent = { ...node, content };
-        handleFileSelect(nodeWithContent);
-      } catch (error) {
-        console.error("Failed to read file:", error);
-        handleFileSelect(node);
-      }
-    } else {
-      handleFileSelect(node);
-    }
+    // Delegate content loading to handleFileSelect.
+    // It knows how to properly load binary files (via download) and text/excel accordingly.
+    handleFileSelect(node);
   };
 
   const mobileClasses = `fixed inset-0 z-50 bg-background flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`;
@@ -708,11 +811,12 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       editContent={editContent}
                       viewMode={viewMode}
                       isDark={isDark}
-                      onEditContentChange={setEditContent}
-                    />
-                  </div>
-                </div>
-              ) : (
+                onEditContentChange={setEditContent}
+                error={loadError}
+              />
+            </div>
+          </div>
+        ) : (
                 <>
                   <div className="bg-muted border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center justify-between transition-colors duration-200">
                     <span>Generated Files</span>
