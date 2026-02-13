@@ -19,6 +19,7 @@ import {
   Loader2,
   Edit2,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
 import fileService from "../../chat/api/fileService";
@@ -163,10 +164,75 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     });
   };
 
-  const handleFileSelect = (node: FileNode) => {
+  const handleFileSelect = async (node: FileNode) => {
     setSelectedFile(node);
-    setEditContent(node.content || "");
+    
+    // Determine file type
     const ext = node.name.split(".").pop()?.toLowerCase();
+    const isBinary = ["png", "jpg", "jpeg", "gif", "webp", "pdf"].includes(ext || "");
+    const isExcel = ["xlsx", "xls"].includes(ext || "");
+    
+    let content = node.content;
+    
+    // Check if we need to reload content
+    // Reload if:
+    // 1. No content
+    // 2. It's Excel but content starts with "PK" (raw binary) or doesn't look like JSON array
+    const needsReload = !content || (isExcel && (content.startsWith("PK") || !content.trim().startsWith("[")));
+
+    if (needsReload) {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath = lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+
+      try {
+        if (isBinary) {
+          // For binary files, use the download URL directly
+          // We can construct it manually or fetch it as blob and create object URL
+          // Using object URL is safer and cleaner for auth/headers if needed later
+          const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
+          content = URL.createObjectURL(blob);
+        } else if (isExcel) {
+          // For Excel, fetch as blob and convert to CSV
+          const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
+          const arrayBuffer = await blob.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: "array" });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          content = JSON.stringify(jsonData);
+        } else {
+          // For text files
+          const response = await fileService.readFile(node.name, { path: dirPath }, chatId);
+          content = response.content;
+        }
+
+        // Update local state
+        setFileSystem((prev) => {
+          const updateNode = (nodes: FileNode[]): FileNode[] => {
+            return nodes.map((n) => {
+              if (n.id === node.id) {
+                return { ...n, content };
+              }
+              if (n.children) {
+                return { ...n, children: updateNode(n.children) };
+              }
+              return n;
+            });
+          };
+          return updateNode(prev);
+        });
+
+        setSelectedFile((prev) =>
+          prev && prev.id === node.id ? { ...prev, content } : prev
+        );
+      } catch (error) {
+        console.error("Failed to load file content:", error);
+      }
+    }
+
+    setEditContent(content || "");
+    
     if (
       [
         "md",
@@ -244,17 +310,26 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     await copyToClipboard(selectedFile.content);
   };
 
-  const handleDownload = (node: FileNode) => {
-    if (!node.content) return;
-    const blob = new Blob([node.content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = node.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownload = async (node: FileNode | null) => {
+    if (!node || !chatId) return;
+    try {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath =
+        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
+      
+      const blob = await fileService.downloadFile(node.name, { path: dirPath }, chatId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = node.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download file:", error);
+    }
   };
 
   const handleShare = async () => {
@@ -354,33 +429,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     });
   };
 
-  const handleDownloadNode = async (node: FileNode) => {
-    if (!node || !chatId || node.type !== "file") return;
 
-    try {
-      const fullPath = node.id;
-      const lastSlashIndex = fullPath.lastIndexOf("/");
-      const dirPath =
-        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
-      const filename = node.name;
-
-      const blob = await fileService.downloadFile(
-        filename,
-        { path: dirPath },
-        chatId,
-      );
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Failed to download file:", error);
-    }
-  };
 
   const handleFileDrop = async (
     sourceNode: FileNode,
@@ -709,7 +758,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                           onSelect={handleFileTreeSelect}
                           onDelete={handleDeleteNode}
                           onRename={handleRenameNode}
-                          onDownload={handleDownloadNode}
+                          onDownload={handleDownload}
                           onFileDrop={handleFileDrop}
                           onContextMenu={handleContextMenu}
                           expandedPaths={expandedPaths}
@@ -734,7 +783,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         {contextMenu.node.type === "file" && (
                           <button
                             onClick={() => {
-                              handleDownloadNode(contextMenu.node);
+                              handleDownload(contextMenu.node);
                               setContextMenu(null);
                             }}
                             className="w-full px-3 py-1.5 text-left text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"

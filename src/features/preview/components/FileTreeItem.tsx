@@ -16,6 +16,9 @@ import {
   Trash2,
   Edit2,
   Download,
+  Terminal,
+  Database,
+  Box,
 } from "lucide-react";
 
 export interface FileNode {
@@ -50,16 +53,41 @@ const getFileIcon = (fileName: string) => {
   if (ext === "tsx" || ext === "ts" || ext === "jsx" || ext === "js")
     return <FileCode className="w-4 h-4 text-blue-400" />;
   if (ext === "json") return <FileJson className="w-4 h-4 text-yellow-400" />;
-  if (ext === "css" || ext === "scss")
+  if (ext === "css" || ext === "scss" || ext === "less" || ext === "sass")
     return <FileType className="w-4 h-4 text-pink-400" />;
-  if (ext === "html") return <Globe className="w-4 h-4 text-orange-400" />;
+  if (ext === "html" || ext === "htm" || ext === "xml")
+    return <Globe className="w-4 h-4 text-orange-400" />;
   if (ext === "md" || ext === "txt")
     return <FileText className="w-4 h-4 text-zinc-400" />;
-  if (ext === "png" || ext === "jpg" || ext === "svg" || ext === "gif")
+  if (
+    ext === "png" ||
+    ext === "jpg" ||
+    ext === "jpeg" ||
+    ext === "svg" ||
+    ext === "gif" ||
+    ext === "webp"
+  )
     return <ImageIcon className="w-4 h-4 text-purple-400" />;
   if (ext === "csv") return <TableIcon className="w-4 h-4 text-green-400" />;
   if (ext === "xlsx" || ext === "xls")
     return <FileSpreadsheet className="w-4 h-4 text-emerald-400" />;
+  if (ext === "py") return <FileCode className="w-4 h-4 text-blue-500" />;
+  if (ext === "java" || ext === "jar")
+    return <FileCode className="w-4 h-4 text-red-500" />;
+  if (ext === "c" || ext === "cpp" || ext === "h" || ext === "hpp")
+    return <FileCode className="w-4 h-4 text-blue-600" />;
+  if (ext === "cs") return <FileCode className="w-4 h-4 text-purple-600" />;
+  if (ext === "go") return <FileCode className="w-4 h-4 text-cyan-500" />;
+  if (ext === "rs") return <FileCode className="w-4 h-4 text-orange-600" />;
+  if (ext === "php") return <FileCode className="w-4 h-4 text-indigo-400" />;
+  if (ext === "rb") return <FileCode className="w-4 h-4 text-red-600" />;
+  if (ext === "sh" || ext === "bash" || ext === "zsh")
+    return <Terminal className="w-4 h-4 text-green-600" />;
+  if (ext === "sql") return <Database className="w-4 h-4 text-blue-400" />;
+  if (ext === "yaml" || ext === "yml")
+    return <FileCode className="w-4 h-4 text-purple-400" />;
+  if (ext === "dockerfile" || ext === "docker")
+    return <Box className="w-4 h-4 text-blue-400" />;
   return <FileIcon className="w-4 h-4 text-zinc-500" />;
 };
 

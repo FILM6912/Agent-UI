@@ -20,15 +20,69 @@ interface FileContentRendererProps {
 }
 
 const getLanguage = (filename: string) => {
-  if (filename.endsWith(".tsx") || filename.endsWith(".ts"))
-    return "typescript";
-  if (filename.endsWith(".js") || filename.endsWith(".jsx"))
-    return "javascript";
-  if (filename.endsWith(".css")) return "css";
-  if (filename.endsWith(".json")) return "json";
-  if (filename.endsWith(".html") || filename.endsWith(".svg")) return "xml";
-  if (filename.endsWith(".md")) return "markdown";
-  return "plaintext";
+  const ext = filename.split(".").pop()?.toLowerCase();
+  
+  switch (ext) {
+    case "ts":
+    case "tsx":
+      return "typescript";
+    case "js":
+    case "jsx":
+      return "javascript";
+    case "css":
+    case "scss":
+    case "sass":
+    case "less":
+      return "css";
+    case "json":
+      return "json";
+    case "html":
+    case "htm":
+    case "xml":
+    case "svg":
+      return "markup";
+    case "md":
+    case "markdown":
+      return "markdown";
+    case "py":
+      return "python";
+    case "java":
+      return "java";
+    case "c":
+    case "h":
+      return "c";
+    case "cpp":
+    case "hpp":
+    case "cc":
+      return "cpp";
+    case "cs":
+      return "csharp";
+    case "go":
+      return "go";
+    case "rs":
+      return "rust";
+    case "php":
+      return "php";
+    case "rb":
+      return "ruby";
+    case "sh":
+    case "bash":
+    case "zsh":
+      return "bash";
+    case "yaml":
+    case "yml":
+      return "yaml";
+    case "sql":
+      return "sql";
+    case "dockerfile":
+      return "docker";
+    case "ini":
+    case "toml":
+    case "cfg":
+      return "ini";
+    default:
+      return "plaintext";
+  }
 };
 
 export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
