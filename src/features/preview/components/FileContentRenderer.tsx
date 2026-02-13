@@ -13,6 +13,7 @@ import { FileNode } from "./FileTreeItem";
 import { SpreadsheetViewer } from "./SpreadsheetViewer";
 import { useLanguage } from "@/hooks/useLanguage";
 import "katex/dist/katex.min.css";
+import { getLanguageConfig } from "@/lib/languageUtils";
 
 const CopyButton = ({ code }: { code: string }) => {
   const [copied, setCopied] = useState(false);
@@ -407,12 +408,19 @@ export const FileContentRenderer: React.FC<FileContentRendererProps> = ({
                   );
                 }
                 
+                const config = getLanguageConfig(language || "");
+
                 return (
                   <div className="my-4 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800">
                     <div className="flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800">
-                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                        {language || "text"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center" style={{ color: config.color }}>
+                          {config.icon}
+                        </div>
+                        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: config.color }}>
+                          {config.label}
+                        </span>
+                      </div>
                       <CopyButton code={String(children).replace(/\n$/, "")} />
                     </div>
                     <SyntaxHighlighter
