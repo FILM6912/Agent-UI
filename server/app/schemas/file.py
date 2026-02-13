@@ -49,7 +49,7 @@ class FileReadResponse(BaseModel):
 class FileWriteRequest(BaseModel):
     chat_id: str = Field(..., description="Chat ID")
     content: str = Field(..., description="Content to write")
-    path: Optional[str] = Field(None, description="Target directory path")
+    path: Optional[str] = Field(None, description="Target directory path", json_schema_extra={"type": ["string", "null"]})
 
 
 class FileWriteResponse(BaseModel):
@@ -101,8 +101,8 @@ class FileInfoResponse(BaseModel):
 class FileMoveRequest(BaseModel):
     source: str = Field(..., description="Source file/directory name")
     destination: str = Field(..., description="Destination file/directory name")
-    source_path: Optional[str] = Field(None, description="Source directory path")
-    dest_path: Optional[str] = Field(None, description="Destination directory path")
+    source_path: Optional[str] = Field(None, description="Source directory path", json_schema_extra={"type": ["string", "null"]})
+    dest_path: Optional[str] = Field(None, description="Destination directory path", json_schema_extra={"type": ["string", "null"]})
     chat_id: str = Field(..., description="Chat ID")
 
 
@@ -115,8 +115,8 @@ class FileMoveResponse(BaseModel):
 class FileCopyRequest(BaseModel):
     source: str = Field(..., description="Source file/directory name")
     destination: str = Field(..., description="Destination file/directory name")
-    source_path: Optional[str] = Field(None, description="Source directory path")
-    dest_path: Optional[str] = Field(None, description="Destination directory path")
+    source_path: Optional[str] = Field(None, description="Source directory path", json_schema_extra={"type": ["string", "null"]})
+    dest_path: Optional[str] = Field(None, description="Destination directory path", json_schema_extra={"type": ["string", "null"]})
     chat_id: str = Field(..., description="Chat ID")
 
 
