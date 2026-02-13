@@ -31,6 +31,7 @@ import { ProcessTab } from "./ProcessTab";
 import { useClipboard } from "../hooks/useClipboard";
 import { useWindowResize } from "../hooks/useWindowResize";
 import { MOCK_DASHBOARD_HTML } from "../data/mockData";
+import { getLanguageConfig } from "@/lib/languageUtils";
 
 interface PreviewWindowProps {
   isOpen?: boolean;
@@ -799,9 +800,24 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                           </button>
                         )}
                       </div>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {selectedFile.name}
-                      </span>
+                      <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                        {(() => {
+                          const config = getLanguageConfig(
+                            selectedFile.name.split(".").pop()?.toLowerCase() || "",
+                          );
+                          return (
+                            <span
+                              className={
+                                !config.color ? "text-zinc-500 dark:text-zinc-400" : ""
+                              }
+                              style={{ color: config.color }}
+                            >
+                              {config.icon}
+                            </span>
+                          );
+                        })()}
+                        <span>{selectedFile.name}</span>
+                      </div>
                       {viewMode === "code" && (
                         <button
                           onClick={handleSaveContent}
