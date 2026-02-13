@@ -65,6 +65,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [showShareTooltip, setShowShareTooltip] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -286,41 +287,37 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     setIframeKey((prev) => prev + 1);
   };
 
-  const handleRenameNode = async (node: FileNode) => {
+  const handleRenameNode = (node: FileNode) => {
     if (!node || !chatId) return;
+    setRenamingNodeId(node.id || null);
+  };
 
-    setInputModal({
-      isOpen: true,
-      title: t("preview.rename"),
-      initialValue: node.name,
-      placeholder: t("preview.enterNewName"),
-      confirmText: t("preview.save"),
-      cancelText: t("preview.cancel"),
-      onConfirm: async (newName) => {
-        if (!newName || newName === node.name) return;
+  const handleRenameCancel = () => {
+    setRenamingNodeId(null);
+  };
 
-        try {
-          const fullPath = node.id;
-          const lastSlashIndex = fullPath.lastIndexOf("/");
-          const dirPath =
-            lastSlashIndex > -1
-              ? fullPath.substring(0, lastSlashIndex)
-              : undefined;
+  const handleRenameSubmit = async (node: FileNode, newName: string) => {
+    setRenamingNodeId(null);
+    if (!node || !chatId || !newName || newName === node.name) return;
 
-          await fileService.moveFile(
-            node.name,
-            newName,
-            dirPath,
-            dirPath,
-            chatId,
-          );
+    try {
+      const fullPath = node.id;
+      const lastSlashIndex = fullPath.lastIndexOf("/");
+      const dirPath =
+        lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
 
-          await fetchFiles();
-        } catch (error) {
-          console.error("Failed to rename node:", error);
-        }
-      },
-    });
+      await fileService.moveFile(
+        node.name,
+        newName,
+        dirPath,
+        dirPath,
+        chatId,
+      );
+
+      await fetchFiles();
+    } catch (error) {
+      console.error("Failed to rename node:", error);
+    }
   };
 
   const handleDeleteNode = async (node: FileNode) => {
@@ -716,6 +713,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                           onFileDrop={handleFileDrop}
                           onContextMenu={handleContextMenu}
                           expandedPaths={expandedPaths}
+                          renamingNodeId={renamingNodeId}
+                          onRenameSubmit={handleRenameSubmit}
+                          onRenameCancel={handleRenameCancel}
                         />
                       ))
                     )}
