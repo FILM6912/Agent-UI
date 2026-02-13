@@ -401,6 +401,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
         "xlsx",
         "xls",
         "pdf",
+        "md",
+        "markdown",
       ].includes(ext || "")
     )
       setViewMode("preview");
@@ -774,6 +776,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                         </button>
                         {[
                           "md",
+                          "markdown",
                           "png",
                           "jpg",
                           "jpeg",
