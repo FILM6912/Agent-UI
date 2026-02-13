@@ -2,6 +2,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { InputModal } from "@/components/InputModal";
 import { ProcessStep } from "@/types";
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Share2,
   PanelRightClose,
@@ -720,27 +721,16 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                     )}
                   </div>
                   
-                  {contextMenu && (
+                  {contextMenu && createPortal(
                     <>
                       <div
-                        className="fixed inset-0 z-40"
+                        className="fixed inset-0 z-[9998]"
                         onClick={() => setContextMenu(null)}
                       />
                       <div
-                        className="fixed z-50 min-w-[160px] bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 py-1 animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed z-[9999] min-w-[160px] bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 py-1 animate-in fade-in zoom-in-95 duration-100"
                         style={{ left: contextMenu.x, top: contextMenu.y }}
                       >
-                        <button
-                          onClick={() => {
-                            handleRenameNode(contextMenu.node);
-                            setContextMenu(null);
-                          }}
-                          className="w-full px-3 py-1.5 text-left text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
-                        >
-                          <Edit2 className="w-4 h-4 text-zinc-500" />
-                          {t("preview.rename")}
-                        </button>
-                        
                         {contextMenu.node.type === "file" && (
                           <button
                             onClick={() => {
@@ -753,6 +743,17 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                             {t("preview.download")}
                           </button>
                         )}
+                        
+                        <button
+                          onClick={() => {
+                            handleRenameNode(contextMenu.node);
+                            setContextMenu(null);
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
+                        >
+                          <Edit2 className="w-4 h-4 text-zinc-500" />
+                          {t("preview.rename")}
+                        </button>
                         
                         <div className="my-1 border-t border-zinc-200 dark:border-zinc-700" />
                         
@@ -767,7 +768,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                           {t("preview.delete")}
                         </button>
                       </div>
-                    </>
+                    </>,
+                    document.body
                   )}
                 </>
               )}
