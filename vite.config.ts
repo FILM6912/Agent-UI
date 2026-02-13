@@ -13,12 +13,17 @@ export default defineConfig(({ mode }) => {
         ignored: ["**/server/**"],
       },
       proxy: {
+        '/api/v1/files': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api': {
           target: 'http://192.168.99.1:7860',
           changeOrigin: true,
           secure: false,
         }
-      }
+      },
     },
     plugins: [react(), tailwindcss()],
     define: {

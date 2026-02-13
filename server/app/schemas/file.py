@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -10,7 +10,7 @@ class FileItem(BaseModel):
     modified: float
     mime_type: Optional[str] = None
     chat_id: str
-    children: Optional[List['FileItem']] = None
+    children: Optional[List[Any]] = None
 
 
 
