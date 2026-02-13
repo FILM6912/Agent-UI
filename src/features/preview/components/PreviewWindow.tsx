@@ -66,6 +66,7 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
   const [iframeKey, setIframeKey] = useState(0);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [showShareTooltip, setShowShareTooltip] = useState(false);
+  const [showSaveCheck, setShowSaveCheck] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -165,6 +166,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
       return next;
     });
   };
+  
+  const normalizeLineEndings = (value: string) =>
+    value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
   const handleFileSelect = async (node: FileNode) => {
     setSelectedFile(node);
@@ -383,11 +387,10 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
       }
     }
 
-    setEditContent(content || "");
+    setEditContent(content ? normalizeLineEndings(content) : "");
     
     if (
       [
-        "md",
         "png",
         "jpg",
         "jpeg",
@@ -413,12 +416,17 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
       const dirPath = lastSlashIndex > -1 ? fullPath.substring(0, lastSlashIndex) : undefined;
       const filename = selectedFile.name;
 
-      await fileService.writeFile(filename, editContent, { path: dirPath }, chatId);
+      const normalizedContent = normalizeLineEndings(editContent);
+      await fileService.writeFile(filename, normalizedContent, { path: dirPath }, chatId);
 
-      setSelectedFile((prev) =>
-        prev ? { ...prev, content: editContent } : null,
-      );
+      // Re-fetch from server to ensure UI reflects actual saved content (line endings, etc.)
+      const refreshed = await fileService.readFile(filename, { path: dirPath }, chatId);
+      const refreshedContent = normalizeLineEndings(refreshed.content || "");
+      setEditContent(refreshedContent);
+      setSelectedFile((prev) => (prev ? { ...prev, content: refreshedContent } : null));
       setViewMode("code");
+      setShowSaveCheck(true);
+      setTimeout(() => setShowSaveCheck(false), 2000);
     } catch (error) {
       console.error("Failed to save file:", error);
       // You might want to add a toast notification here
@@ -794,10 +802,14 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
                       {viewMode === "code" && (
                         <button
                           onClick={handleSaveContent}
-                        className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-accent rounded transition-colors"
+                          className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-accent rounded transition-colors"
                         title={t("preview.save")}
                       >
-                        <Save className="w-3.5 h-3.5" />
+                          {showSaveCheck ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Save className="w-3.5 h-3.5" />
+                          )}
                       </button>
                     )}
                     <button
