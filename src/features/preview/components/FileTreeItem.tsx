@@ -2,24 +2,10 @@ import React from "react";
 import {
   Folder,
   FolderOpen,
-  FileCode,
-  FileJson,
-  FileType,
-  File as FileIcon,
   ChevronRight,
   ChevronDown,
-  Image as ImageIcon,
-  FileSpreadsheet,
-  FileText,
-  Table as TableIcon,
-  Globe,
-  Trash2,
-  Edit2,
-  Download,
-  Terminal,
-  Database,
-  Box,
 } from "lucide-react";
+import { getLanguageConfig } from "@/lib/languageUtils";
 
 export interface FileNode {
   id?: string;
@@ -49,46 +35,14 @@ interface FileTreeItemProps {
 }
 
 const getFileIcon = (fileName: string) => {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  if (ext === "tsx" || ext === "ts" || ext === "jsx" || ext === "js")
-    return <FileCode className="w-4 h-4 text-blue-400" />;
-  if (ext === "json") return <FileJson className="w-4 h-4 text-yellow-400" />;
-  if (ext === "css" || ext === "scss" || ext === "less" || ext === "sass")
-    return <FileType className="w-4 h-4 text-pink-400" />;
-  if (ext === "html" || ext === "htm" || ext === "xml")
-    return <Globe className="w-4 h-4 text-orange-400" />;
-  if (ext === "md" || ext === "txt")
-    return <FileText className="w-4 h-4 text-zinc-400" />;
-  if (
-    ext === "png" ||
-    ext === "jpg" ||
-    ext === "jpeg" ||
-    ext === "svg" ||
-    ext === "gif" ||
-    ext === "webp"
-  )
-    return <ImageIcon className="w-4 h-4 text-purple-400" />;
-  if (ext === "csv") return <TableIcon className="w-4 h-4 text-green-400" />;
-  if (ext === "xlsx" || ext === "xls")
-    return <FileSpreadsheet className="w-4 h-4 text-emerald-400" />;
-  if (ext === "py") return <FileCode className="w-4 h-4 text-blue-500" />;
-  if (ext === "java" || ext === "jar")
-    return <FileCode className="w-4 h-4 text-red-500" />;
-  if (ext === "c" || ext === "cpp" || ext === "h" || ext === "hpp")
-    return <FileCode className="w-4 h-4 text-blue-600" />;
-  if (ext === "cs") return <FileCode className="w-4 h-4 text-purple-600" />;
-  if (ext === "go") return <FileCode className="w-4 h-4 text-cyan-500" />;
-  if (ext === "rs") return <FileCode className="w-4 h-4 text-orange-600" />;
-  if (ext === "php") return <FileCode className="w-4 h-4 text-indigo-400" />;
-  if (ext === "rb") return <FileCode className="w-4 h-4 text-red-600" />;
-  if (ext === "sh" || ext === "bash" || ext === "zsh")
-    return <Terminal className="w-4 h-4 text-green-600" />;
-  if (ext === "sql") return <Database className="w-4 h-4 text-blue-400" />;
-  if (ext === "yaml" || ext === "yml")
-    return <FileCode className="w-4 h-4 text-purple-400" />;
-  if (ext === "dockerfile" || ext === "docker")
-    return <Box className="w-4 h-4 text-blue-400" />;
-  return <FileIcon className="w-4 h-4 text-zinc-500" />;
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  const config = getLanguageConfig(ext);
+  
+  return (
+    <div className={!config.color ? "text-zinc-500 dark:text-zinc-400" : ""} style={{ color: config.color }}>
+      {config.icon}
+    </div>
+  );
 };
 
 export const FileTreeItem: React.FC<FileTreeItemProps> = ({
