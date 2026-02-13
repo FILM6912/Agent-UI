@@ -5,7 +5,7 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "server": "cd server && uvicorn app.main:combined_app --reload",
+    "server": "cd server && uvicorn app.main:combined_app --reload --reload-exclude=files",
     "dev": "concurrently \"npm:server\" \"vite\" --kill-others",
     "build": "vite build",
     "preview": "vite preview",
