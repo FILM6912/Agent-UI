@@ -131,9 +131,9 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     if (previewContent) setActiveTab("web");
   }, [previewContent]);
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (showLoading = true) => {
     if (!chatId) return;
-    setIsFilesLoading(true);
+    if (showLoading) setIsFilesLoading(true);
     try {
       const response = await fileService.listFiles(undefined, chatId, true);
       
@@ -150,13 +150,21 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     } catch (error) {
       console.error("Failed to fetch files", error);
     } finally {
-      setIsFilesLoading(false);
+      if (showLoading) setIsFilesLoading(false);
     }
   };
 
   useEffect(() => {
-    if (activeTab === "files" && chatId) {
-      fetchFiles();
+    if (activeTab === "files") {
+      if (chatId) {
+        fetchFiles(true);
+        // Poll for file updates every 3 seconds
+        const interval = setInterval(() => fetchFiles(false), 3000);
+        return () => clearInterval(interval);
+      } else {
+        setFileSystem([]);
+        setSelectedFile(null);
+      }
     }
   }, [activeTab, chatId]);
 
