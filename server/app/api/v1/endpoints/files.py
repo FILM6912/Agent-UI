@@ -101,6 +101,11 @@ async def create_directory(
     return await file_service.create_directory(chat_id, name, path)
 
 
+@router.delete("/chat/{chat_id}", response_model=FileDeleteResponse, operation_id="delete_chat_folder")
+async def delete_chat_folder(chat_id: str):
+    return await file_service.delete_chat_folder(chat_id)
+
+
 @router.delete("/{filename:path}", response_model=FileDeleteResponse, operation_id="delete_file")
 async def delete_file(
     chat_id: str = Query(..., description="Chat ID"),
@@ -143,6 +148,4 @@ async def copy_file(
     return await file_service.copy_file(request.chat_id, request)
 
 
-@router.delete("/chat/{chat_id}", response_model=FileDeleteResponse, operation_id="delete_chat_folder")
-async def delete_chat_folder(chat_id: str):
-    return await file_service.delete_chat_folder(chat_id)
+

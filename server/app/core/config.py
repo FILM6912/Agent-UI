@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from functools import lru_cache
 from typing import List
 
@@ -19,9 +20,10 @@ class Settings(BaseSettings):
     ]
     MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
 
 
 @lru_cache()
