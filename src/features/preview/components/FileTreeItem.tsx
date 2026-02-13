@@ -40,6 +40,9 @@ interface FileTreeItemProps {
   onFileDrop?: (sourceNode: FileNode, targetNode: FileNode | null) => void;
   onContextMenu?: (e: React.MouseEvent, node: FileNode) => void;
   expandedPaths: Set<string>;
+  renamingNodeId?: string | null;
+  onRenameSubmit?: (node: FileNode, newName: string) => void;
+  onRenameCancel?: () => void;
 }
 
 const getFileIcon = (fileName: string) => {
@@ -73,12 +76,36 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
   onFileDrop,
   onContextMenu,
   expandedPaths,
+  renamingNodeId,
+  onRenameSubmit,
+  onRenameCancel,
 }) => {
   const isExpanded = expandedPaths.has(path);
   const isSelected = selectedFile === path;
+  const isRenaming = renamingNodeId === node.id;
 
   const [isHovered, setIsHovered] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
+  const [renameValue, setRenameValue] = React.useState(node.name);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (isRenaming) {
+      setRenameValue(node.name);
+      // Focus and select only filename (exclude extension)
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const lastDotIndex = node.name.lastIndexOf(".");
+          if (lastDotIndex > 0) {
+            inputRef.current.setSelectionRange(0, lastDotIndex);
+          } else {
+            inputRef.current.select();
+          }
+        }
+      }, 0);
+    }
+  }, [isRenaming, node.name]);
 
   const handleDragStart = (e: React.DragEvent) => {
     e.stopPropagation();
@@ -169,7 +196,27 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               {getFileIcon(node.name)}
             </>
           )}
-          <span className="text-sm truncate">{node.name}</span>
+          {isRenaming ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={() => onRenameSubmit?.(node, renameValue)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onRenameSubmit?.(node, renameValue);
+                } else if (e.key === "Escape") {
+                  onRenameCancel?.();
+                }
+                e.stopPropagation();
+              }}
+              className="text-sm px-1 py-0.5 border rounded border-blue-500 bg-white dark:bg-zinc-800 text-foreground w-full min-w-0 outline-none"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span className="text-sm truncate">{node.name}</span>
+          )}
         </div>
       </div>
 
@@ -207,6 +254,9 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
               onFileDrop={onFileDrop}
               onContextMenu={onContextMenu}
               expandedPaths={expandedPaths}
+              renamingNodeId={renamingNodeId}
+              onRenameSubmit={onRenameSubmit}
+              onRenameCancel={onRenameCancel}
             />
           ))}
         </div>
