@@ -226,6 +226,10 @@ export const translations = {
       "gpt-4-turbo": "Reliable high performance",
       "gpt-3.5-turbo": "Quick & affordable",
     },
+    codeBlock: {
+      copy: "Copy code",
+      copied: "Copied!",
+    },
   },
   th: {
     sidebar: {
@@ -483,6 +487,10 @@ export const translations = {
       "gpt-4o": "โมเดล Omni",
       "gpt-4-turbo": "ประสิทธิภาพสูงเชื่อถือได้",
       "gpt-3.5-turbo": "รวดเร็วและประหยัด",
+    },
+    codeBlock: {
+      copy: "คัดลอกโค้ด",
+      copied: "คัดลอกแล้ว!",
     },
   },
 };

@@ -16,6 +16,7 @@ import "katex/dist/katex.min.css";
 import { getLanguageConfig } from "@/lib/languageUtils";
 
 const CopyButton = ({ code }: { code: string }) => {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -27,20 +28,10 @@ const CopyButton = ({ code }: { code: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors"
-      title="Copy code"
+      className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors"
+      title={copied ? t("codeBlock.copied") : t("codeBlock.copy")}
     >
-      {copied ? (
-        <>
-          <Check className="w-3.5 h-3.5" />
-          <span>Copied!</span>
-        </>
-      ) : (
-        <>
-          <Copy className="w-3.5 h-3.5" />
-          <span>Copy</span>
-        </>
-      )}
+      {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 };

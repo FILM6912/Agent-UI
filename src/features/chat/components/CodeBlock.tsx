@@ -6,9 +6,11 @@ import {
   vs,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useTheme } from "../../../hooks/useTheme";
+import { useLanguage } from "@/hooks/useLanguage";
 import { getLanguageConfig } from "@/lib/languageUtils";
 
 const CopyButton = ({ code }: { code: string }) => {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -21,7 +23,7 @@ const CopyButton = ({ code }: { code: string }) => {
     <button
       onClick={handleCopy}
       className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition-colors"
-      title="Copy code"
+      title={copied ? t("codeBlock.copied") : t("codeBlock.copy")}
     >
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
