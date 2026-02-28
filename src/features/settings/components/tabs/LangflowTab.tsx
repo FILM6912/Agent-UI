@@ -63,8 +63,7 @@ export const LangflowTab: React.FC<LangflowTabProps> = ({
                 colorScheme: "dark",
               }}
               title="LangFlow Interface"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-presentation allow-downloads"
-              referrerPolicy="no-referrer"
+              referrerPolicy="origin"
               allow="clipboard-read; clipboard-write"
             />
           ) : (

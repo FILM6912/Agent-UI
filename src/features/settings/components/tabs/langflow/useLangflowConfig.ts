@@ -77,18 +77,15 @@ export const useLangflowConfig = ({
   const getIframeUrl = () => {
     if (!modelConfig.langflowUrl) return "";
 
-    try {
-      const url = new URL(modelConfig.langflowUrl);
+    // Use local proxy path to avoid cross-origin cookie issues
+    // The Vite proxy at /__langflow__ forwards to the actual Langflow server
+    const proxyUrl = new URL("/__langflow__/", window.location.origin);
 
-      if (modelConfig.langflowApiKey) {
-        url.searchParams.set("api_key", modelConfig.langflowApiKey);
-      }
-
-      return url.toString();
-    } catch (error) {
-      console.error("Invalid URL:", error);
-      return modelConfig.langflowUrl;
+    if (modelConfig.langflowApiKey) {
+      proxyUrl.searchParams.set("api_key", modelConfig.langflowApiKey);
     }
+
+    return proxyUrl.toString();
   };
 
   return {
