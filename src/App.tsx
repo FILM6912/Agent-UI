@@ -469,11 +469,6 @@ export default function App() {
       return;
     }
 
-    if (!modelConfig.modelId) {
-      console.warn('>>> App.tsx: Missing Model ID, skipping fetch.');
-      return;
-    }
-
     const loadSessions = async () => {
       console.log('>>> App.tsx: loadSessions starting...');
       // If we are currently streaming, we might not want to fetch right now to avoid state clobbering

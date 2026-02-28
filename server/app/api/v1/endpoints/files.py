@@ -28,7 +28,7 @@ router = APIRouter()
 @router.get("/", response_model=FileListResponse, operation_id="list_files")
 async def list_files(
     chat_id: str = Query(..., description="Chat ID"),
-    path: Optional[str] = Query(None, description="Directory path to list"),
+    path: Optional[str] = Query(None, description="Directory path to list", json_schema_extra={"type": ["string", "null"]}),
     recursive: bool = Query(False, description="List files recursively")
 ):
     return await file_service.list_files(chat_id, path, recursive)
@@ -38,7 +38,7 @@ async def list_files(
 async def upload_file(
     chat_id: str = Form(..., description="Chat ID"),
     file: UploadFile = File(..., description="File to upload"),
-    path: Optional[str] = Form(None, description="Target directory path")
+    path: Optional[str] = Form(None, description="Target directory path", json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.upload_file(chat_id, file, path)
 
@@ -47,7 +47,7 @@ async def upload_file(
 async def upload_multiple_files(
     chat_id: str = Form(..., description="Chat ID"),
     files: list[UploadFile] = File(..., description="Files to upload"),
-    path: Optional[str] = Form(None, description="Target directory path")
+    path: Optional[str] = Form(None, description="Target directory path", json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.upload_multiple_files(chat_id, files, path)
 
@@ -56,7 +56,7 @@ async def upload_multiple_files(
 async def download_file(
     chat_id: str = Query(..., description="Chat ID"),
     filename: str = ...,
-    path: Optional[str] = Query(None)
+    path: Optional[str] = Query(None, json_schema_extra={"type": ["string", "null"]})
 ):
     target_dir = resolve_path(path, base_dir=file_service._get_chat_dir(chat_id))
     file_path = f"{target_dir}/{filename}"
@@ -78,7 +78,7 @@ async def download_file(
 async def read_file(
     chat_id: str = Query(..., description="Chat ID"),
     filename: str = ...,
-    path: Optional[str] = Query(None)
+    path: Optional[str] = Query(None, json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.read_file(chat_id, filename, path)
 
@@ -95,7 +95,7 @@ async def write_file(
 async def create_directory(
     chat_id: str = Form(..., description="Chat ID"),
     name: str = Form(..., description="Directory name"),
-    path: Optional[str] = Form(None, description="Parent directory path")
+    path: Optional[str] = Form(None, description="Parent directory path", json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.create_directory(chat_id, name, path)
 
@@ -109,7 +109,7 @@ async def delete_chat_folder(chat_id: str):
 async def delete_file(
     chat_id: str = Query(..., description="Chat ID"),
     filename: str = ...,
-    path: Optional[str] = Query(None)
+    path: Optional[str] = Query(None, json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.delete_file(chat_id, filename, path)
 
@@ -118,8 +118,8 @@ async def delete_file(
 async def search_files(
     chat_id: str = Query(..., description="Chat ID"),
     query: str = Query(..., description="Search query"),
-    path: Optional[str] = Query(None, description="Directory to search"),
-    extensions: Optional[str] = Query(None, description="Comma-separated file extensions")
+    path: Optional[str] = Query(None, description="Directory to search", json_schema_extra={"type": ["string", "null"]}),
+    extensions: Optional[str] = Query(None, description="Comma-separated file extensions", json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.search_files(chat_id, query, path, extensions)
 
@@ -128,7 +128,7 @@ async def search_files(
 async def get_file_info(
     chat_id: str = Query(..., description="Chat ID"),
     filename: str = ...,
-    path: Optional[str] = Query(None)
+    path: Optional[str] = Query(None, json_schema_extra={"type": ["string", "null"]})
 ):
     return await file_service.get_file_info(chat_id, filename, path)
 

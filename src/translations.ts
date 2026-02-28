@@ -69,6 +69,7 @@ export const translations = {
       lastUpdated: "Last updated",
       thoughtProcess: "Thought Process",
       process: "Process",
+      generatingSuggestions: "Generating suggestions...",
     },
     settings: {
       title: "Settings",
@@ -168,6 +169,30 @@ export const translations = {
       openExternal: "Open in New Tab",
       embedWarning:
         "If you see a connection refused error, make sure LangFlow is running and accessible.",
+
+      // Appearance
+      appearance: "Appearance",
+      fontFamily: "Font Family",
+      fontSize: "Font Size",
+      fontSans: "Sans (Default)",
+      fontMono: "JetBrains Mono",
+      fontNotoSans: "Noto Sans",
+      fontNotoSerif: "Noto Serif",
+      fontNotoMono: "Noto Mono",
+      fontSarabun: "Sarabun",
+      fontKanit: "Kanit",
+      fontPrompt: "Prompt",
+      fontMitr: "Mitr",
+      fontChakraPetch: "Chakra Petch",
+      fontBaiJamjuree: "Bai Jamjuree",
+      fontSystemSans: "System Sans",
+      fontSystemSerif: "System Serif",
+      fontSystemMono: "System Mono",
+      sizeXs: "Extra Small",
+      sizeSm: "Small",
+      sizeBase: "Default",
+      sizeLg: "Large",
+      sizeXl: "Extra Large",
     },
     preview: {
       title: "Preview",
@@ -299,6 +324,7 @@ export const translations = {
       lastUpdated: "อัปเดตล่าสุด",
       thoughtProcess: "กระบวนการคิด",
       process: "ขั้นตอนการทำงาน",
+      generatingSuggestions: "กำลังสร้างคำแนะนำ...",
     },
     settings: {
       title: "การตั้งค่า",
