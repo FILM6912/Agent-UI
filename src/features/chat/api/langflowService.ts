@@ -703,8 +703,8 @@ export async function fetchHistoryFromLangFlow(
 
 export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise<ChatSession[]> {
   console.log('>>> fetchAllSessionsFromLangFlow called', config);
-  if (!config.langflowUrl || !config.modelId) {
-    console.warn('>>> Missing config for fetchAllSessionsFromLangFlow');
+  if (!config.langflowUrl) {
+    console.warn('>>> Missing LangFlow URL for fetchAllSessionsFromLangFlow');
     return [];
   }
 
