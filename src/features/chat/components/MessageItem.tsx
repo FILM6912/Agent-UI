@@ -75,16 +75,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const totalVersions = msg.versions?.length || 1;
   const isEditing = editingId === msg.id;
   const currentVersionIndex = msg.currentVersionIndex || 0;
-  
+
   // Get current version (for both user and assistant messages)
   const currentMessageVersion = msg.versions?.[currentVersionIndex];
-  
+
   // AI versions (from current message version)
   const hasAIVersions = currentMessageVersion?.aiVersions && currentMessageVersion.aiVersions.length > 1;
   const currentAIIndex = currentMessageVersion?.currentAIIndex || 0;
   const currentAIVersion = currentMessageVersion?.aiVersions?.[currentAIIndex];
   const totalAIVersions = currentMessageVersion?.aiVersions?.length || 1;
-  
+
   // Regen versions (for current AI version)
   const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
   const totalRegenVersions = currentAIVersion?.regenVersions?.length || 1;
@@ -123,11 +123,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {(() => {
             const hasThinkTag = msg.content.includes('<think>');
             const hasSolutionTag = msg.content.includes('<|begin_of_solution|>');
-            
+
             if (!hasThinkTag && !hasSolutionTag) return null;
 
             const thinkBlocks = [];
-            
+
             // Handle <think> tags
             if (hasThinkTag) {
               const closedMatches = [...msg.content.matchAll(/<think>([\s\S]*?)<\/think>/g)];
@@ -152,7 +152,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               // Content before the first <|begin_of_solution|> that isn't already in a <think> block
               const firstSolutionIndex = msg.content.indexOf('<|begin_of_solution|>');
               let preSolutionContent = msg.content.substring(0, firstSolutionIndex);
-              
+
               // Clean up pre-solution content: remove any <think> blocks already handled
               preSolutionContent = preSolutionContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
               // Remove a trailing pipe if it exists (common in some formats)
@@ -162,10 +162,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 // Check if this content is already in thinkBlocks to avoid duplicates
                 const isDuplicate = thinkBlocks.some(block => block.content.trim() === preSolutionContent);
                 if (!isDuplicate) {
-                  thinkBlocks.push({ 
-                    content: preSolutionContent, 
-                    isComplete: true, 
-                    label: t("chat.process") || "Process" 
+                  thinkBlocks.push({
+                    content: preSolutionContent,
+                    isComplete: true,
+                    label: t("chat.process") || "Process"
                   });
                 }
               }
@@ -212,7 +212,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             }`}>
             {(() => {
               let mainContent = msg.content;
-              
+
               // Handle <|begin_of_solution|> format
               if (mainContent.includes('<|begin_of_solution|>')) {
                 const parts = mainContent.split('<|begin_of_solution|>');
@@ -232,8 +232,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               if (!mainContent) return null;
 
               // Wrap text in “...” with a span for orange coloring and HIDE the quotes
-               // We replace it with <span class="text-orange-500 font-medium">...</span>
-               const coloredContent = mainContent.replace(/“([\s\S]*?)”/g, '<span class="text-orange-500 font-medium">$1</span>');
+              // We replace it with <span class="text-orange-500 font-medium">...</span>
+              const coloredContent = mainContent.replace(/“([\s\S]*?)”/g, '<span class="text-orange-500 font-medium">$1</span>');
 
               return (
                 <Markdown
@@ -431,6 +431,27 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <RotateCw className="w-3.5 h-3.5" />
               </button>
             </div>
+          </div>
+        )
+      }
+
+      {/* Suggestion Loading Animation */}
+      {
+        isAssistant && isLastMessage && !isStreaming && !isLoading && msg.content && (!msg.suggestions || msg.suggestions.length === 0) && (
+          <div className="flex flex-wrap gap-2 mt-3 pl-1 animate-in fade-in duration-500">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-7 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse"
+                style={{
+                  width: `${60 + i * 25}px`,
+                  animationDelay: `${i * 150}ms`,
+                }}
+              />
+            ))}
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-600 self-center ml-1 animate-pulse">
+              {t("chat.generatingSuggestions") || "Generating suggestions..."}
+            </span>
           </div>
         )
       }
