@@ -163,6 +163,9 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
             setIsAuthenticated(false);
             navigate("/login");
           }}
+          modelConfig={modelConfig}
+          onModelConfigChange={setModelConfig}
+        // Assuming App.tsx doesn't natively have mcpServers state pulled out yet
         />
       )}
 

@@ -18,9 +18,12 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react";
-import { ChatSession, AIProvider } from "@/types";
+import { AIProvider, ChatSession, ModelConfig } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
+import { useAgentModels } from "@/features/chat/hooks/useAgentModels";
+import { ModelSelector } from "@/features/chat/components/ModelSelector";
+import { MCPServerList } from "@/features/chat/components/MCPServerList";
 
 interface SidebarProps {
   history: ChatSession[];
@@ -37,6 +40,9 @@ interface SidebarProps {
   toggleSidebar?: () => void;
   isMobile?: boolean;
   onLogout?: () => void;
+  modelConfig?: ModelConfig;
+  onModelConfigChange?: (config: ModelConfig) => void;
+  mcpServers?: string[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -54,6 +60,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   toggleSidebar,
   isMobile = false,
   onLogout,
+  modelConfig,
+  onModelConfigChange,
+  mcpServers = [],
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -62,6 +71,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isUserHovered, setIsUserHovered] = useState(false);
   const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
+
+  // Tools Menu States
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showMcpMenu, setShowMcpMenu] = useState(false);
+  const modelMenuRef = React.useRef<HTMLDivElement>(null);
+  const mcpMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Tools Hook
+  const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
+    modelConfig: modelConfig || {
+      provider: "openai",
+      modelId: "gpt-4o",
+      name: "GPT-4o",
+      langflowUrl: "",
+      langflowApiKey: "",
+    },
+    onModelConfigChange: onModelConfigChange || (() => { }),
+  });
 
   // Sidebar expanded state relies purely on isOpen prop now
   const showExpanded = isOpen;
@@ -249,11 +276,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <button
                   onClick={() => onSelectChat(session.id)}
-                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${
-                    activeChatId === session.id
-                      ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
-                      : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                  }`}
+                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${activeChatId === session.id
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
+                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
+                    }`}
                 >
                   {loadingChatId === session.id ? (
                     <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
@@ -349,6 +375,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Agent Tools Section (Only available when ModelConfig is provided and expanded) */}
+      {modelConfig && showExpanded && (
+        <div className="border-t border-zinc-200 dark:border-zinc-900 p-3 bg-zinc-100/50 dark:bg-zinc-900/10">
+          <div className="text-xs font-semibold text-black/80 dark:text-white/80 mb-2 uppercase tracking-wider flex items-center justify-between">
+            <span>Agent Tools</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            <ModelSelector
+              isOpen={showModelMenu}
+              onToggle={() => setShowModelMenu(!showModelMenu)}
+              modelConfig={modelConfig}
+              agentModels={agentModels}
+              pinnedAgentId={pinnedAgentId}
+              onModelSelect={(id, name) => onModelConfigChange?.({ ...modelConfig, modelId: id, name })}
+              onPinAgent={handlePinAgent}
+              menuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
+            />
+            <MCPServerList
+              isOpen={showMcpMenu}
+              onToggle={() => setShowMcpMenu(!showMcpMenu)}
+              servers={mcpServers}
+              menuRef={mcpMenuRef as React.RefObject<HTMLDivElement>}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 

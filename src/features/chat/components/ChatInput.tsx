@@ -12,8 +12,6 @@ import { Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
-import { ModelSelector } from "./ModelSelector";
-import { MCPServerList } from "./MCPServerList";
 
 interface ChatInputProps {
   input: string;
@@ -34,22 +32,6 @@ interface ChatInputProps {
   speechError: string | null;
   onToggleListening: () => void;
   textareaRef: React.RefObject<HTMLTextAreaElement>;
-
-  // Model Selector Props
-  showModelMenu: boolean;
-  setShowModelMenu: (show: boolean) => void;
-  modelConfig: any;
-  agentModels: { id: string; name: string; desc: string }[];
-  pinnedAgentId: string | null;
-  onModelSelect: (modelId: string, modelName: string) => void;
-  onPinAgent: (agentId: string) => void;
-  modelMenuRef: React.RefObject<HTMLDivElement>;
-
-  // MCP Props
-  showMcpMenu: boolean;
-  setShowMcpMenu: (show: boolean) => void;
-  mcpServers: string[];
-  mcpMenuRef: React.RefObject<HTMLDivElement>;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -71,18 +53,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   speechError,
   onToggleListening,
   textareaRef,
-  showModelMenu,
-  setShowModelMenu,
-  modelConfig,
-  agentModels,
-  pinnedAgentId,
-  onModelSelect,
-  onPinAgent,
-  modelMenuRef,
-  showMcpMenu,
-  setShowMcpMenu,
-  mcpServers,
-  mcpMenuRef,
 }) => {
   const { t } = useLanguage();
   const isSmallScreen = useMediaQuery("(max-width: 1024px)");
@@ -420,12 +390,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     >
                       <Paperclip className="w-5 h-5" />
                     </button>
-                    <MCPServerList
-                      isOpen={showMcpMenu}
-                      onToggle={() => setShowMcpMenu(!showMcpMenu)}
-                      servers={mcpServers}
-                      menuRef={mcpMenuRef}
-                    />
                   </div>
                 )}
 
@@ -445,16 +409,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 {/* Right Actions - Rendered last in Single Line mode */}
                 {!isStacked && (
                   <div className="flex items-center gap-2 pr-3 py-2 animate-in fade-in slide-in-from-right-2 duration-500">
-                    <ModelSelector
-                      isOpen={showModelMenu}
-                      onToggle={() => setShowModelMenu(!showModelMenu)}
-                      modelConfig={modelConfig}
-                      agentModels={agentModels}
-                      pinnedAgentId={pinnedAgentId}
-                      onModelSelect={onModelSelect}
-                      onPinAgent={onPinAgent}
-                      menuRef={modelMenuRef}
-                    />
 
                     {/* Speech Button */}
                     <div className="relative">
@@ -514,9 +468,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                         className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
                           ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
                           : (input.trim() || attachments.length > 0) &&
-                          !isLoading
-                          ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
+                            !isLoading
+                            ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                           }`}
                         title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                       >
@@ -538,26 +492,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       >
                         <Paperclip className="w-5 h-5" />
                       </button>
-                      <MCPServerList
-                        isOpen={showMcpMenu}
-                        onToggle={() => setShowMcpMenu(!showMcpMenu)}
-                        servers={mcpServers}
-                        menuRef={mcpMenuRef}
-                      />
                     </div>
 
                     {/* Right Actions Group */}
                     <div className="flex items-center gap-2">
-                      <ModelSelector
-                        isOpen={showModelMenu}
-                        onToggle={() => setShowModelMenu(!showModelMenu)}
-                        modelConfig={modelConfig}
-                        agentModels={agentModels}
-                        pinnedAgentId={pinnedAgentId}
-                        onModelSelect={onModelSelect}
-                        onPinAgent={onPinAgent}
-                        menuRef={modelMenuRef}
-                      />
 
                       {/* Speech Button */}
                       <div className="relative">
@@ -615,9 +553,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                           className={`relative z-10 w-9 h-9 flex items-center justify-center rounded-[10px] transition-all duration-300 ${isStreaming
                             ? "bg-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105"
                             : (input.trim() || attachments.length > 0) &&
-                            !isLoading
-                            ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
+                              !isLoading
+                              ? "bg-linear-to-br from-[#1447E6] to-[#0d35b8] text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:scale-105"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600"
                             }`}
                           title={isStreaming ? "Stop" : (t("chat.send") || "Send")}
                         >
