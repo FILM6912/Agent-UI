@@ -646,9 +646,9 @@ function mapLangFlowMessages(messages: LangFlowMessage[], baseUrl: string): Mess
         const filesArray = JSON.parse(msg.files || '[]');
         if (Array.isArray(filesArray)) {
           filesArray.forEach((filePath: string) => {
-            const fileName = filePath.split('/').pop();
-            if (fileName) {
-              const imageUrl = `${baseUrl}/api/v1/files/images/${msg.flow_id}/${fileName}`;
+            if (filePath) {
+              const fileName = filePath.split('/').pop() || filePath;
+              const imageUrl = `${baseUrl}/api/v1/files/download/${filePath}`;
               attachments.push({
                 type: 'image',
                 content: imageUrl,
