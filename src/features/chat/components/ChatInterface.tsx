@@ -8,10 +8,11 @@ import { MessageItem } from "./MessageItem";
 import { LoadingIndicator } from "./LoadingIndicator";
 import { ImageLightbox } from "./ImageLightbox";
 import { ChatInput } from "./ChatInput";
+import { ModelSelector } from "./ModelSelector";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useFileHandling } from "../hooks/useFileHandling";
-
 import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
+import { useAgentModels } from "../hooks/useAgentModels";
 
 
 export const getPresetModels = (
@@ -79,6 +80,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isLoading,
   isStreaming,
   modelConfig,
+  onModelConfigChange,
   onVersionChange,
   onAIVersionChange,
   onRegenVersionChange,
@@ -98,11 +100,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Menu Refs for click outside handling
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+  const mcpMenuRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const [showMcpMenu, setShowMcpMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+
+  // Agent Models Hook
+  const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
+    modelConfig,
+    onModelConfigChange,
+  });
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -231,6 +243,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
+      {/* Top Bar - Model Selector (Left) and Settings (Right) */}
+      <div className="absolute top-4 left-4 z-30">
+        <ModelSelector
+          isOpen={showModelMenu}
+          onToggle={() => setShowModelMenu(!showModelMenu)}
+          modelConfig={modelConfig}
+          agentModels={agentModels}
+          pinnedAgentId={pinnedAgentId}
+          onModelSelect={(id, name) => onModelConfigChange({ ...modelConfig, modelId: id, name })}
+          onPinAgent={handlePinAgent}
+          menuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
+        />
+      </div>
+
       {/* Settings Button - Top Right */}
       {onOpenSettings && (
         <div className="relative" ref={settingsMenuRef}>
@@ -402,6 +428,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
+        mcpServers={modelConfig.mcpServers || []}
+        showMcpMenu={showMcpMenu}
+        onToggleMcpMenu={() => setShowMcpMenu(!showMcpMenu)}
+        mcpMenuRef={mcpMenuRef}
       />
     </div >
   );
