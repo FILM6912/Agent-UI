@@ -1886,7 +1886,7 @@ export default function App() {
     // If deleted the active chat, navigate to /chat or another chat
     if (activeChatId === id) {
       const remainingSessions = Object.values(sessions).filter(
-        (s) => s.id !== id && !s.id.startsWith("suggestion-"),
+        (s) => s.id !== id && !s.id.startsWith("suggestion") && !s.id.startsWith("suggestions"),
       ) as ChatSession[];
 
       if (remainingSessions.length === 0) {
