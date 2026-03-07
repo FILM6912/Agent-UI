@@ -43,6 +43,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 <button
                   onClick={() => {
                     onModelSelect(m.id, m.name);
+                    onToggle();
                   }}
                   className={`flex-1 text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
                     modelConfig.modelId === m.id
