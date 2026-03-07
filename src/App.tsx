@@ -543,7 +543,7 @@ export default function App() {
     };
 
     loadSessions();
-  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+  }, [activeChatId, modelConfig.langflowUrl]);
 
   // Fetch History from LangFlow (Existing one, maybe redundant now?)
 
@@ -561,7 +561,7 @@ export default function App() {
   // But the existing `fetchHistoryFromLangFlow` hook (below) updates `sessions` again.
   // That's fine, it acts as a "refresh on select".
   useEffect(() => {
-    if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
+    if (!activeChatId || !modelConfig.langflowUrl) return;
 
     const loadHistory = async () => {
       if (isStreamingRef.current) return;
@@ -623,7 +623,7 @@ export default function App() {
     };
 
     loadHistory();
-  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+  }, [activeChatId, modelConfig.langflowUrl]);
 
   useEffect(() => {
     if (loadingChatId) {

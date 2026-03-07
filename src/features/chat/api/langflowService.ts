@@ -11,8 +11,7 @@ export async function generateChatTitle(userPrompt: string, _config?: ModelConfi
 const getEffectiveBaseUrl = (url: string | undefined): string => {
   if (!url) return '';
   const cleanUrl = url.replace(/\/+$/, '');
-  // If user configured localhost:7860 or specific local IP, use relative path to trigger Vite proxy
-  if (cleanUrl.includes('localhost:7860') || cleanUrl.includes('127.0.0.1:7860') || cleanUrl.includes('192.168.99.1:7860')) {
+  if (cleanUrl.includes('localhost:7860') || cleanUrl.includes('127.0.0.1:7860')) {
     return '';
   }
   return cleanUrl;

@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
   // Langflow server URL - change this to match your Langflow instance
-  const langflowTarget = env.LANGFLOW_URL || 'http://192.168.99.1:7860';
+  const langflowTarget = env.LANGFLOW_URL || 'http://localhost:7860';
 
   return {
     server: {
