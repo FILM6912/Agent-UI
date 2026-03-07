@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, Search, MoreVertical, Trash2, Edit, Copy, Download } from 'lucide-react';
+import { Folder, File, ChevronRight, ChevronDown, ChevronUp, RefreshCw, Search, MoreVertical, Trash2, Edit, Copy, Download } from 'lucide-react';
 import type { FileItem } from '@/types/file-api';
 import { fileService } from '@/features/chat/api/fileService';
 import { formatBytes } from '@/lib/utils';

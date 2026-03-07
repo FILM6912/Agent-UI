@@ -437,7 +437,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
       {/* Suggestion Loading Animation */}
       {
-        isAssistant && isLastMessage && !isStreaming && !isLoading && msg.content && (!msg.suggestions || msg.suggestions.length === 0) && (
+        isAssistant && isLastMessage && !isStreaming && !isLoading && msg.content && msg.needsSuggestions && (!msg.suggestions || msg.suggestions.length === 0) && (
           <div className="flex flex-wrap gap-2 mt-3 pl-1 animate-in fade-in duration-500">
             {[1, 2, 3].map((i) => (
               <div

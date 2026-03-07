@@ -192,14 +192,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Click outside handler for menus
   useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(target)) {
+        setShowSettingsMenu(false);
+      }
+      if (showModelMenu && modelMenuRef.current && !modelMenuRef.current.contains(target)) {
+        setShowModelMenu(false);
+      }
+      if (showMcpMenu && mcpMenuRef.current && !mcpMenuRef.current.contains(target)) {
+        setShowMcpMenu(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showSettingsMenu]);
+  }, [showSettingsMenu, showModelMenu, showMcpMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);

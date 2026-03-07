@@ -735,6 +735,7 @@ export default function App() {
                 },
               ],
               currentVersionIndex: 0,
+              needsSuggestions: true,
             };
 
             // Set initial content if it's a text chunk
@@ -979,7 +980,7 @@ export default function App() {
 
         const updatedMessages = session.messages.map((msg) => {
           if (msg.id === assistantMsgId) {
-            return { ...msg, suggestions };
+            return { ...msg, suggestions, needsSuggestions: false };
           }
           return msg;
         });
@@ -1510,6 +1511,7 @@ export default function App() {
               content: "",
               steps: undefined,
               versions: updatedVersions,
+              needsSuggestions: true,
             };
           }
 
@@ -1578,6 +1580,7 @@ export default function App() {
             content: "",
             steps: undefined,
             versions: updatedVersions,
+            needsSuggestions: true,
           };
         }
         return msg;
