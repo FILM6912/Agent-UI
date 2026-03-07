@@ -169,7 +169,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
+      <div className="flex-1 flex flex-col h-full min-w-0 relative">
         {showSettings ? (
           <SettingsView
             modelConfig={modelConfig}
