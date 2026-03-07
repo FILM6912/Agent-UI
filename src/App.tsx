@@ -207,6 +207,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
                 navigate("/login");
               }}
               textareaRef={chatInputRef}
+              isMobile={isMobile}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             />
 
             {!isPreviewOpen && (
