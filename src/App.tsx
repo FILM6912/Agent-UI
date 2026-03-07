@@ -410,14 +410,14 @@ export default function App() {
   const [modelConfig, setModelConfig] = useState<ModelConfig>(() => {
     // Load LangFlow config from localStorage
     const savedLangflowConfig = localStorage.getItem("langflow_config");
-    let langflowUrl = "";
+    let langflowUrl = "http://localhost:7860";
     let langflowApiKey = "";
     let apiType: 'langflow' | 'openai' = 'langflow';
 
     if (savedLangflowConfig) {
       try {
         const config = JSON.parse(savedLangflowConfig);
-        langflowUrl = config.url || "";
+        langflowUrl = config.url || "http://localhost:7860";
         langflowApiKey = config.apiKey || "";
         apiType = config.apiType || "langflow";
       } catch (error) {
