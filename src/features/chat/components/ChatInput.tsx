@@ -12,6 +12,7 @@ import { Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
+import { MCPServerList } from "./MCPServerList";
 
 interface ChatInputProps {
   input: string;
@@ -32,6 +33,10 @@ interface ChatInputProps {
   speechError: string | null;
   onToggleListening: () => void;
   textareaRef: React.RefObject<HTMLTextAreaElement>;
+  mcpServers?: string[];
+  showMcpMenu?: boolean;
+  onToggleMcpMenu?: () => void;
+  mcpMenuRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -53,6 +58,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   speechError,
   onToggleListening,
   textareaRef,
+  mcpServers = [],
+  showMcpMenu = false,
+  onToggleMcpMenu,
+  mcpMenuRef,
 }) => {
   const { t } = useLanguage();
   const isSmallScreen = useMediaQuery("(max-width: 1024px)");
@@ -390,6 +399,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     >
                       <Paperclip className="w-5 h-5" />
                     </button>
+                    {onToggleMcpMenu && mcpMenuRef && (
+                      <MCPServerList
+                        isOpen={showMcpMenu}
+                        onToggle={onToggleMcpMenu}
+                        servers={mcpServers}
+                        menuRef={mcpMenuRef}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -492,6 +509,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       >
                         <Paperclip className="w-5 h-5" />
                       </button>
+                      {onToggleMcpMenu && mcpMenuRef && (
+                        <MCPServerList
+                          isOpen={showMcpMenu}
+                          onToggle={onToggleMcpMenu}
+                          servers={mcpServers}
+                          menuRef={mcpMenuRef}
+                        />
+                      )}
                     </div>
 
                     {/* Right Actions Group */}
