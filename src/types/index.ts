@@ -84,6 +84,7 @@ export interface Message {
   versions?: MessageVersion[];
   currentVersionIndex?: number;
   suggestions?: string[];
+  needsSuggestions?: boolean;
 }
 
 export interface ChatSession {

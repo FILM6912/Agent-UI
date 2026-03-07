@@ -18,7 +18,7 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react";
-import { ChatSession, AIProvider } from "@/types";
+import { AIProvider, ChatSession, ModelConfig } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -37,6 +37,9 @@ interface SidebarProps {
   toggleSidebar?: () => void;
   isMobile?: boolean;
   onLogout?: () => void;
+  modelConfig?: ModelConfig;
+  onModelConfigChange?: (config: ModelConfig) => void;
+  mcpServers?: string[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -54,6 +57,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   toggleSidebar,
   isMobile = false,
   onLogout,
+  modelConfig,
+  onModelConfigChange,
+  mcpServers = [],
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -70,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (session) =>
       session &&
       session.id &&
-      !session.id.startsWith("suggestion-") &&
+      !session.id.startsWith("suggestion") &&
       (session.title || "").toLowerCase().includes(searchQuery.toLowerCase()) &&
       (session.messages || []).length > 0,
   );
@@ -249,11 +255,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <button
                   onClick={() => onSelectChat(session.id)}
-                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${
-                    activeChatId === session.id
-                      ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
-                      : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                  }`}
+                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${activeChatId === session.id
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
+                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
+                    }`}
                 >
                   {loadingChatId === session.id ? (
                     <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Settings, ArrowDown } from "lucide-react";
+import { Settings, ArrowDown, Menu } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { SettingsMenu } from "./SettingsMenu";
@@ -8,11 +8,12 @@ import { MessageItem } from "./MessageItem";
 import { LoadingIndicator } from "./LoadingIndicator";
 import { ImageLightbox } from "./ImageLightbox";
 import { ChatInput } from "./ChatInput";
+import { ModelSelector } from "./ModelSelector";
+import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import { useAgentModels } from "../hooks/useAgentModels";
 import { useFileHandling } from "../hooks/useFileHandling";
-
 import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
+import { useAgentModels } from "../hooks/useAgentModels";
 
 
 export const getPresetModels = (
@@ -67,6 +68,9 @@ interface ChatInterfaceProps {
   onOpenSettings?: () => void;
   onLogout?: () => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  isMobile?: boolean;
+  onToggleSidebar?: () => void;
+  loadingChatId?: string | null;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -89,6 +93,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onOpenSettings,
   onLogout,
   textareaRef: externalTextareaRef,
+  isMobile = false,
+  onToggleSidebar,
+  loadingChatId,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -98,19 +105,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const shouldFocusRef = useRef(false);
 
   // Menu Refs for click outside handling
-  const mcpMenuRef = useRef<HTMLDivElement>(null);
-  const modelMenuRef = useRef<HTMLDivElement>(null);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+  const mcpMenuRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
-
-  // Dropdown States
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showMcpMenu, setShowMcpMenu] = useState(false);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+
+  // Agent Models Hook
+  const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
+    modelConfig,
+    onModelConfigChange,
+  });
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -121,11 +132,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     language,
     input,
     setInput,
-  });
-
-  const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
-    modelConfig,
-    onModelConfigChange,
   });
 
   const {
@@ -190,26 +196,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Click outside handler for menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        showModelMenu &&
-        modelMenuRef.current &&
-        !modelMenuRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Node;
+
+      if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(target)) {
+        setShowSettingsMenu(false);
+      }
+      if (showModelMenu && modelMenuRef.current && !modelMenuRef.current.contains(target)) {
         setShowModelMenu(false);
       }
-      if (
-        showMcpMenu &&
-        mcpMenuRef.current &&
-        !mcpMenuRef.current.contains(event.target as Node)
-      ) {
+      if (showMcpMenu && mcpMenuRef.current && !mcpMenuRef.current.contains(target)) {
         setShowMcpMenu(false);
-      }
-      if (
-        showSettingsMenu &&
-        settingsMenuRef.current &&
-        !settingsMenuRef.current.contains(event.target as Node)
-      ) {
-        setShowSettingsMenu(false);
       }
     };
 
@@ -217,7 +213,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showModelMenu, showMcpMenu, showSettingsMenu]);
+  }, [showSettingsMenu, showModelMenu, showMcpMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -257,15 +253,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setEditValue("");
   };
 
-  const handleModelSelect = (modelId: string, modelName: string) => {
-    onModelConfigChange({
-      ...modelConfig,
-      modelId,
-      name: modelName,
-    });
-    setShowModelMenu(false);
-  };
-
   const handleSendClickWrapper = (text: string) => {
     setUserHasScrolledUp(false);
     onSend(text, []);
@@ -274,6 +261,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
+      {/* Top Bar - Model Selector (Left) and Settings (Right) */}
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+        {isMobile && onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            title={t("chat.toggleSidebar") || "Toggle Sidebar"}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <ModelSelector
+          isOpen={showModelMenu}
+          onToggle={() => setShowModelMenu(!showModelMenu)}
+          modelConfig={modelConfig}
+          agentModels={agentModels}
+          pinnedAgentId={pinnedAgentId}
+          onModelSelect={(id, name) => onModelConfigChange({ ...modelConfig, modelId: id, name })}
+          onPinAgent={handlePinAgent}
+          menuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
+        />
+      </div>
+
       {/* Settings Button - Top Right */}
       {onOpenSettings && (
         <div className="relative" ref={settingsMenuRef}>
@@ -306,13 +316,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onScroll={handleScroll}
       >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
-          {/* Welcome Screen */}
-          {messages.length === 0 && (
-            <WelcomeScreen
-              language={language}
-              onSuggestionClick={(prompt) => onSend(prompt, [])}
-            />
-          )}
+          {loadingChatId ? (
+            <ChatLoadingSkeleton />
+          ) : (
+            <>
+              {messages.length === 0 && (
+                <WelcomeScreen
+                  language={language}
+                  onSuggestionClick={(prompt) => onSend(prompt, [])}
+                />
+              )}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
           {messages.length > 0 &&
@@ -328,11 +341,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       (a: any) => a.id === modelConfig.modelId,
                     );
                     if (agent && agent.enabled !== true) {
-                      isAgentDisabled = true;
-                    } else if (
-                      agent &&
-                      !agentModels.find((m) => m.id === modelConfig.modelId)
-                    ) {
                       isAgentDisabled = true;
                     }
                   }
@@ -403,8 +411,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
           {/* Loading Indicator */}
           {isLoading && <LoadingIndicator modelConfig={modelConfig} />}
+            </>
+          )}
         </div>
-      </div>
+      </div >
 
       {/* Scroll to Bottom Button */}
       {userHasScrolledUp && (
@@ -450,19 +460,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-        showModelMenu={showModelMenu}
-        setShowModelMenu={setShowModelMenu}
-        modelConfig={modelConfig}
-        agentModels={agentModels}
-        pinnedAgentId={pinnedAgentId}
-        onModelSelect={handleModelSelect}
-        onPinAgent={handlePinAgent}
-        modelMenuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
-        showMcpMenu={showMcpMenu}
-        setShowMcpMenu={setShowMcpMenu}
         mcpServers={modelConfig.mcpServers || []}
-        mcpMenuRef={mcpMenuRef as React.RefObject<HTMLDivElement>}
+        showMcpMenu={showMcpMenu}
+        onToggleMcpMenu={() => setShowMcpMenu(!showMcpMenu)}
+        mcpMenuRef={mcpMenuRef}
       />
-    </div>
+    </div >
   );
 };

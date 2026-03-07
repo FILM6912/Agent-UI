@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronUp, Check, Sparkles, Pin, PinOff } from "lucide-react";
+import { ChevronDown, Check, Sparkles, Pin, PinOff } from "lucide-react";
 import { ModelConfig } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -29,7 +29,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <div className="relative" ref={menuRef}>
       {isOpen && (
-        <div className="absolute bottom-full mb-2 left-0 w-64 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 flex flex-col animate-in slide-in-from-bottom-2 fade-in duration-200 overflow-hidden">
+        <div className="absolute top-full mt-2 left-0 w-64 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 flex flex-col animate-in slide-in-from-top-2 fade-in duration-200 overflow-hidden">
           <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
             {t("chat.availableModels")}
           </div>
@@ -43,6 +43,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 <button
                   onClick={() => {
                     onModelSelect(m.id, m.name);
+                    onToggle();
                   }}
                   className={`flex-1 text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
                     modelConfig.modelId === m.id
@@ -126,7 +127,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         <span className="text-xs font-medium max-w-[100px] truncate">
           {modelConfig.name}
         </span>
-        <ChevronUp
+        <ChevronDown
           className={`w-3 h-3 text-zinc-500 ml-1 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>

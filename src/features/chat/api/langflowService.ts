@@ -555,7 +555,11 @@ Constraints:
       try {
         const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
         const flowId = config.modelId;
-        const suggestionSessionId = `suggestion-${Date.now()}`;
+        const configuredSessionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
+        const suggestionSessionId = configuredSessionId || `suggestion-${Date.now()}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(`${baseUrl}/api/v1/run/${flowId}`, {
           method: 'POST',
@@ -570,8 +574,11 @@ Constraints:
             output_type: "chat",
             session_id: suggestionSessionId,
             tweaks: {}
-          })
+          }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) throw new Error(`LangFlow API Error: ${response.status}`);
 

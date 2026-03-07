@@ -163,10 +163,13 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
             setIsAuthenticated(false);
             navigate("/login");
           }}
+          modelConfig={modelConfig}
+          onModelConfigChange={setModelConfig}
+        // Assuming App.tsx doesn't natively have mcpServers state pulled out yet
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-w-[380px] relative">
+      <div className="flex-1 flex flex-col h-full min-w-0 relative">
         {showSettings ? (
           <SettingsView
             modelConfig={modelConfig}
@@ -204,6 +207,9 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
                 navigate("/login");
               }}
               textareaRef={chatInputRef}
+              isMobile={isMobile}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              loadingChatId={loadingChatId}
             />
 
             {!isPreviewOpen && (
@@ -306,6 +312,7 @@ export default function App() {
       if (id !== activeChatId) {
         console.log('>>> URL Sync: Updating activeChatId to:', id);
         setActiveChatId(id);
+        setLoadingChatId(id);
       }
     } else if (location.pathname === "/chat") {
       // On /chat without ID, clear activeChatId
@@ -403,14 +410,14 @@ export default function App() {
   const [modelConfig, setModelConfig] = useState<ModelConfig>(() => {
     // Load LangFlow config from localStorage
     const savedLangflowConfig = localStorage.getItem("langflow_config");
-    let langflowUrl = "";
+    let langflowUrl = "http://localhost:7860";
     let langflowApiKey = "";
     let apiType: 'langflow' | 'openai' = 'langflow';
 
     if (savedLangflowConfig) {
       try {
         const config = JSON.parse(savedLangflowConfig);
-        langflowUrl = config.url || "";
+        langflowUrl = config.url || "http://localhost:7860";
         langflowApiKey = config.apiKey || "";
         apiType = config.apiType || "langflow";
       } catch (error) {
@@ -511,7 +518,7 @@ export default function App() {
         // Use Ref to get the LATEST active chat ID
         const currentActiveId = activeChatIdRef.current;
         if (!currentActiveId && fetchedSessions.length > 0) {
-            setActiveChatId(fetchedSessions[0].id);
+          setActiveChatId(fetchedSessions[0].id);
         }
       } else {
         // No sessions from API.
@@ -566,7 +573,7 @@ export default function App() {
         if (!session && serverMessages.length === 0) return prev;
 
         const localMessages = session?.messages || [];
-        
+
         // Use localMessages as the base to preserve branches (tails)
         const updatedLocalMessages = localMessages.map(localMsg => {
           // Skip sync for messages with multiple versions (branching) to preserve version history
@@ -594,6 +601,7 @@ export default function App() {
             ...localMsg, // Keep all local meta (versions, currentVersionIndex)
             content: (currentIdx === latestIdx) ? serverMsg.content : localMsg.content,
             steps: (currentIdx === latestIdx) ? serverMsg.steps : localMsg.steps,
+            attachments: serverMsg.attachments || localMsg.attachments,
             versions: updatedVersions,
           };
         });
@@ -715,7 +723,7 @@ export default function App() {
           // If we have a target message ID, we are updating an existing message (Linked Branching/Regenerate)
           // So we skip the creation/append step and fall through to the update logic
           if (!targetMessageId) {
-             const initialAssistantMsg: Message = {
+            const initialAssistantMsg: Message = {
               id: assistantMsgId,
               role: "assistant",
               content: "",
@@ -729,8 +737,9 @@ export default function App() {
                 },
               ],
               currentVersionIndex: 0,
+              needsSuggestions: true,
             };
-  
+
             // Set initial content if it's a text chunk
             if (chunk.type === "text" && chunk.content) {
               accumulatedContent += chunk.content;
@@ -739,14 +748,14 @@ export default function App() {
                 initialAssistantMsg.versions[0].content = accumulatedContent;
               }
             }
-  
+
             setSessions((prev) => {
               // Ensure session exists before updating
               if (!prev[sessionId]) {
                 console.error(`Session ${sessionId} not found in first chunk handler`);
                 return prev;
               }
-  
+
               return {
                 ...prev,
                 [sessionId]: {
@@ -755,13 +764,13 @@ export default function App() {
                 },
               };
             });
-            
+
             // Skip the rest of the loop ONLY if we created a new message
             // If we are updating (fallthrough), we want the update logic to run immediately for this chunk
             messageInitialized = true;
             continue;
           }
-          
+
           messageInitialized = true;
           // Fall through to update logic for existing message...
         }
@@ -791,20 +800,20 @@ export default function App() {
             }
 
             const updatedMessages = session.messages.map((msg) => {
-                if (msg.id === assistantMsgId) {
+              if (msg.id === assistantMsgId) {
                 // Check if this is a regenerate (has aiVersions in current version)
                 const currentVersionIndex = msg.currentVersionIndex || 0;
                 const currentMessageVersion = msg.versions?.[currentVersionIndex];
-                
+
                 if (currentMessageVersion?.aiVersions && currentMessageVersion.aiVersions.length > 0) {
                   const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
                   const currentAIVersion = currentMessageVersion.aiVersions[currentAIIndex];
                   const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
                   const currentRegenVersions = currentAIVersion?.regenVersions || [];
-                  
+
                   const updatedAIVersions = [...currentMessageVersion.aiVersions];
                   const updatedRegenVersions = [...currentRegenVersions];
-                  
+
                   // Write to current regen version
                   if (updatedRegenVersions[currentRegenIndex]) {
                     if (chunk.type === "text") {
@@ -819,20 +828,20 @@ export default function App() {
                       };
                     }
                   }
-                  
+
                   updatedAIVersions[currentAIIndex] = {
                     ...currentAIVersion,
                     regenVersions: updatedRegenVersions,
                   };
-                  
+
                   const updatedMessageVersion = {
                     ...currentMessageVersion,
                     aiVersions: updatedAIVersions,
                   };
-                  
+
                   const updatedVersions = [...(msg.versions || [])];
                   updatedVersions[currentVersionIndex] = updatedMessageVersion;
-                  
+
                   return {
                     ...msg,
                     content: chunk.type === "text" ? accumulatedContent : msg.content,
@@ -923,6 +932,7 @@ export default function App() {
                 ...localMsg,
                 content: (currentIdx === latestIndex) ? serverMsg.content : localMsg.content,
                 steps: (currentIdx === latestIndex) ? serverMsg.steps : localMsg.steps,
+                attachments: serverMsg.attachments || localMsg.attachments,
                 versions: updatedVersions,
               };
             });
@@ -972,7 +982,7 @@ export default function App() {
 
         const updatedMessages = session.messages.map((msg) => {
           if (msg.id === assistantMsgId) {
-            return { ...msg, suggestions };
+            return { ...msg, suggestions, needsSuggestions: false };
           }
           return msg;
         });
@@ -1097,10 +1107,10 @@ export default function App() {
 
     const currentPrompt = message;
     const isAtChatRoot = location.pathname === "/chat" || location.pathname === "/";
-    
+
     // Use Ref to get the LATEST active chat ID
     const currentActiveId = activeChatIdRef.current;
-    
+
     // Check if we really need a new chat
     // 1. If we are at root (/chat)
     // 2. If NO active ID exists
@@ -1285,9 +1295,9 @@ export default function App() {
     } catch (e: any) {
       console.error("Chat execution failed:", e);
       let errorMessage = `เกิดข้อผิดพลาด: ${e.message}`;
-        if (e.message && e.message.includes("Failed to fetch")) {
-          errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
-        }
+      if (e.message && e.message.includes("Failed to fetch")) {
+        errorMessage = "ไม่สามารถเชื่อมต่อกับ Server ได้ (CORS หรือ Network Error) กรุณาตรวจสอบการเชื่อมต่อหรือตั้งค่า Proxy";
+      }
       setErrorModalConfig({
         title: "การส่งข้อความล้มเหลว",
         message: errorMessage,
@@ -1317,7 +1327,7 @@ export default function App() {
     const assistantIndex = currentMessagesRaw.slice(msgIndex + 1).findIndex(m => m.role === "assistant");
     const assistantMsg = assistantIndex !== -1 ? currentMessagesRaw[msgIndex + 1 + assistantIndex] : null;
     const actualAssistantIndex = assistantIndex !== -1 ? msgIndex + 1 + assistantIndex : -1;
-    
+
     const targetAssistantId = assistantMsg?.id;
     const historyToUse = currentMessagesRaw.slice(0, msgIndex);
 
@@ -1446,7 +1456,7 @@ export default function App() {
         if (msg.id === messageId) {
           const currentVersionIndex = msg.currentVersionIndex || 0;
           const currentVersions = msg.versions || [];
-          
+
           // Get current message version
           const currentMessageVersion = currentVersions[currentVersionIndex] || {
             content: msg.content,
@@ -1455,10 +1465,10 @@ export default function App() {
             suggestions: msg.suggestions,
             timestamp: msg.timestamp,
           };
-          
+
           const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
           const currentAIVersions = currentMessageVersion.aiVersions || [];
-          
+
           // If no aiVersions exist, create the first one with current content
           if (currentAIVersions.length === 0) {
             const firstRegenVersion = {
@@ -1468,13 +1478,13 @@ export default function App() {
               suggestions: msg.suggestions,
               timestamp: msg.timestamp,
             };
-            
+
             // Create new empty regen version for streaming
             const newRegenVersion = {
               content: "",
               timestamp: Date.now(),
             };
-            
+
             const firstAIVersion = {
               content: msg.content,
               steps: msg.steps,
@@ -1484,28 +1494,29 @@ export default function App() {
               regenVersions: [firstRegenVersion, newRegenVersion],
               currentRegenIndex: 1, // Point to the new empty version
             };
-            
+
             const updatedMessageVersion = {
               ...currentMessageVersion,
               aiVersions: [firstAIVersion],
               currentAIIndex: 0,
             };
-            
+
             const updatedVersions = [...currentVersions];
             if (updatedVersions[currentVersionIndex]) {
               updatedVersions[currentVersionIndex] = updatedMessageVersion;
             } else {
               updatedVersions.push(updatedMessageVersion);
             }
-            
+
             return {
               ...msg,
               content: "",
               steps: undefined,
               versions: updatedVersions,
+              needsSuggestions: true,
             };
           }
-          
+
           // Save current content to current AI version
           const updatedAIVersions = [...currentAIVersions];
           if (updatedAIVersions[currentAIIndex]) {
@@ -1517,15 +1528,15 @@ export default function App() {
               suggestions: msg.suggestions,
             };
           }
-          
+
           // Add new regen version to current AI version
           const currentAIVersion = updatedAIVersions[currentAIIndex];
           const currentRegenVersions = currentAIVersion.regenVersions || [];
           const currentRegenIndex = currentAIVersion.currentRegenIndex || 0;
-          
+
           // Save current content to current regen version before creating new one
           const updatedRegenVersions = [...currentRegenVersions];
-          
+
           // If regenVersions is empty, save current content as first regen version
           if (updatedRegenVersions.length === 0) {
             const firstRegenVersion = {
@@ -1545,32 +1556,33 @@ export default function App() {
               suggestions: msg.suggestions,
             };
           }
-          
+
           // Create new regen version
           const newRegenVersion = {
             content: "",
             timestamp: Date.now(),
           };
-          
+
           updatedAIVersions[currentAIIndex] = {
             ...currentAIVersion,
             regenVersions: [...updatedRegenVersions, newRegenVersion],
             currentRegenIndex: updatedRegenVersions.length,
           };
-          
+
           const updatedMessageVersion = {
             ...currentMessageVersion,
             aiVersions: updatedAIVersions,
           };
-          
+
           const updatedVersions = [...currentVersions];
           updatedVersions[currentVersionIndex] = updatedMessageVersion;
-          
+
           return {
             ...msg,
             content: "",
             steps: undefined,
             versions: updatedVersions,
+            needsSuggestions: true,
           };
         }
         return msg;
@@ -1651,7 +1663,7 @@ export default function App() {
           const idxToUse = updates.get(msg.id)!;
           const currentIdx = msg.currentVersionIndex ?? 0;
           const updatedVersions = msg.versions ? [...msg.versions] : [];
-          
+
           // Save CURRENT tail to CURRENT version slot before switching
           if (updatedVersions[currentIdx]) {
             updatedVersions[currentIdx] = {
@@ -1697,14 +1709,14 @@ export default function App() {
       const targetMsg = currentMessages[msgIndex];
       const currentVersionIndex = targetMsg.currentVersionIndex || 0;
       const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
-      
+
       if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[newIndex]) return prev;
 
       const updatedMessages = currentMessages.map((msg) => {
         if (msg.id === messageId) {
           const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
           const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
-          
+
           // Save current content to current AI version before switching
           if (updatedAIVersions[currentAIIndex]) {
             updatedAIVersions[currentAIIndex] = {
@@ -1721,10 +1733,10 @@ export default function App() {
             aiVersions: updatedAIVersions,
             currentAIIndex: newIndex,
           };
-          
+
           const updatedVersions = [...(msg.versions || [])];
           updatedVersions[currentVersionIndex] = updatedMessageVersion;
-          
+
           return {
             ...msg,
             content: targetAIVersion.content,
@@ -1761,9 +1773,9 @@ export default function App() {
       const targetMsg = currentMessages[msgIndex];
       const currentVersionIndex = targetMsg.currentVersionIndex || 0;
       const currentMessageVersion = targetMsg.versions?.[currentVersionIndex];
-      
+
       if (!currentMessageVersion?.aiVersions || !currentMessageVersion.aiVersions[aiIndex]) return prev;
-      
+
       const targetAIVersion = currentMessageVersion.aiVersions[aiIndex];
       if (!targetAIVersion.regenVersions || !targetAIVersion.regenVersions[regenIndex]) return prev;
 
@@ -1772,9 +1784,9 @@ export default function App() {
           const currentAIIndex = currentMessageVersion.currentAIIndex || 0;
           const currentAIVersion = currentMessageVersion.aiVersions?.[currentAIIndex];
           const currentRegenIndex = currentAIVersion?.currentRegenIndex || 0;
-          
+
           const updatedAIVersions = [...(currentMessageVersion.aiVersions || [])];
-          
+
           // Save current content to current regen version before switching
           if (updatedAIVersions[aiIndex] && updatedAIVersions[aiIndex].regenVersions) {
             const updatedRegenVersions = [...updatedAIVersions[aiIndex].regenVersions!];
@@ -1793,22 +1805,22 @@ export default function App() {
           }
 
           const targetRegenVersion = updatedAIVersions[aiIndex].regenVersions![regenIndex];
-          
+
           // Update currentRegenIndex in the target AI version
           updatedAIVersions[aiIndex] = {
             ...updatedAIVersions[aiIndex],
             currentRegenIndex: regenIndex,
           };
-          
+
           const updatedMessageVersion = {
             ...currentMessageVersion,
             aiVersions: updatedAIVersions,
             currentAIIndex: aiIndex, // Update currentAIIndex to the AI version being switched to
           };
-          
+
           const updatedVersions = [...(msg.versions || [])];
           updatedVersions[currentVersionIndex] = updatedMessageVersion;
-          
+
           return {
             ...msg,
             content: targetRegenVersion.content,
@@ -1917,13 +1929,13 @@ export default function App() {
     if (activeChatId) {
       navigate(`/files/${activeChatId}`);
     } else {
-       // If no active chat, try to find the most recent one
-       const sessionIds = Object.keys(sessions);
-       if (sessionIds.length > 0) {
-          // Sort by updated at
-          const latest = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt)[0];
-          navigate(`/files/${latest.id}`);
-       }
+      // If no active chat, try to find the most recent one
+      const sessionIds = Object.keys(sessions);
+      if (sessionIds.length > 0) {
+        // Sort by updated at
+        const latest = Object.values(sessions).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        navigate(`/files/${latest.id}`);
+      }
     }
   };
 
@@ -2003,6 +2015,7 @@ export default function App() {
                 inputValue={inputValue}
                 setInputValue={setInputValue}
                 handleSend={handleSend}
+                handleStop={handleStop}
                 handleRegenerate={handleRegenerate}
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
@@ -2055,6 +2068,7 @@ export default function App() {
                 inputValue={inputValue}
                 setInputValue={setInputValue}
                 handleSend={handleSend}
+                handleStop={handleStop}
                 handleRegenerate={handleRegenerate}
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
@@ -2107,10 +2121,12 @@ export default function App() {
                 inputValue={inputValue}
                 setInputValue={setInputValue}
                 handleSend={handleSend}
+                handleStop={handleStop}
                 handleRegenerate={handleRegenerate}
                 handleEditUserMessage={handleEditUserMessage}
                 isLoading={isLoading}
                 isStreaming={isStreaming}
+                loadingChatId={loadingChatId}
                 handleVersionChange={handleVersionChange}
                 handleAIVersionChange={handleAIVersionChange}
                 handleRegenVersionChange={handleRegenVersionChange}
