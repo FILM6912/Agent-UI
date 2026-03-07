@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Settings, ArrowDown } from "lucide-react";
+import { Settings, ArrowDown, Menu } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { SettingsMenu } from "./SettingsMenu";
@@ -67,6 +67,8 @@ interface ChatInterfaceProps {
   onOpenSettings?: () => void;
   onLogout?: () => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  isMobile?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -89,6 +91,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onOpenSettings,
   onLogout,
   textareaRef: externalTextareaRef,
+  isMobile = false,
+  onToggleSidebar,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -244,7 +248,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
       {/* Top Bar - Model Selector (Left) and Settings (Right) */}
-      <div className="absolute top-4 left-4 z-30">
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
+        {isMobile && onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+            title={t("chat.toggleSidebar") || "Toggle Sidebar"}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
         <ModelSelector
           isOpen={showModelMenu}
           onToggle={() => setShowModelMenu(!showModelMenu)}
