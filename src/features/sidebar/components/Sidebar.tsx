@@ -76,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (session) =>
       session &&
       session.id &&
-      !session.id.startsWith("suggestion-") &&
+      !session.id.startsWith("suggestion") &&
       (session.title || "").toLowerCase().includes(searchQuery.toLowerCase()) &&
       (session.messages || []).length > 0,
   );

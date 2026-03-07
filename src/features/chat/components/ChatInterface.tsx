@@ -9,6 +9,7 @@ import { LoadingIndicator } from "./LoadingIndicator";
 import { ImageLightbox } from "./ImageLightbox";
 import { ChatInput } from "./ChatInput";
 import { ModelSelector } from "./ModelSelector";
+import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useFileHandling } from "../hooks/useFileHandling";
 import { useMarkdownComponents } from "../hooks/useMarkdownComponents";
@@ -69,6 +70,7 @@ interface ChatInterfaceProps {
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
   isMobile?: boolean;
   onToggleSidebar?: () => void;
+  loadingChatId?: string | null;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -93,6 +95,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   textareaRef: externalTextareaRef,
   isMobile = false,
   onToggleSidebar,
+  loadingChatId,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -313,13 +316,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onScroll={handleScroll}
       >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
-          {/* Welcome Screen */}
-          {messages.length === 0 && (
-            <WelcomeScreen
-              language={language}
-              onSuggestionClick={(prompt) => onSend(prompt, [])}
-            />
-          )}
+          {loadingChatId ? (
+            <ChatLoadingSkeleton />
+          ) : (
+            <>
+              {messages.length === 0 && (
+                <WelcomeScreen
+                  language={language}
+                  onSuggestionClick={(prompt) => onSend(prompt, [])}
+                />
+              )}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
           {messages.length > 0 &&
@@ -405,6 +411,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
           {/* Loading Indicator */}
           {isLoading && <LoadingIndicator modelConfig={modelConfig} />}
+            </>
+          )}
         </div>
       </div >
 

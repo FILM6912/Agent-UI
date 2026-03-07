@@ -209,6 +209,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               textareaRef={chatInputRef}
               isMobile={isMobile}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              loadingChatId={loadingChatId}
             />
 
             {!isPreviewOpen && (
@@ -311,6 +312,7 @@ export default function App() {
       if (id !== activeChatId) {
         console.log('>>> URL Sync: Updating activeChatId to:', id);
         setActiveChatId(id);
+        setLoadingChatId(id);
       }
     } else if (location.pathname === "/chat") {
       // On /chat without ID, clear activeChatId
