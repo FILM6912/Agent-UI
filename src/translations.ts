@@ -88,6 +88,8 @@ export const translations = {
       clearHistory: "Clear Chat History",
       clearHistoryDesc: "Delete all your conversation history",
       clearAll: "Clear All",
+      autoOpenToolsSidebar: "Auto Open Tools Sidebar",
+      autoOpenToolsSidebarDesc: "Automatically open right sidebar when tools are being used",
       systemPrompt: "System Prompt",
       systemPromptDesc: "Default instruction for all new chats",
 
@@ -342,6 +344,8 @@ export const translations = {
       clearHistory: "ล้างประวัติแชท",
       clearHistoryDesc: "ลบประวัติการสนทนาทั้งหมดของคุณ",
       clearAll: "ล้างทั้งหมด",
+      autoOpenToolsSidebar: "เปิด Sidebar เครื่องมืออัตโนมัติ",
+      autoOpenToolsSidebarDesc: "เปิด sidebar ด้านขวาโดยอัตโนมัติเมื่อมีการใช้เครื่องมือ",
       systemPrompt: "System Prompt",
       systemPromptDesc: "คำสั่งเริ่มต้นสำหรับทุกแชทใหม่",
 

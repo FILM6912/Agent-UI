@@ -28,6 +28,8 @@ interface AppearanceContextType {
   setFontSize: (size: FontSize) => void;
   fontFamily: FontFamily;
   setFontFamily: (family: FontFamily) => void;
+  autoOpenToolsSidebar: boolean;
+  setAutoOpenToolsSidebar: (open: boolean) => void;
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(
@@ -70,6 +72,11 @@ export const AppearanceProvider: React.FC<{ children: ReactNode }> = ({
     return (localStorage.getItem("app_font_family") as FontFamily) || "sans";
   });
 
+  const [autoOpenToolsSidebar, setAutoOpenToolsSidebarState] = useState<boolean>(() => {
+    const saved = localStorage.getItem("auto_open_tools_sidebar");
+    return saved !== null ? saved === "true" : false;
+  });
+
   useEffect(() => {
     const root = window.document.documentElement;
     root.style.fontSize = FONT_SIZE_MAP[fontSize];
@@ -92,11 +99,17 @@ export const AppearanceProvider: React.FC<{ children: ReactNode }> = ({
     localStorage.setItem("app_font_family", fontFamily);
   }, [fontFamily]);
 
+  useEffect(() => {
+    localStorage.setItem("auto_open_tools_sidebar", String(autoOpenToolsSidebar));
+  }, [autoOpenToolsSidebar]);
+
   const value = {
     fontSize,
     setFontSize: setFontSizeState,
     fontFamily,
     setFontFamily: setFontFamilyState,
+    autoOpenToolsSidebar,
+    setAutoOpenToolsSidebar: setAutoOpenToolsSidebarState,
   };
 
   return (

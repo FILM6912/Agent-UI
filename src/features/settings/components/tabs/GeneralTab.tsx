@@ -11,6 +11,7 @@ import {
   Upload,
   Download,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,7 +29,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   const { t, language, setLanguage, updateTranslations, exportTranslations } =
     useLanguage();
   const { theme, setTheme } = useTheme();
-  const { fontSize, setFontSize, fontFamily, setFontFamily } = useAppearance();
+  const { fontSize, setFontSize, fontFamily, setFontFamily, autoOpenToolsSidebar, setAutoOpenToolsSidebar } = useAppearance();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -333,6 +334,37 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Tools Sidebar Setting */}
+        <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-4">
+            <div className="p-2 rounded-lg bg-zinc-100 dark:bg-[#1e1e20] text-amber-500 dark:text-amber-400 border border-zinc-200 dark:border-zinc-800">
+              <Wrench className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                {t("settings.autoOpenToolsSidebar")}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">
+                {t("settings.autoOpenToolsSidebarDesc")}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setAutoOpenToolsSidebar(!autoOpenToolsSidebar)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              autoOpenToolsSidebar
+                ? "bg-blue-600"
+                : "bg-zinc-200 dark:bg-zinc-700"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                autoOpenToolsSidebar ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
         </div>
 
         {/* Manage Language Card */}

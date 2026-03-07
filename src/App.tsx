@@ -34,6 +34,7 @@ import {
 import { fileService } from "@/features/chat/api/fileService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useAppearance } from "@/hooks/useAppearance";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
 import { generateUUID } from "@/lib/utils";
 
@@ -298,6 +299,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
 
 export default function App() {
   const { t } = useLanguage();
+  const { autoOpenToolsSidebar } = useAppearance();
   const navigate = useNavigate();
   const location = useLocation();
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
@@ -788,7 +790,7 @@ export default function App() {
           }
 
           // Auto-open right sidebar if tools are used
-          if (chunk.type === "steps" && !isPreviewOpen && !isSettingsOpen) {
+          if (chunk.type === "steps" && !isPreviewOpen && !isSettingsOpen && autoOpenToolsSidebar) {
             setIsPreviewOpen(true);
           }
 

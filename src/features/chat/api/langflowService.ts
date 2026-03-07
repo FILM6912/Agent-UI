@@ -676,7 +676,7 @@ export async function fetchHistoryFromLangFlow(
   config: ModelConfig,
   chatId: string
 ): Promise<Message[]> {
-  if (!config.langflowUrl || !config.modelId) return [];
+  if (!config.langflowUrl) return [];
 
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
