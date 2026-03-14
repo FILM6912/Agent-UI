@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -17,12 +17,30 @@ import remarkGfm from "remark-gfm";
 interface ProcessStepProps {
   step: ProcessStepType;
   forceExpanded?: boolean;
+  isLastStep?: boolean;
 }
 
-export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false }) => {
+export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false, isLastStep = false }) => {
   const { t } = useLanguage();
-  // Default expanded state
-  const [expanded, setExpanded] = useState(forceExpanded || (step.isExpanded ?? true));
+  const [expanded, setExpanded] = useState(() => {
+    if (forceExpanded) return true;
+    if (step.type === "thinking") {
+      return true;
+    }
+    return step.isExpanded ?? true;
+  });
+
+  const wasLastStepRef = useRef(isLastStep);
+
+  useEffect(() => {
+    if (forceExpanded) return;
+    if (step.type === "thinking") {
+      if (wasLastStepRef.current && !isLastStep) {
+        setExpanded(false);
+      }
+      wasLastStepRef.current = isLastStep;
+    }
+  }, [isLastStep, step.type, forceExpanded]);
 
   const getIcon = () => {
     switch (step.type) {
@@ -73,12 +91,14 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
 
 
   return (
-    <div className="mb-2 last:mb-0 rounded-xl bg-zinc-100 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200 border border-zinc-300 dark:border-white/10 shadow-sm">
+    <div
+      className={`process-step mb-2 last:mb-0 rounded-xl bg-zinc-100 dark:bg-[#0c0c0e] overflow-hidden group transition-all duration-200 border border-zinc-300 dark:border-white/10 shadow-sm ${expanded ? "process-step-open" : ""}`}
+    >
       <div
         className="flex items-center gap-3 p-3 min-h-[44px] cursor-pointer select-none"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center justify-center w-4 h-4 text-zinc-500 dark:text-zinc-600 group-hover:text-zinc-800 dark:group-hover:text-zinc-400 transition-colors">
+        <div className="flex items-center justify-center w-4 h-4 text-zinc-500 dark:text-zinc-600 group-hover:text-zinc-800 dark:group-hover:text-zinc-400 transition-colors process-step-chevron">
           {!forceExpanded && (
             expanded ? (
               <ChevronDown className="w-3.5 h-3.5" />
@@ -116,7 +136,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
         </div>
       </div>
 
-      {expanded && (
+      <div className="process-step-content">
         <div className="pl-10 pr-4 pb-3">
           {step.type === "thinking" && (
             <div className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200 border-l-2 border-zinc-200 dark:border-zinc-800 pl-4 py-1">
@@ -297,7 +317,7 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

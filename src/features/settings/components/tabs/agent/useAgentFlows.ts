@@ -14,6 +14,7 @@ const EXCLUDED_FLOW_NAMES = [
   "Image Sentiment Analysis",
   "Instagram Copywriter",
   "Invoice Summarizer",
+  "Knowledge Base",
   "Knowledge Ingestion",
   "Knowledge Retrieval",
   "Market Research",
@@ -132,7 +133,10 @@ export const useAgentFlows = ({
       }
 
       const newAgents: AgentFlow[] = flows
-        .filter((flow: any) => !EXCLUDED_FLOW_NAMES.includes(flow.name))
+        .filter(
+          (flow: any) =>
+            flow.is_component !== true && !EXCLUDED_FLOW_NAMES.includes(flow.name),
+        )
         .map((flow: any) => ({
           id: flow.id,
           name: flow.name,

@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronDown, Check, Sparkles, Pin, PinOff } from "lucide-react";
+import { ChevronDown, Check, Sparkles, Pin, PinOff, Lock } from "lucide-react";
 import { ModelConfig } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 
@@ -12,6 +12,10 @@ interface ModelSelectorProps {
   onModelSelect: (modelId: string, modelName: string) => void;
   onPinAgent: (agentId: string) => void;
   menuRef: React.RefObject<HTMLDivElement>;
+  /** When true, agent is locked to this chat; show lock icon and disable changing until new chat */
+  isLocked?: boolean;
+  /** Resolved name for current chat's agent (avoids "Select Agent" flash on refresh) */
+  resolvedAgentName?: string;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -23,22 +27,29 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelSelect,
   onPinAgent,
   menuRef,
+  isLocked = false,
+  resolvedAgentName,
 }) => {
   const { t } = useLanguage();
+  const rawName = (isLocked && resolvedAgentName) ? resolvedAgentName : (modelConfig.name || t("chat.selectAgent"));
+  const displayName = rawName?.startsWith("Agent ")
+    ? rawName.slice(6).trim()
+    : rawName;
 
   return (
     <div className="relative" ref={menuRef}>
-      {isOpen && (
+      {isOpen && !isLocked && (
         <div className="absolute top-full mt-2 left-0 w-64 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 flex flex-col animate-in slide-in-from-top-2 fade-in duration-200 overflow-hidden">
           <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
             {t("chat.availableModels")}
           </div>
           <div className="p-1 max-h-60 overflow-y-auto scrollbar-hide">
-            {/* Agent Models */}
-            {agentModels.map((m) => (
+            {/* Agent Models - stagger appear */}
+            {agentModels.map((m, index) => (
               <div
                 key={m.id}
-                className="group relative flex items-center gap-1"
+                className="group relative flex items-center gap-1 animate-agent-option"
+                style={{ animationDelay: `${index * 45}ms` }}
               >
                 <button
                   onClick={(e) => {
@@ -91,7 +102,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
             {/* Show message if no agents */}
             {agentModels.length === 0 && (
-              <div className="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+              <div className="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500 animate-content-fade-in">
                 <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="mb-1">
                   {t("chat.noAgents") || "No agents available"}
@@ -105,31 +116,37 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         </div>
       )}
       <button
-        onClick={onToggle}
+        onClick={isLocked ? undefined : onToggle}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-          isOpen
-            ? "bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-            : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+          isLocked
+            ? "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400 cursor-default"
+            : isOpen
+              ? "bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+              : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
         }`}
-        title={t("chat.modelSettings")}
+        title={isLocked ? (t("chat.agentLocked") ?? "สร้างแชทใหม่เพื่อเปลี่ยน Agent") : t("chat.modelSettings")}
       >
         <div className="flex items-center gap-1.5">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              pinnedAgentId === modelConfig.modelId
-                ? "bg-emerald-500"
-                : modelConfig.provider === "google"
-                  ? "bg-blue-500"
+          {isLocked ? (
+            <Lock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          ) : (
+            <div
+              className={`w-2 h-2 rounded-full ${
+                pinnedAgentId === modelConfig.modelId
+                  ? "bg-emerald-500"
                   : "bg-blue-500"
-            }`}
-          ></div>
+              }`}
+            />
+          )}
         </div>
-        <span className="text-xs font-medium max-w-[100px] truncate">
-          {modelConfig.name}
+        <span className="text-xs font-medium max-w-[140px] truncate">
+          {displayName}
         </span>
-        <ChevronDown
-          className={`w-3 h-3 text-zinc-500 ml-1 transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
+        {!isLocked && (
+          <ChevronDown
+            className={`w-3 h-3 text-zinc-500 ml-1 transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`}
+          />
+        )}
       </button>
     </div>
   );

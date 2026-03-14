@@ -78,15 +78,20 @@ export const AgentTab: React.FC<AgentTabProps> = ({
               emptyText={t("settings.noAgents")}
             />
           ) : (
-            agentFlows.map((agent) => (
-              <AgentCard
+            agentFlows.map((agent, index) => (
+              <div
                 key={agent.id}
-                agent={agent}
-                onToggleEnabled={toggleEnabled}
-                onUpdateName={updateCustomName}
-                onRequestClearName={setAgentToClearName}
-                t={t}
-              />
+                className="animate-agent-option"
+                style={{ animationDelay: `${index * 45}ms` }}
+              >
+                <AgentCard
+                  agent={agent}
+                  onToggleEnabled={toggleEnabled}
+                  onUpdateName={updateCustomName}
+                  onRequestClearName={setAgentToClearName}
+                  t={t}
+                />
+              </div>
             ))
           )}
         </div>

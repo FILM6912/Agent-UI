@@ -40,6 +40,8 @@ interface SidebarProps {
   modelConfig?: ModelConfig;
   onModelConfigChange?: (config: ModelConfig) => void;
   mcpServers?: string[];
+  /** Resolve flowId to agent name for "which agent" per chat */
+  agentModels?: { id: string; name: string; desc: string }[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -59,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   modelConfig,
   onModelConfigChange,
   mcpServers = [],
+  agentModels = [],
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -70,7 +73,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const activeChatRef = useRef<HTMLButtonElement>(null);
+  const historyContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+  const isSelectingChatRef = useRef<boolean>(false);
   const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
+
+  // Save scroll position before re-render
+  useEffect(() => {
+    const container = historyContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      scrollPositionRef.current = container.scrollTop;
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Restore scroll position after history changes (prevents jump to top)
+  useEffect(() => {
+    if (isSelectingChatRef.current && historyContainerRef.current) {
+      historyContainerRef.current.scrollTop = scrollPositionRef.current;
+      isSelectingChatRef.current = false;
+    }
+  }, [history]);
+
+  // Auto-scroll to active chat only when it changes externally (not from user click)
+  useEffect(() => {
+    if (activeChatId && activeChatRef.current && historyContainerRef.current && !isSelectingChatRef.current) {
+      const container = historyContainerRef.current;
+      const element = activeChatRef.current;
+      
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      
+      if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
+        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [activeChatId]);
 
   // Click outside handler for user menu
   useEffect(() => {
@@ -103,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setLanguage(language === "en" ? "th" : "en");
   };
 
-  const mobileClasses = `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`;
+  const mobileClasses = `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? "translate-x-0" : "-translate-x-full"}`;
 
   const providerName = activeProvider === "google" ? "Google" : "OpenAI";
 
@@ -112,8 +155,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col h-full w-full overflow-visible bg-zinc-50 dark:bg-black">
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-modal-backdrop">
+          <div className="bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-modal-content border border-zinc-200 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
               {t("sidebar.logout")}
             </h3>
@@ -194,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onNewChat}
           className={
             showExpanded
-              ? "w-full flex items-center gap-3 px-3 py-2 bg-white dark:bg-zinc-100 hover:bg-zinc-100 dark:hover:bg-white text-zinc-700 dark:text-black rounded-lg transition-colors font-medium mb-3 shadow-lg shadow-zinc-200/50 dark:shadow-zinc-900/20 whitespace-nowrap border border-zinc-200 dark:border-transparent"
+              ? "w-full flex items-center gap-3 px-3 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg transition-colors font-medium mb-3 whitespace-nowrap border border-zinc-200 dark:border-zinc-700"
               : "w-9 h-9 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors"
           }
           title={!showExpanded ? t("sidebar.newTask") : undefined}
@@ -234,6 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* History Section - Only visible when open */}
       <div
+        ref={historyContainerRef}
         className={`mt-6 flex-1 overflow-y-auto px-3 scrollbar-hide w-full overflow-x-hidden ${!showExpanded ? "invisible" : ""}`}
       >
         <div className="text-xs font-semibold text-black/80 dark:text-white/80 mb-2 px-3 uppercase tracking-wider flex items-center justify-between animate-in fade-in duration-300">
@@ -252,28 +296,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="sidebar-item group relative flex items-center"
               >
                 <button
-                  onClick={() => onSelectChat(session.id)}
-                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${activeChatId === session.id
-                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
-                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                    }`}
+                  ref={activeChatId === session.id ? activeChatRef : null}
+                  onClick={() => {
+                    isSelectingChatRef.current = true;
+                    scrollPositionRef.current = historyContainerRef.current?.scrollTop || 0;
+                    onSelectChat(session.id);
+                  }}
+                  className={`sidebar-chat-btn flex-1 text-left px-3 py-2.5 rounded-xl text-xs flex flex-col gap-0.5 pr-10 overflow-hidden min-w-0 ${
+                    activeChatId === session.id
+                      ? "is-active"
+                      : ""
+                  }`}
                 >
-                  {loadingChatId === session.id ? (
-                    <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
-                  ) : (
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
-                    ></div>
-                  )}
-                  <span className="truncate flex-1 font-medium">
-                    {session.title || "Untitled Chat"}
-                  </span>
-                  {(session.messages || []).length > 0 &&
-                    activeChatId !== session.id && (
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums">
-                        {session.messages.length}
-                      </span>
+                  <div className="flex items-center gap-2 min-w-0 w-full">
+                    {loadingChatId === session.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
+                    ) : (
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
+                      ></div>
                     )}
+                    <span className="truncate flex-1 font-medium">
+                      {session.title || "Untitled Chat"}
+                    </span>
+                    {(session.messages || []).length > 0 && (
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums flex-shrink-0">
+                          {session.messages.length}
+                        </span>
+                      )}
+                  </div>
+                  {session.flowId && (() => {
+                    const agentName = session.flowName ?? agentModels.find((a) => a.id === session.flowId)?.name;
+                    if (!agentName) return null;
+                    return (
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-500 truncate pl-3.5">
+                        {agentName}
+                      </span>
+                    );
+                  })()}
                 </button>
 
                 {/* Delete Button */}
@@ -321,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="absolute bottom-full left-0 right-0 mb-2 min-w-[280px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
-                  <div className="mb-3">
+                  <div className="mb-3 animate-agent-option" style={{ animationDelay: '0ms' }}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
                       {t("sidebar.theme")}
                     </div>
@@ -359,10 +419,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '35ms' }}></div>
 
                   {/* Language Dropdown */}
-                  <div className="px-1 py-1" ref={languageDropdownRef}>
+                  <div className="px-1 py-1 animate-agent-option" style={{ animationDelay: '70ms' }} ref={languageDropdownRef}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
                       {t("sidebar.language")}
                     </div>
@@ -415,7 +475,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '105ms' }}></div>
 
                   {/* Go to Settings Page */}
                   <button
@@ -423,7 +483,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setShowUserMenu(false);
                       onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
+                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium animate-agent-option"
+                    style={{ animationDelay: '140ms' }}
                   >
                     <Settings className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
                     <span className="flex-1 text-left">{t("settings.title")}</span>
@@ -436,7 +497,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setShowUserMenu(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium animate-agent-option"
+                      style={{ animationDelay: '175ms' }}
                     >
                       <LogOut className="w-4 h-4 shrink-0" />
                       <span className="flex-1 text-left">{t("sidebar.logout")}</span>
@@ -461,7 +523,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
-                  <div className="mb-3">
+                  <div className="mb-3 animate-agent-option" style={{ animationDelay: '0ms' }}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
                       {t("sidebar.theme")}
                     </div>
@@ -499,10 +561,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '35ms' }}></div>
 
                   {/* Language Buttons */}
-                  <div className="flex gap-2 mb-2">
+                  <div className="flex gap-2 mb-2 animate-agent-option" style={{ animationDelay: '70ms' }}>
                     <button
                       onClick={() => setLanguage("en")}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -527,7 +589,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </button>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '105ms' }}></div>
 
                   {/* Settings Button */}
                   <button
@@ -535,7 +597,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setShowUserMenu(false);
                       onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
+                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium animate-agent-option"
+                    style={{ animationDelay: '140ms' }}
                   >
                     <Settings className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
                     <span className="flex-1 text-left">{t("settings.title")}</span>
@@ -548,7 +611,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setShowUserMenu(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium animate-agent-option"
+                      style={{ animationDelay: '175ms' }}
                     >
                       <LogOut className="w-4 h-4 shrink-0" />
                       <span className="flex-1 text-left">{t("sidebar.logout")}</span>

@@ -70,6 +70,9 @@ interface ChatInterfaceProps {
   isMobile?: boolean;
   onToggleSidebar?: () => void;
   loadingChatId?: string | null;
+  activeChatId?: string;
+  /** Resolved agent name for current chat (avoids "Select Agent" flash on refresh) */
+  resolvedAgentName?: string;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -95,6 +98,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isMobile = false,
   onToggleSidebar,
   loadingChatId,
+  activeChatId = "",
+  resolvedAgentName,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -105,12 +110,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Menu Refs for click outside handling
   const modelMenuRef = useRef<HTMLDivElement>(null);
-  const mcpMenuRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [showMcpMenu, setShowMcpMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Agent Models Hook
@@ -197,16 +200,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (showModelMenu && modelMenuRef.current && !modelMenuRef.current.contains(target)) {
         setShowModelMenu(false);
       }
-      if (showMcpMenu && mcpMenuRef.current && !mcpMenuRef.current.contains(target)) {
-        setShowMcpMenu(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showModelMenu, showMcpMenu]);
+  }, [showModelMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -274,6 +274,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           onModelSelect={(id, name) => onModelConfigChange({ ...modelConfig, modelId: id, name })}
           onPinAgent={handlePinAgent}
           menuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
+          isLocked={!!(activeChatId && messages.length > 0)}
+          resolvedAgentName={resolvedAgentName}
         />
       </div>
 
@@ -284,8 +286,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
           {loadingChatId ? (
-            <ChatLoadingSkeleton />
+            <div className="animate-content-fade-in">
+              <ChatLoadingSkeleton />
+            </div>
           ) : (
+            <div key={activeChatId ?? "empty"} className="animate-content-fade-in">
             <>
               {messages.length === 0 && (
                 <WelcomeScreen
@@ -373,12 +378,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               setEditValue={setEditValue}
               markdownComponents={markdownComponents}
               onSuggestionClick={(prompt) => handleSendClickWrapper(prompt)}
+              resolvedAgentName={resolvedAgentName}
             />
           ))}
 
           {/* Loading Indicator */}
           {isLoading && <LoadingIndicator modelConfig={modelConfig} />}
             </>
+            </div>
           )}
         </div>
       </div >
@@ -427,10 +434,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-        mcpServers={modelConfig.mcpServers || []}
-        showMcpMenu={showMcpMenu}
-        onToggleMcpMenu={() => setShowMcpMenu(!showMcpMenu)}
-        mcpMenuRef={mcpMenuRef}
       />
     </div >
   );

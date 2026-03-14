@@ -30,7 +30,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const borderColor = type === 'danger' ? 'border-red-200 dark:border-red-800/50' : 'border-blue-200 dark:border-blue-800/50';
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-modal-backdrop">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -38,7 +38,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       />
       
       {/* Modal */}
-      <div className="relative bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
+      <div className="relative bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl max-w-md w-full animate-modal-content border border-zinc-200 dark:border-zinc-800">
         {/* Header */}
         <div className="flex items-start gap-4 p-6 pb-4">
           <div className={`p-3 rounded-xl ${bgColor} border ${borderColor}`}>

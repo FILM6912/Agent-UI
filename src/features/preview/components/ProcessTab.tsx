@@ -27,8 +27,12 @@ export const ProcessTab: React.FC<ProcessTabProps> = ({ steps }) => {
       <div className="flex-1 overflow-y-auto px-4 py-8 scrollbar-thin scrollbar-thumb-white/10 relative z-10">
         <div className="w-full space-y-0 pb-32">
           {steps && steps.length > 0 ? (
-            steps.map((step) => (
-              <ProcessStepCard key={step.id} step={step} />
+            steps.map((step, index) => (
+              <ProcessStepCard 
+                key={step.id} 
+                step={step} 
+                isLastStep={index === steps.length - 1}
+              />
             ))
           ) : (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-zinc-500 animate-in fade-in duration-700">

@@ -684,7 +684,7 @@ export async function fetchHistoryFromLangFlow(
   config: ModelConfig,
   chatId: string
 ): Promise<Message[]> {
-  if (!config.langflowUrl || !config.modelId) return [];
+  if (!config.langflowUrl) return [];
 
   try {
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
@@ -791,6 +791,9 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
 
       const lastMsg = msgs[msgs.length - 1];
       const firstUserMsg = msgs.find(m => m.sender === 'User');
+      // Use flow_id from first assistant message (or any message) to lock agent per chat
+      const firstAssistantMsg = msgs.find(m => m.sender !== 'User');
+      const flowId = firstAssistantMsg?.flow_id ?? (msgs[0]?.flow_id);
 
       const title = firstUserMsg ? firstUserMsg.text.substring(0, 30) : `Chat ${sessionId.substring(0, 6)}`;
 
@@ -798,7 +801,8 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
         id: sessionId,
         title: title,
         messages: mapLangFlowMessagesMinimal(msgs),
-        updatedAt: new Date(lastMsg.timestamp).getTime()
+        updatedAt: new Date(lastMsg.timestamp).getTime(),
+        ...(flowId ? { flowId } : {}),
       });
     });
 
