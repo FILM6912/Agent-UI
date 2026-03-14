@@ -160,10 +160,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     <div
       className={`msg-container flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 ${msg.role === "user" ? "items-end" : "items-start"}`}
     >
-      <div className="mb-2 flex items-center gap-2 px-1">
+      <div className="mb-3 flex items-center gap-2 px-1">
         {isAssistant && (
-          <div className="w-6 h-6 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-white" />
+          <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
           </div>
         )}
         <span className="text-xs text-zinc-500 font-medium">
@@ -230,7 +230,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             if (thinkBlocks.length === 0) return null;
 
             return (
-              <div className="mb-2 w-full space-y-2">
+              <div className="mt-1 mb-2 w-full space-y-2">
                 {thinkBlocks.map((block, idx) => (
                   <ThinkBlock
                     key={idx}
