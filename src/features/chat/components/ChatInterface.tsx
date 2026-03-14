@@ -383,6 +383,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               setEditValue={setEditValue}
               markdownComponents={markdownComponents}
               onSuggestionClick={(prompt) => handleSendClickWrapper(prompt)}
+              resolvedAgentName={resolvedAgentName}
             />
           ))}
 
