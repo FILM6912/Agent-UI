@@ -662,13 +662,6 @@ export default function App() {
     );
   }, [activeChatId, sessions[activeChatId]?.flowId, sessions[activeChatId]?.flowName, sessions[activeChatId]?.title, agentModels]);
 
-  // Auto-select first agent when none selected (e.g. first load or new chat)
-  useEffect(() => {
-    if (agentModels.length === 0 || modelConfig.modelId) return;
-    const first = agentModels[0];
-    setModelConfig((prev) => ({ ...prev, modelId: first.id, name: first.name }));
-  }, [agentModels]);
-
   // Enrich sessions with flowName from agentModels so sidebar shows name immediately (no id-then-name flash)
   useEffect(() => {
     if (agentModels.length === 0) return;
