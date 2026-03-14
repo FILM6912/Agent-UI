@@ -81,9 +81,12 @@ export const useAgentModels = ({
           }
         }
 
-        // Filter only enabled agents
+        // Filter: only flows (exclude custom components) and only enabled agents
         const agents = flows
-          .filter((flow: any) => enabledMap[flow.id] === true)
+          .filter(
+            (flow: any) =>
+              flow.is_component !== true && enabledMap[flow.id] === true,
+          )
           .map((flow: any) => ({
             id: flow.id,
             name: flow.name,
