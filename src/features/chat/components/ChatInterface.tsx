@@ -150,10 +150,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     onViewImage: setViewingImage,
   });
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (smooth while AI is streaming for a smoother feel)
   useEffect(() => {
-    if (scrollRef.current && !userHasScrolledUp) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!scrollRef.current || userHasScrolledUp) return;
+    const el = scrollRef.current;
+    const target = el.scrollHeight;
+    if (isStreaming) {
+      el.scrollTo({ top: target, behavior: "smooth" });
+    } else {
+      el.scrollTop = target;
     }
   }, [messages, isLoading, isStreaming, editingId, input, userHasScrolledUp]);
 
