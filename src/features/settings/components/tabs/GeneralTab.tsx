@@ -11,6 +11,7 @@ import {
   Upload,
   Download,
   Trash2,
+  PanelRight,
 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "@/hooks/useTheme";
@@ -28,7 +29,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
   const { t, language, setLanguage, updateTranslations, exportTranslations } =
     useLanguage();
   const { theme, setTheme } = useTheme();
-  const { fontSize, setFontSize, fontFamily, setFontFamily } = useAppearance();
+  const { fontSize, setFontSize, fontFamily, setFontFamily, autoExpandSidebarOnTool, setAutoExpandSidebarOnTool } = useAppearance();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -378,6 +379,37 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
               {t("settings.resetDefaults")}
             </button>
           </div>
+        </div>
+
+        {/* Auto Expand Sidebar on Tool Use */}
+        <div className="bg-white dark:bg-[#121212] border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-4">
+            <div className="p-2 rounded-lg bg-zinc-100 dark:bg-[#1e1e20] text-indigo-500 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-800">
+              <PanelRight className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-semibold text-zinc-900 dark:text-zinc-200 text-sm">
+                {t("settings.autoExpandSidebarOnTool")}
+              </div>
+              <div className="text-xs text-zinc-500 mt-0.5">
+                {t("settings.autoExpandSidebarOnToolDesc")}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setAutoExpandSidebarOnTool(!autoExpandSidebarOnTool)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              autoExpandSidebarOnTool
+                ? "bg-indigo-600"
+                : "bg-zinc-200 dark:bg-zinc-700"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                autoExpandSidebarOnTool ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
         </div>
 
         {/* Clear Chat History */}

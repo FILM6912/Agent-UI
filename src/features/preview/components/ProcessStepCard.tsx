@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Brain,
   FileEdit,
@@ -6,6 +6,8 @@ import {
   Loader2,
   Command,
   Wrench,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { ProcessStep as ProcessStepType } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -14,10 +16,28 @@ import remarkGfm from "remark-gfm";
 
 interface ProcessStepCardProps {
   step: ProcessStepType;
+  isLastStep?: boolean;
 }
 
-export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
+export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step, isLastStep = false }) => {
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(() => {
+    if (step.type === "thinking") {
+      return true;
+    }
+    return step.isExpanded ?? true;
+  });
+
+  const wasLastStepRef = useRef(isLastStep);
+
+  useEffect(() => {
+    if (step.type === "thinking") {
+      if (wasLastStepRef.current && !isLastStep) {
+        setExpanded(false);
+      }
+      wasLastStepRef.current = isLastStep;
+    }
+  }, [isLastStep, step.type]);
 
   const getIcon = () => {
     switch (step.type) {
@@ -97,8 +117,18 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
     <div className="group relative border-b border-white/5 last:border-0 transition-all duration-300 hover:bg-white/1">
       <div className="py-6 px-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div 
+          className="flex items-center justify-between mb-4 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
           <div className="flex items-center gap-3">
+            <div className="text-zinc-500">
+              {expanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </div>
             {getIcon()}
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-zinc-100 dark:text-zinc-100 tracking-tight">
@@ -124,7 +154,8 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
         </div>
 
         {/* Content */}
-        <div className="space-y-6">
+        {expanded && (
+        <div className="space-y-6 ml-7">
           {step.type === "thinking" ? (
             <div className="text-sm text-zinc-400 leading-relaxed font-medium">
               {step.content}
@@ -191,6 +222,7 @@ export const ProcessStepCard: React.FC<ProcessStepCardProps> = ({ step }) => {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );

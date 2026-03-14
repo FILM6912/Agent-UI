@@ -33,7 +33,11 @@ function ThinkBlock({
   const [isOpen, setIsOpen] = useState(shouldBeOpenByStreaming);
 
   useEffect(() => {
-    if (shouldBeOpenByStreaming) setIsOpen(true);
+    if (shouldBeOpenByStreaming) {
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
   }, [shouldBeOpenByStreaming]);
 
   return (

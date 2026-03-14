@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -17,12 +17,30 @@ import remarkGfm from "remark-gfm";
 interface ProcessStepProps {
   step: ProcessStepType;
   forceExpanded?: boolean;
+  isLastStep?: boolean;
 }
 
-export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false }) => {
+export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false, isLastStep = false }) => {
   const { t } = useLanguage();
-  // Default expanded state
-  const [expanded, setExpanded] = useState(forceExpanded || (step.isExpanded ?? true));
+  const [expanded, setExpanded] = useState(() => {
+    if (forceExpanded) return true;
+    if (step.type === "thinking") {
+      return true;
+    }
+    return step.isExpanded ?? true;
+  });
+
+  const wasLastStepRef = useRef(isLastStep);
+
+  useEffect(() => {
+    if (forceExpanded) return;
+    if (step.type === "thinking") {
+      if (wasLastStepRef.current && !isLastStep) {
+        setExpanded(false);
+      }
+      wasLastStepRef.current = isLastStep;
+    }
+  }, [isLastStep, step.type, forceExpanded]);
 
   const getIcon = () => {
     switch (step.type) {

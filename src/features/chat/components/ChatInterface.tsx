@@ -110,12 +110,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Menu Refs for click outside handling
   const modelMenuRef = useRef<HTMLDivElement>(null);
-  const mcpMenuRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [showMcpMenu, setShowMcpMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Agent Models Hook
@@ -202,16 +200,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (showModelMenu && modelMenuRef.current && !modelMenuRef.current.contains(target)) {
         setShowModelMenu(false);
       }
-      if (showMcpMenu && mcpMenuRef.current && !mcpMenuRef.current.contains(target)) {
-        setShowMcpMenu(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showModelMenu, showMcpMenu]);
+  }, [showModelMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -439,10 +434,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         speechError={speechError}
         onToggleListening={toggleListening}
         textareaRef={textareaRef as React.RefObject<HTMLTextAreaElement>}
-        mcpServers={modelConfig.mcpServers || []}
-        showMcpMenu={showMcpMenu}
-        onToggleMcpMenu={() => setShowMcpMenu(!showMcpMenu)}
-        mcpMenuRef={mcpMenuRef}
       />
     </div >
   );
