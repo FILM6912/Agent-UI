@@ -192,6 +192,13 @@ button {
   opacity: 1;
 }
 
+/* Accordion: เปิด-ปิด ใช้เวลาเท่ากัน (ตัวแปรเดียว) */
+.think-details,
+.process-step {
+  --accordion-duration: 1s;
+  --accordion-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /* Think block accordion – state-based, max-height transition (works everywhere) */
 .think-details {
   border-radius: 0.5rem;
@@ -208,7 +215,7 @@ button {
 .think-details .think-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: max-height var(--accordion-duration) var(--accordion-ease);
 }
 
 .think-details.open .think-content {
@@ -216,7 +223,7 @@ button {
 }
 
 .think-details .think-chevron {
-  transition: transform 1s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform var(--accordion-duration) var(--accordion-ease);
 }
 
 .think-details.open .think-chevron {
@@ -230,11 +237,11 @@ button {
   }
 }
 
-/* ProcessStep accordion – same smooth open/close as think block */
+/* ProcessStep accordion – เวลาเปิด/ปิดเท่ากัน ใช้ --accordion-duration เหมือน think block */
 .process-step .process-step-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: max-height var(--accordion-duration) var(--accordion-ease);
 }
 
 .process-step.process-step-open .process-step-content {
