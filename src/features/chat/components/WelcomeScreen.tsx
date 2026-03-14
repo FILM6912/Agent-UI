@@ -123,20 +123,20 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <Sparkles className="w-10 h-10 text-white" />
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold mb-3 text-center flex flex-wrap items-center justify-center gap-x-2">
+      <h1 className="text-3xl md:text-4xl font-bold mb-3 text-center">
         {!hasSelectedAgent ? (
-          <span className="bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+          <span className="text-[#1447E6] dark:text-blue-400">
             {language === "th" ? "สวัสดี! กรุณาเลือก Agent" : "Hello! Please select an Agent"}
           </span>
         ) : (
-          <>
+          <span className="flex flex-wrap items-center justify-center gap-x-2">
             <span className="bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
               {language === "th" ? "สวัสดี! ฉันคือ" : "Hello! I'm"}
             </span>
             <span className="text-[#1447E6] dark:text-blue-400">
               {agentName || (language === "th" ? "AI Agent" : "AI Agent")}
             </span>
-          </>
+          </span>
         )}
       </h1>
 
