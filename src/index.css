@@ -91,6 +91,16 @@
   }
 }
 
+/* Sidebar item selection animation */
+@keyframes sidebar-item-select {
+  0% {
+    transform: scale(0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* Animation utility classes */
 .animate-page-enter {
   animation: page-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
@@ -125,6 +135,10 @@
   animation: agent-option-enter 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
+.animate-sidebar-select {
+  animation: sidebar-item-select 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
 /* Respect user motion preference */
 @media (prefers-reduced-motion: reduce) {
   .animate-page-enter,
@@ -134,7 +148,8 @@
   .animate-modal-content,
   .animate-panel-slide,
   .animate-fade-scale-in,
-  .animate-agent-option {
+  .animate-agent-option,
+  .animate-sidebar-select {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
@@ -190,6 +205,73 @@ button {
 
 .sidebar-item:hover .sidebar-delete {
   opacity: 1;
+}
+
+/* Sidebar chat button - smooth hover and active states */
+.sidebar-chat-btn {
+  position: relative;
+  color: rgb(88 88 88) !important;
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.dark .sidebar-chat-btn {
+  color: rgb(113 113 122) !important;
+}
+
+.sidebar-chat-btn:hover {
+  color: rgb(24 24 27) !important;
+}
+
+.dark .sidebar-chat-btn:hover {
+  color: rgba(212 212 216, 1) !important;
+}
+
+/* Background overlay for smooth transition */
+.sidebar-chat-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(228 228 231 / 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark .sidebar-chat-btn::before {
+  background: rgb(24 24 27 / 0.4);
+}
+
+.sidebar-chat-btn:hover::before {
+  opacity: 1;
+}
+
+/* Active state */
+.sidebar-chat-btn.is-active {
+  color: rgb(24 24 27) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  background-clip: unset;
+  -webkit-background-clip: unset;
+  background-color: rgb(18 18 18);
+}
+
+.dark .sidebar-chat-btn.is-active {
+  color: rgb(244 244 245) !important;
+  background-color: rgb(18 18 18);
+}
+
+.sidebar-chat-btn.is-active::before {
+  background: rgb(255 255 255);
+  opacity: 1;
+  border: 2px solid rgb(161 161 170);
+  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.15);
+}
+
+.dark .sidebar-chat-btn.is-active::before {
+  background: rgb(24 24 27);
+  border: 2px solid rgb(82 82 91);
+  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.4);
 }
 
 /* Accordion: เปิด 1s / ปิด 0.5s */

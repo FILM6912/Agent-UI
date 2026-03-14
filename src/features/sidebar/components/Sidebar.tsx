@@ -73,7 +73,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const languageDropdownRef = useRef<HTMLDivElement>(null);
+  const activeChatRef = useRef<HTMLButtonElement>(null);
+  const historyContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+  const isSelectingChatRef = useRef<boolean>(false);
   const enableHover = import.meta.env.VITE_ENABLE_HOVER !== "false";
+
+  // Save scroll position before re-render
+  useEffect(() => {
+    const container = historyContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      scrollPositionRef.current = container.scrollTop;
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Restore scroll position after history changes (prevents jump to top)
+  useEffect(() => {
+    if (isSelectingChatRef.current && historyContainerRef.current) {
+      historyContainerRef.current.scrollTop = scrollPositionRef.current;
+      isSelectingChatRef.current = false;
+    }
+  }, [history]);
+
+  // Auto-scroll to active chat only when it changes externally (not from user click)
+  useEffect(() => {
+    if (activeChatId && activeChatRef.current && historyContainerRef.current && !isSelectingChatRef.current) {
+      const container = historyContainerRef.current;
+      const element = activeChatRef.current;
+      
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      
+      if (elementRect.top < containerRect.top || elementRect.bottom > containerRect.bottom) {
+        element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [activeChatId]);
 
   // Click outside handler for user menu
   useEffect(() => {
@@ -237,6 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* History Section - Only visible when open */}
       <div
+        ref={historyContainerRef}
         className={`mt-6 flex-1 overflow-y-auto px-3 scrollbar-hide w-full overflow-x-hidden ${!showExpanded ? "invisible" : ""}`}
       >
         <div className="text-xs font-semibold text-black/80 dark:text-white/80 mb-2 px-3 uppercase tracking-wider flex items-center justify-between animate-in fade-in duration-300">
@@ -255,11 +296,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="sidebar-item group relative flex items-center"
               >
                 <button
-                  onClick={() => onSelectChat(session.id)}
-                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex flex-col gap-0.5 pr-10 overflow-hidden min-w-0 ${activeChatId === session.id
-                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
-                    : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
-                    }`}
+                  ref={activeChatId === session.id ? activeChatRef : null}
+                  onClick={() => {
+                    isSelectingChatRef.current = true;
+                    scrollPositionRef.current = historyContainerRef.current?.scrollTop || 0;
+                    onSelectChat(session.id);
+                  }}
+                  className={`sidebar-chat-btn flex-1 text-left px-3 py-2.5 rounded-xl text-xs flex flex-col gap-0.5 pr-10 overflow-hidden min-w-0 ${
+                    activeChatId === session.id
+                      ? "is-active"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 w-full">
                     {loadingChatId === session.id ? (

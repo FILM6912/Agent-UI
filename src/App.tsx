@@ -625,7 +625,7 @@ export default function App() {
             ...session,
             id: activeChatId,
             messages: finalMessages,
-            updatedAt: Date.now()
+            updatedAt: session?.updatedAt || Date.now()
           }
         };
       });
