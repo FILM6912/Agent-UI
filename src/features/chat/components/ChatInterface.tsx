@@ -73,6 +73,8 @@ interface ChatInterfaceProps {
   activeChatId?: string;
   /** Resolved agent name for current chat (avoids "Select Agent" flash on refresh) */
   resolvedAgentName?: string;
+  /** Agent description from same source as dropdown (agentModels) so welcome screen matches */
+  resolvedAgentDescription?: string;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -100,6 +102,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   loadingChatId,
   activeChatId = "",
   resolvedAgentName,
+  resolvedAgentDescription,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -300,16 +303,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               {messages.length === 0 && (() => {
                 const name = resolvedAgentName || modelConfig.name;
                 const isSelectAgentPlaceholder = !name || name === "Select Agent" || name === "เลือก Agent";
+                const agentKey = modelConfig.modelId || "no-agent";
                 
                 return (
                   <WelcomeScreen
+                    key={agentKey}
                     language={language}
                     onSuggestionClick={(prompt) => onSend(prompt, [])}
                     hasSelectedAgent={!isSelectAgentPlaceholder}
                     agentName={isSelectAgentPlaceholder ? undefined : name}
                     agentDescription={(() => {
                       if (isSelectAgentPlaceholder) return undefined;
-                      // Try to get agent description from localStorage
+                      // Prefer description from same source as dropdown (agentModels) so it always matches
+                      if (resolvedAgentDescription) return resolvedAgentDescription;
+                      // Fallback: try localStorage
                       try {
                         const savedAgents = localStorage.getItem("agent_flows");
                         if (savedAgents && modelConfig.modelId) {
