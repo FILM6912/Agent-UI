@@ -297,12 +297,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ) : (
             <div key={activeChatId ?? "empty"} className="animate-content-fade-in">
             <>
-              {messages.length === 0 && (
-                <WelcomeScreen
-                  language={language}
-                  onSuggestionClick={(prompt) => onSend(prompt, [])}
-                />
-              )}
+              {messages.length === 0 && (() => {
+                const name = resolvedAgentName || modelConfig.name;
+                const isSelectAgentPlaceholder = !name || name === "Select Agent" || name === "เลือก Agent";
+                
+                return (
+                  <WelcomeScreen
+                    language={language}
+                    onSuggestionClick={(prompt) => onSend(prompt, [])}
+                    hasSelectedAgent={!isSelectAgentPlaceholder}
+                    agentName={isSelectAgentPlaceholder ? undefined : name}
+                    agentDescription={(() => {
+                      if (isSelectAgentPlaceholder) return undefined;
+                      // Try to get agent description from localStorage
+                      try {
+                        const savedAgents = localStorage.getItem("agent_flows");
+                        if (savedAgents && modelConfig.modelId) {
+                          const parsed = JSON.parse(savedAgents);
+                          if (Array.isArray(parsed)) {
+                            const agent = parsed.find((a: any) => a.id === modelConfig.modelId);
+                            if (agent?.description) return agent.description;
+                          }
+                        }
+                      } catch {}
+                      return undefined;
+                    })()}
+                  />
+                );
+              })()}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
           {messages.length > 0 &&
