@@ -1,4 +1,5 @@
 import { CodeBlock } from "../components/CodeBlock";
+import { TableWithExport } from "../components/TableWithExport";
 
 interface UseMarkdownComponentsProps {
   onPreviewRequest?: (content: string) => void;
@@ -91,13 +92,9 @@ export const useMarkdownComponents = ({
     // Horizontal Rule
     hr: () => <hr className="border-zinc-200 dark:border-zinc-800 my-6" />,
 
-    // Tables
+    // Tables - with export functionality
     table: ({ children }: any) => (
-      <div className="overflow-x-auto my-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] shadow-sm">
-        <table className="w-full text-left text-sm border-collapse">
-          {children}
-        </table>
-      </div>
+      <TableWithExport>{children}</TableWithExport>
     ),
     thead: ({ children }: any) => (
       <thead className="bg-zinc-100 dark:bg-zinc-800/40 text-zinc-900 dark:text-zinc-200">
