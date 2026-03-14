@@ -562,8 +562,10 @@ Constraints:
       try {
         const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
         const flowId = config.modelId;
-        const configuredSessionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
-        const suggestionSessionId = configuredSessionId || `suggestion-${Date.now()}`;
+        const raw = import.meta.env.VITE_SUGGESTION_SESSION_ID;
+        const suggestionSessionId = raw
+          ? raw.replace(/\{timestamp\}/g, String(Date.now()))
+          : `suggestion-${Date.now()}`;
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -758,8 +760,8 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       console.log('>>> Sample message session_id:', allMessages[0].session_id);
     }
 
-    // Get suggestion session ID to exclude
-    const suggestionSessionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
+    // Get suggestion session ID pattern to exclude (may contain {timestamp} placeholder)
+    const rawSuggestionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
 
     // Group by Session ID
     const sessionsMap = new Map<string, LangFlowMessage[]>();
@@ -770,8 +772,8 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
 
       if (!sessionId) return;
 
-      // Skip suggestion session
-      if (suggestionSessionId && sessionId === suggestionSessionId) return;
+      // Skip suggestion session (match by prefix so "suggestion-*" or exact if fixed id)
+      if (rawSuggestionId && (sessionId.startsWith("suggestion-") || sessionId === rawSuggestionId)) return;
 
       const existing = sessionsMap.get(sessionId) || [];
       existing.push(msg);
