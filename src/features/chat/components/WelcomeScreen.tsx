@@ -58,23 +58,64 @@ const IconMap: Record<string, React.ReactNode> = {
 interface WelcomeScreenProps {
   language: string;
   onSuggestionClick: (prompt: string) => void;
+  agentName?: string;
+  agentDescription?: string;
+  hasSelectedAgent?: boolean;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   language,
   onSuggestionClick,
+  agentName,
+  agentDescription,
+  hasSelectedAgent = true,
 }) => {
   const [randomSuggestions, setRandomSuggestions] = React.useState<Suggestion[]>(
     []
   );
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // Select correct language pool, fallback to 'en' if not 'th'
-    const pool = language === "th" ? SUGGESTIONS.th : SUGGESTIONS.en;
-    // Shuffle and pick 4
-    const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    setRandomSuggestions(shuffled.slice(0, 4));
+    // Simulate loading for smooth animation
+    const timer = setTimeout(() => {
+      // Select correct language pool, fallback to 'en' if not 'th'
+      const pool = language === "th" ? SUGGESTIONS.th : SUGGESTIONS.en;
+      // Shuffle and pick 4
+      const shuffled = [...pool].sort(() => 0.5 - Math.random());
+      setRandomSuggestions(shuffled.slice(0, 4));
+      setIsLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [language]);
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-20 h-20 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse mb-6" />
+        <div className="h-10 w-72 bg-zinc-200 dark:bg-zinc-800 rounded-lg animate-pulse mb-4" />
+        <div className="h-6 w-96 bg-zinc-200 dark:bg-zinc-800 rounded-lg animate-pulse mb-8" />
+        <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="p-5 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-2xl"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" />
+                  <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" />
+                  <div className="h-3 w-3/4 bg-zinc-100 dark:bg-zinc-800 rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -82,16 +123,31 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <Sparkles className="w-10 h-10 text-white" />
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent mb-3 text-center">
-        {language === "th"
-          ? "สวัสดี! ฉันคือ AI Agent"
-          : "Hello! I'm your AI Agent"}
+      <h1 className="text-3xl md:text-4xl font-bold mb-3 text-center flex flex-wrap items-center justify-center gap-x-2">
+        {!hasSelectedAgent ? (
+          <span className="bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+            {language === "th" ? "สวัสดี! กรุณาเลือก Agent" : "Hello! Please select an Agent"}
+          </span>
+        ) : (
+          <>
+            <span className="bg-linear-to-r from-[#1447E6] to-[#0d35b8] dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+              {language === "th" ? "สวัสดี! ฉันคือ" : "Hello! I'm"}
+            </span>
+            <span className="text-[#1447E6] dark:text-blue-400">
+              {agentName || (language === "th" ? "AI Agent" : "AI Agent")}
+            </span>
+          </>
+        )}
       </h1>
 
       <p className="text-base md:text-lg text-zinc-600 dark:text-zinc-400 mb-8 text-center max-w-2xl">
-        {language === "th"
-          ? "ฉันพร้อมช่วยเหลือคุณในการทำงานต่างๆ เริ่มต้นด้วยการพิมพ์คำถามหรือคำสั่งของคุณด้านล่าง"
-          : "I'm here to help you with various tasks. Start by typing your question or command below."}
+        {!hasSelectedAgent
+          ? (language === "th"
+              ? "กรุณาเลือก Agent ที่ต้องการใช้งานจากเมนูด้านบนเพื่อเริ่มต้น"
+              : "Please select an Agent from the menu above to get started.")
+          : (agentDescription || (language === "th"
+              ? "ฉันพร้อมช่วยเหลือคุณในการทำงานต่างๆ เริ่มต้นด้วยการพิมพ์คำถามหรือคำสั่งของคุณด้านล่าง"
+              : "I'm here to help you with various tasks. Start by typing your question or command below."))}
       </p>
 
       {/* Quick Action Suggestions */}
