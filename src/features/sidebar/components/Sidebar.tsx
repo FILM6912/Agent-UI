@@ -237,7 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onNewChat}
           className={
             showExpanded
-              ? "w-full flex items-center gap-3 px-3 py-2 bg-white dark:bg-zinc-100 hover:bg-zinc-100 dark:hover:bg-white text-zinc-700 dark:text-black rounded-lg transition-colors font-medium mb-3 shadow-lg shadow-zinc-200/50 dark:shadow-zinc-900/20 whitespace-nowrap border border-zinc-200 dark:border-transparent"
+              ? "w-full flex items-center gap-3 px-3 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-lg transition-colors font-medium mb-3 whitespace-nowrap border border-zinc-200 dark:border-zinc-700"
               : "w-9 h-9 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-xl transition-colors"
           }
           title={!showExpanded ? t("sidebar.newTask") : undefined}
