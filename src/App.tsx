@@ -133,7 +133,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
       {/* Mobile Sidebar Backdrop */}
       {isMobile && isSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -165,8 +165,9 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
         />
       )}
 
-      <div className="flex-1 flex flex-col h-full min-w-0 relative">
+      <div className="flex-1 flex flex-col h-full min-w-0 relative overflow-hidden">
         {showSettings ? (
+          <div key="settings" className="h-full w-full animate-page-enter-left">
           <SettingsView
             modelConfig={modelConfig}
             onModelConfigChange={setModelConfig}
@@ -177,7 +178,9 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
             initialTab={settingsTab}
             onTabChange={(tab) => navigate(`/settings/${tab}`)}
           />
+          </div>
         ) : (
+          <div key="chat" className="h-full w-full animate-page-enter">
           <>
             <ChatInterface
               messages={currentMessages}
@@ -218,6 +221,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               </button>
             )}
           </>
+          </div>
         )}
       </div>
 
@@ -243,11 +247,11 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
       {/* Delete Confirmation Dialog */}
       {chatToDelete && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-modal-backdrop"
           onClick={() => setChatToDelete(null)}
         >
           <div
-            className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 text-center">

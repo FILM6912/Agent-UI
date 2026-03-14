@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setLanguage(language === "en" ? "th" : "en");
   };
 
-  const mobileClasses = `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`;
+  const mobileClasses = `fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-black border-r border-zinc-200 dark:border-zinc-900 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? "translate-x-0" : "-translate-x-full"}`;
 
   const providerName = activeProvider === "google" ? "Google" : "OpenAI";
 
@@ -112,8 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className="flex flex-col h-full w-full overflow-visible bg-zinc-50 dark:bg-black">
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-modal-backdrop">
+          <div className="bg-white dark:bg-[#18181b] rounded-2xl shadow-2xl p-6 max-w-sm mx-4 animate-modal-content border border-zinc-200 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
               {t("sidebar.logout")}
             </h3>

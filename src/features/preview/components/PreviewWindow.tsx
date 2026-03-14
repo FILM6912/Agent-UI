@@ -654,8 +654,8 @@ export const PreviewWindow: React.FC<PreviewWindowProps> = ({
     handleFileSelect(node);
   };
 
-  const mobileClasses = `fixed inset-0 z-50 bg-background flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`;
-  const desktopClasses = `h-screen bg-background border-l border-zinc-200 dark:border-zinc-800 flex flex-col flex-shrink-0 relative ease-in-out overflow-hidden ${isOpen ? "translate-x-0" : "translate-x-full border-l-0 opacity-0"} ${isResizing ? "" : "transition-all duration-300"}`;
+  const mobileClasses = `fixed inset-0 z-50 bg-background flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? "translate-x-0" : "translate-x-full"}`;
+  const desktopClasses = `h-screen bg-background border-l border-zinc-200 dark:border-zinc-800 flex flex-col flex-shrink-0 relative overflow-hidden ${isOpen ? "translate-x-0 opacity-100" : "translate-x-full border-l-0 opacity-0"} ${isResizing ? "" : "transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"}`;
 
   return (
     <div
