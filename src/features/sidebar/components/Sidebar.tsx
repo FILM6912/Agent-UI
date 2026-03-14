@@ -341,7 +341,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Settings Menu Dropdown - Expanded */}
               {showUserMenu && (
                 <div
-                  className="absolute bottom-full left-0 right-0 mb-2 mx-3 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200"
+                  className="absolute bottom-full left-0 right-0 mb-2 min-w-[280px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
                   <div className="mb-3">
@@ -481,7 +481,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Settings Menu Dropdown - Collapsed */}
               {showUserMenu && (
                 <div
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200"
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
                   <div className="mb-3">
