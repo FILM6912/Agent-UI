@@ -758,14 +758,20 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       console.log('>>> Sample message session_id:', allMessages[0].session_id);
     }
 
+    // Get suggestion session ID to exclude
+    const suggestionSessionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
+
     // Group by Session ID
     const sessionsMap = new Map<string, LangFlowMessage[]>();
 
     allMessages.forEach((msg) => {
       // Find session ID robustly
       const sessionId = msg.session_id || (msg as any).sessionId || (msg as any).sessionID;
-      
+
       if (!sessionId) return;
+
+      // Skip suggestion session
+      if (suggestionSessionId && sessionId === suggestionSessionId) return;
 
       const existing = sessionsMap.get(sessionId) || [];
       existing.push(msg);
