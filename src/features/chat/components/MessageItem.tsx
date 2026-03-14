@@ -42,7 +42,7 @@ function ThinkBlock({
     >
       <button
         type="button"
-        className="think-summary flex w-full items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none text-left"
+        className="think-summary flex w-full items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-[8px] font-medium text-zinc-500 select-none text-left"
         onClick={() => setIsOpen((o) => !o)}
       >
         <div className="flex items-center justify-center relative">
@@ -55,7 +55,7 @@ function ThinkBlock({
             <Brain className={`w-3.5 h-3.5 shrink-0 transition-colors ${isOpen ? "text-blue-500" : "text-zinc-400"}`} />
           )}
         </div>
-        <span className="flex-1">{label}</span>
+        <span className="flex-1 text-[11px]">{label}</span>
         {!block.isComplete && isStreaming && <span className="opacity-50">...</span>}
         <svg
           className="think-chevron w-3 h-3 shrink-0 text-zinc-400"
@@ -164,16 +164,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         </span>
       </div>
 
-      {isAssistant && msg.steps && msg.steps.some(s => s.type !== 'thinking') && (
-        <div className="w-full mb-4 space-y-1">
-          {msg.steps
-            .filter(step => step.type !== 'thinking')
-            .map((step) => (
-              <ProcessStep key={step.id} step={step} />
-            ))}
-        </div>
-      )}
-
       {/* Assistant Message Controls */}
 
       {isAssistant && msg.content && (
@@ -245,6 +235,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               </div>
             );
           })()}
+
+          {/* Tool/Step Display - After thinking, before main content */}
+          {msg.steps && msg.steps.some(s => s.type !== 'thinking') && (
+            <div className="w-full mb-4 space-y-1">
+              {msg.steps
+                .filter(step => step.type !== 'thinking')
+                .map((step) => (
+                  <ProcessStep key={step.id} step={step} />
+                ))}
+            </div>
+          )}
 
           {/* Main Content */}
           <div className={`leading-relaxed group relative ${msg.role === "user"
