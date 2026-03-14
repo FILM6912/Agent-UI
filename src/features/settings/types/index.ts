@@ -3,7 +3,6 @@ import { ModelConfig, ChatSession } from "@/types";
 export type SettingsTab =
   | "general"
   | "account"
-  | "tools"
   | "agent"
   | "langflow";
 
