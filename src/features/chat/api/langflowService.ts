@@ -154,6 +154,12 @@ async function uploadFileToLangFlow(
     const headers: HeadersInit = {};
     if (apiKey) headers['x-api-key'] = apiKey;
 
+    console.log('📤 Upload file to LangFlow:', {
+      url: `${baseUrl}/api/v1/files/upload/${flowId}`,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length
+    });
+
     // Convert Data URI to Blob
     const response = await fetch(dataURI);
     const blob = await response.blob();
@@ -168,7 +174,8 @@ async function uploadFileToLangFlow(
     });
 
     if (!uploadResponse.ok) {
-      console.error('File upload failed:', await uploadResponse.text());
+      const errorText = await uploadResponse.text();
+      console.error('File upload failed:', uploadResponse.status, errorText);
       return null;
     }
 
@@ -683,6 +690,12 @@ export async function fetchHistoryFromLangFlow(
     const baseUrl = getEffectiveBaseUrl(config.langflowUrl);
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
+
+    console.log('📥 Fetch history from LangFlow:', {
+      url: `${baseUrl}/api/v1/monitor/messages?session_id=${chatId}&order_by=timestamp`,
+      hasApiKey: !!config.langflowApiKey,
+      apiKeyLength: config.langflowApiKey?.length
+    });
 
     // Fetch messages for this session
     const response = await fetch(`${baseUrl}/api/v1/monitor/messages?session_id=${chatId}&order_by=timestamp`, { headers });
