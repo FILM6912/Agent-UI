@@ -319,8 +319,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="truncate flex-1 font-medium">
                       {session.title || "Untitled Chat"}
                     </span>
-                    {(session.messages || []).length > 0 &&
-                      activeChatId !== session.id && (
+                    {(session.messages || []).length > 0 && (
                         <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums flex-shrink-0">
                           {session.messages.length}
                         </span>
