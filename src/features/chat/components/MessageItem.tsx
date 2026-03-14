@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Copy,
   RotateCw,
@@ -18,6 +18,65 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CachedImage } from "./CachedImage";
+
+/** Single think block with smooth open/close animation (state + max-height) */
+function ThinkBlock({
+  block,
+  isStreaming,
+  label,
+}: {
+  block: { content: string; isComplete: boolean };
+  isStreaming: boolean;
+  label: string;
+}) {
+  const shouldBeOpenByStreaming = !block.isComplete && isStreaming;
+  const [isOpen, setIsOpen] = useState(shouldBeOpenByStreaming);
+
+  useEffect(() => {
+    if (shouldBeOpenByStreaming) setIsOpen(true);
+  }, [shouldBeOpenByStreaming]);
+
+  return (
+    <div
+      className={`think-details group/think bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-300 dark:border-zinc-800/50 rounded-lg shadow-sm ${isOpen ? "open" : ""}`}
+    >
+      <button
+        type="button"
+        className="think-summary flex w-full items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none text-left"
+        onClick={() => setIsOpen((o) => !o)}
+      >
+        <div className="flex items-center justify-center relative">
+          {!block.isComplete && isStreaming ? (
+            <>
+              <Brain className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+              <Loader2 className="w-4 h-4 text-blue-400 absolute animate-spin opacity-40" />
+            </>
+          ) : (
+            <Brain className={`w-3.5 h-3.5 shrink-0 transition-colors ${isOpen ? "text-blue-500" : "text-zinc-400"}`} />
+          )}
+        </div>
+        <span className="flex-1">{label}</span>
+        {!block.isComplete && isStreaming && <span className="opacity-50">...</span>}
+        <svg
+          className="think-chevron w-3 h-3 shrink-0 text-zinc-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div className="think-content">
+        <div className="think-content-inner">
+          <div className="px-3 pb-3 pt-1 text-xs text-zinc-600 dark:text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed opacity-90">
+            {block.content}
+            {!block.isComplete && isStreaming && <span className="animate-pulse">_</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface MessageItemProps {
   message: Message;
@@ -176,30 +235,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             return (
               <div className="mb-2 w-full space-y-2">
                 {thinkBlocks.map((block, idx) => (
-                  <details
+                  <ThinkBlock
                     key={idx}
-                    className="group/think bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-300 dark:border-zinc-800/50 rounded-lg overflow-hidden shadow-sm"
-                    open={!block.isComplete && isStreaming} // Auto-open if streaming and incomplete
-                  >
-                    <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-xs font-medium text-zinc-500 select-none">
-                      <div className="flex items-center justify-center relative">
-                        {!block.isComplete && isStreaming ? (
-                          <>
-                            <Brain className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
-                            <Loader2 className="w-4 h-4 text-blue-400 absolute animate-spin opacity-40" />
-                          </>
-                        ) : (
-                          <Brain className="w-3.5 h-3.5 text-zinc-400 group-open/think:text-blue-500 transition-colors" />
-                        )}
-                      </div>
-                      {block.label}
-                      {!block.isComplete && isStreaming && <span className="opacity-50 ml-1">...</span>}
-                    </summary>
-                    <div className="px-3 pb-3 pt-1 text-xs text-zinc-600 dark:text-zinc-400 font-mono whitespace-pre-wrap leading-relaxed opacity-90">
-                      {block.content}
-                      {!block.isComplete && isStreaming && <span className="animate-pulse">_</span>}
-                    </div>
-                  </details>
+                    block={block}
+                    isStreaming={isStreaming}
+                    label={block.label}
+                  />
                 ))}
               </div>
             );

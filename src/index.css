@@ -6,7 +6,7 @@
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(8px);
   }
   to {
     opacity: 1;
@@ -17,11 +17,21 @@
 @keyframes page-enter-left {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-8px);
   }
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* Soft fade for content load (e.g. chat switch) */
+@keyframes content-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -69,13 +79,29 @@
   }
 }
 
+/* Staggered list item (e.g. Agent selector options) */
+@keyframes agent-option-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Animation utility classes */
 .animate-page-enter {
-  animation: page-enter 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: page-enter 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 .animate-page-enter-left {
-  animation: page-enter-left 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: page-enter-left 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-content-fade-in {
+  animation: content-fade-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
 .animate-modal-backdrop {
@@ -94,14 +120,21 @@
   animation: fade-scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+.animate-agent-option {
+  opacity: 0;
+  animation: agent-option-enter 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
 /* Respect user motion preference */
 @media (prefers-reduced-motion: reduce) {
   .animate-page-enter,
   .animate-page-enter-left,
+  .animate-content-fade-in,
   .animate-modal-backdrop,
   .animate-modal-content,
   .animate-panel-slide,
-  .animate-fade-scale-in {
+  .animate-fade-scale-in,
+  .animate-agent-option {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
@@ -159,6 +192,61 @@ button {
   opacity: 1;
 }
 
+/* Think block accordion – state-based, max-height transition (works everywhere) */
+.think-details {
+  border-radius: 0.5rem;
+}
+
+.think-details .think-summary {
+  list-style: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+}
+
+.think-details .think-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.think-details.open .think-content {
+  max-height: 80vh;
+}
+
+.think-details .think-chevron {
+  transition: transform 1s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.think-details.open .think-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .think-details .think-content,
+  .think-details .think-chevron {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ProcessStep accordion – same smooth open/close as think block */
+.process-step .process-step-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.process-step.process-step-open .process-step-content {
+  max-height: 80vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .process-step .process-step-content {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @theme {
   --font-family-sans: Inter, sans-serif;
   --font-family-mono: "JetBrains Mono", monospace;
@@ -192,6 +280,10 @@ button {
 
 :root {
   --app-font-family: Inter, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html,

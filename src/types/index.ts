@@ -92,6 +92,10 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   updatedAt: number;
+  /** LangFlow flow_id used in this chat (agent lock) */
+  flowId?: string;
+  /** Display name of the agent when flowId was set */
+  flowName?: string;
 }
 
 export interface FileNode {

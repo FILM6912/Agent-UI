@@ -40,6 +40,8 @@ interface SidebarProps {
   modelConfig?: ModelConfig;
   onModelConfigChange?: (config: ModelConfig) => void;
   mcpServers?: string[];
+  /** Resolve flowId to agent name for "which agent" per chat */
+  agentModels?: { id: string; name: string; desc: string }[];
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -59,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   modelConfig,
   onModelConfigChange,
   mcpServers = [],
+  agentModels = [],
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -253,27 +256,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <button
                   onClick={() => onSelectChat(session.id)}
-                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex items-center gap-2 pr-10 overflow-hidden ${activeChatId === session.id
+                  className={`flex-1 text-left px-3 py-2.5 rounded-xl text-xs transition-all duration-200 flex flex-col gap-0.5 pr-10 overflow-hidden min-w-0 ${activeChatId === session.id
                     ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800/50"
                     : "hover:bg-zinc-200/50 dark:hover:bg-zinc-900/40 text-zinc-600 dark:text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
                     }`}
                 >
-                  {loadingChatId === session.id ? (
-                    <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
-                  ) : (
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
-                    ></div>
-                  )}
-                  <span className="truncate flex-1 font-medium">
-                    {session.title || "Untitled Chat"}
-                  </span>
-                  {(session.messages || []).length > 0 &&
-                    activeChatId !== session.id && (
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums">
-                        {session.messages.length}
-                      </span>
+                  <div className="flex items-center gap-2 min-w-0 w-full">
+                    {loadingChatId === session.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-[#1447E6] flex-shrink-0" />
+                    ) : (
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeChatId === session.id ? "bg-[#1447E6]" : "bg-transparent group-hover:bg-zinc-400 dark:group-hover:bg-zinc-700"}`}
+                      ></div>
                     )}
+                    <span className="truncate flex-1 font-medium">
+                      {session.title || "Untitled Chat"}
+                    </span>
+                    {(session.messages || []).length > 0 &&
+                      activeChatId !== session.id && (
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-700 tabular-nums flex-shrink-0">
+                          {session.messages.length}
+                        </span>
+                      )}
+                  </div>
+                  {session.flowId && (() => {
+                    const agentName = session.flowName ?? agentModels.find((a) => a.id === session.flowId)?.name;
+                    if (!agentName) return null;
+                    return (
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-500 truncate pl-3.5">
+                        {agentName}
+                      </span>
+                    );
+                  })()}
                 </button>
 
                 {/* Delete Button */}
@@ -321,7 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="absolute bottom-full left-0 right-0 mb-2 min-w-[280px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
-                  <div className="mb-3">
+                  <div className="mb-3 animate-agent-option" style={{ animationDelay: '0ms' }}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
                       {t("sidebar.theme")}
                     </div>
@@ -359,10 +373,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '35ms' }}></div>
 
                   {/* Language Dropdown */}
-                  <div className="px-1 py-1" ref={languageDropdownRef}>
+                  <div className="px-1 py-1 animate-agent-option" style={{ animationDelay: '70ms' }} ref={languageDropdownRef}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
                       {t("sidebar.language")}
                     </div>
@@ -415,7 +429,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '105ms' }}></div>
 
                   {/* Go to Settings Page */}
                   <button
@@ -423,7 +437,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setShowUserMenu(false);
                       onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
+                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium animate-agent-option"
+                    style={{ animationDelay: '140ms' }}
                   >
                     <Settings className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
                     <span className="flex-1 text-left">{t("settings.title")}</span>
@@ -436,7 +451,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setShowUserMenu(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium animate-agent-option"
+                      style={{ animationDelay: '175ms' }}
                     >
                       <LogOut className="w-4 h-4 shrink-0" />
                       <span className="flex-1 text-left">{t("sidebar.logout")}</span>
@@ -461,7 +477,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
-                  <div className="mb-3">
+                  <div className="mb-3 animate-agent-option" style={{ animationDelay: '0ms' }}>
                     <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider px-1">
                       {t("sidebar.theme")}
                     </div>
@@ -499,10 +515,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '35ms' }}></div>
 
                   {/* Language Buttons */}
-                  <div className="flex gap-2 mb-2">
+                  <div className="flex gap-2 mb-2 animate-agent-option" style={{ animationDelay: '70ms' }}>
                     <button
                       onClick={() => setLanguage("en")}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -527,7 +543,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </button>
                   </div>
 
-                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50"></div>
+                  <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/50 animate-agent-option" style={{ animationDelay: '105ms' }}></div>
 
                   {/* Settings Button */}
                   <button
@@ -535,7 +551,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       setShowUserMenu(false);
                       onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium"
+                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 font-medium animate-agent-option"
+                    style={{ animationDelay: '140ms' }}
                   >
                     <Settings className="w-4 h-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
                     <span className="flex-1 text-left">{t("settings.title")}</span>
@@ -548,7 +565,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         setShowUserMenu(false);
                         setShowLogoutConfirm(true);
                       }}
-                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium"
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium animate-agent-option"
+                      style={{ animationDelay: '175ms' }}
                     >
                       <LogOut className="w-4 h-4 shrink-0" />
                       <span className="flex-1 text-left">{t("sidebar.logout")}</span>

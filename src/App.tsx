@@ -33,6 +33,7 @@ import {
 import { fileService } from "@/features/chat/api/fileService";
 import { PanelRight, Trash2 } from "lucide-react";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useAgentModels } from "@/features/chat/hooks/useAgentModels";
 import { FOLLOW_UPS } from "@/features/chat/data/suggestions";
 import { generateUUID } from "@/lib/utils";
 
@@ -82,6 +83,9 @@ interface AppLayoutProps {
   isLangFlowConfigOpen: boolean;
   setIsLangFlowConfigOpen: (open: boolean) => void;
   chatInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  agentModels: { id: string; name: string; desc: string }[];
+  /** Resolved name for current chat's agent (avoids "Select Agent" flash on refresh) */
+  resolvedAgentName?: string;
 }
 
 // AppLayout component extracted outside to prevent recreation
@@ -128,6 +132,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
     isLangFlowConfigOpen,
     setIsLangFlowConfigOpen,
     chatInputRef,
+    agentModels = [],
+    resolvedAgentName,
   }) => (
     <div className="flex h-screen w-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50 overflow-hidden relative transition-colors duration-200">
       {/* Mobile Sidebar Backdrop */}
@@ -139,10 +145,11 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
       )}
 
       {/* Hide main Sidebar when Settings is open */}
-      {!showSettings && (
+        {!showSettings && (
         <Sidebar
           history={history}
           activeChatId={activeChatId}
+          agentModels={agentModels}
           loadingChatId={loadingChatId}
           onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
@@ -209,6 +216,8 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               isMobile={isMobile}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
               loadingChatId={loadingChatId}
+              activeChatId={activeChatId}
+              resolvedAgentName={resolvedAgentName}
             />
 
             {!isPreviewOpen && (
@@ -493,7 +502,7 @@ export default function App() {
             // If session exists and has messages, preserve local messages (which might be full)
             // fetchAllSessionsFromLangFlow now returns minimal stubs.
             if (existing && existing.messages.length > 0) {
-              newSessionsMap[s.id] = { ...s, messages: existing.messages };
+              newSessionsMap[s.id] = { ...s, messages: existing.messages, flowName: existing.flowName ?? s.flowName };
             } else {
               newSessionsMap[s.id] = s;
             }
@@ -561,7 +570,7 @@ export default function App() {
   // But the existing `fetchHistoryFromLangFlow` hook (below) updates `sessions` again.
   // That's fine, it acts as a "refresh on select".
   useEffect(() => {
-    if (!activeChatId || !modelConfig.langflowUrl || !modelConfig.modelId) return;
+    if (!activeChatId || !modelConfig.langflowUrl) return;
 
     const loadHistory = async () => {
       if (isStreamingRef.current) return;
@@ -623,7 +632,7 @@ export default function App() {
     };
 
     loadHistory();
-  }, [activeChatId, modelConfig.langflowUrl, modelConfig.modelId]);
+  }, [activeChatId, modelConfig.langflowUrl]);
 
   useEffect(() => {
     if (loadingChatId) {
@@ -634,11 +643,80 @@ export default function App() {
     }
   }, [loadingChatId]);
 
+  const { agentModels } = useAgentModels({
+    modelConfig,
+    onModelConfigChange: setModelConfig,
+  });
+
+  // Lock agent per chat: when opening a chat that has flowId, set modelConfig to that agent (and keep name in sync when agentModels loads)
+  useEffect(() => {
+    if (!activeChatId || !sessions[activeChatId]?.flowId) return;
+    const session = sessions[activeChatId];
+    const flowId = session.flowId!;
+    const agent = agentModels.find((a) => a.id === flowId);
+    const name = agent?.name ?? session.flowName ?? session.title ?? "";
+    setModelConfig((prev) =>
+      prev.modelId === flowId && prev.name === name ? prev : { ...prev, modelId: flowId, name: name || prev.name }
+    );
+  }, [activeChatId, sessions[activeChatId]?.flowId, sessions[activeChatId]?.flowName, sessions[activeChatId]?.title, agentModels]);
+
+  // Auto-select first agent when none selected (e.g. first load or new chat)
+  useEffect(() => {
+    if (agentModels.length === 0 || modelConfig.modelId) return;
+    const first = agentModels[0];
+    setModelConfig((prev) => ({ ...prev, modelId: first.id, name: first.name }));
+  }, [agentModels]);
+
+  // Enrich sessions with flowName from agentModels so sidebar shows name immediately (no id-then-name flash)
+  useEffect(() => {
+    if (agentModels.length === 0) return;
+    setSessions((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(next).forEach((id) => {
+        const s = next[id];
+        if (s?.flowId && !s.flowName) {
+          const name = agentModels.find((a) => a.id === s.flowId)?.name;
+          if (name) {
+            next[id] = { ...s, flowName: name };
+            changed = true;
+          }
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [agentModels]);
+
   const history = useMemo(() => {
     return (Object.values(sessions) as ChatSession[]).sort(
       (a: ChatSession, b: ChatSession) => b.updatedAt - a.updatedAt,
     );
   }, [sessions]);
+
+  const resolvedAgentName = useMemo(() => {
+    if (!activeChatId || !sessions[activeChatId]?.flowId) return undefined;
+    const session = sessions[activeChatId];
+    return session.flowName ?? agentModels.find((a) => a.id === session.flowId)?.name;
+  }, [activeChatId, sessions, agentModels]);
+
+  const cachedAgentName = useMemo(() => {
+    if (!activeChatId) return undefined;
+    try {
+      return sessionStorage.getItem(`agent_name_${activeChatId}`) || undefined;
+    } catch {
+      return undefined;
+    }
+  }, [activeChatId]);
+
+  const displayAgentName = resolvedAgentName ?? cachedAgentName;
+
+  useEffect(() => {
+    if (activeChatId && resolvedAgentName) {
+      try {
+        sessionStorage.setItem(`agent_name_${activeChatId}`, resolvedAgentName);
+      } catch {}
+    }
+  }, [activeChatId, resolvedAgentName]);
 
   const currentMessages = useMemo(() => {
     return sessions[activeChatId]?.messages || [];
@@ -1161,6 +1239,7 @@ export default function App() {
           title: currentPrompt.substring(0, 30),
           messages: [userMsg],
           updatedAt: Date.now(),
+          ...(modelConfig.modelId ? { flowId: modelConfig.modelId, flowName: modelConfig.name } : {}),
         },
       }));
 
@@ -2020,6 +2099,8 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                agentModels={agentModels}
+                resolvedAgentName={displayAgentName}
               />
             ) : (
               <Navigate to="/login" />
@@ -2072,6 +2153,8 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                agentModels={agentModels}
+                resolvedAgentName={displayAgentName}
               />
             ) : (
               <Navigate to="/login" />
@@ -2124,6 +2207,8 @@ export default function App() {
                 isLangFlowConfigOpen={isLangFlowConfigOpen}
                 setIsLangFlowConfigOpen={setIsLangFlowConfigOpen}
                 chatInputRef={chatInputRef}
+                agentModels={agentModels}
+                resolvedAgentName={displayAgentName}
               />
             ) : (
               <Navigate to="/login" />
