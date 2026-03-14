@@ -211,40 +211,22 @@ button {
 .sidebar-chat-btn {
   position: relative;
   color: rgb(88 88 88) !important;
-  transition: color 0.2s ease, transform 0.15s ease;
 }
 
 .dark .sidebar-chat-btn {
   color: rgb(113 113 122) !important;
 }
 
-.sidebar-chat-btn:hover {
-  color: rgb(24 24 27) !important;
-}
-
-.dark .sidebar-chat-btn:hover {
-  color: rgba(212 212 216, 1) !important;
-}
-
-/* Background overlay for smooth transition */
 .sidebar-chat-btn::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgb(228 228 231 / 0.5);
+  background: transparent;
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
   z-index: -1;
-}
-
-.dark .sidebar-chat-btn::before {
-  background: rgb(24 24 27 / 0.4);
-}
-
-.sidebar-chat-btn:hover::before {
-  opacity: 1;
 }
 
 /* Active state */
