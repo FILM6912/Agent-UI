@@ -219,6 +219,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               loadingChatId={loadingChatId}
               activeChatId={activeChatId}
               resolvedAgentName={resolvedAgentName}
+              resolvedAgentDescription={agentModels.find((a) => a.id === modelConfig.modelId)?.desc}
             />
 
             {!isPreviewOpen && (
