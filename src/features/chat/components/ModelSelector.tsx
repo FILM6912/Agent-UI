@@ -38,14 +38,36 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             {agentModels.map((m) => (
               <div
                 key={m.id}
-                className="group relative flex items-center gap-2"
+                className="group relative flex items-center gap-1"
               >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPinAgent(m.id);
+                  }}
+                  className={`p-1.5 rounded-lg transition-all shrink-0 ${
+                    pinnedAgentId === m.id
+                      ? "text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                      : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  }`}
+                  title={
+                    pinnedAgentId === m.id
+                      ? t("chat.unpinAgent")
+                      : t("chat.pinAgent")
+                  }
+                >
+                  {pinnedAgentId === m.id ? (
+                    <Pin className="w-3.5 h-3.5 fill-current" />
+                  ) : (
+                    <PinOff className="w-3.5 h-3.5" />
+                  )}
+                </button>
                 <button
                   onClick={() => {
                     onModelSelect(m.id, m.name);
                     onToggle();
                   }}
-                  className={`flex-1 text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
+                  className={`flex-1 text-left px-2 py-2 rounded-lg text-xs flex items-center gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors ${
                     modelConfig.modelId === m.id
                       ? "bg-zinc-100 dark:bg-zinc-800/50"
                       : ""
@@ -62,28 +84,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                   </div>
                   {modelConfig.modelId === m.id && (
                     <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                  )}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPinAgent(m.id);
-                  }}
-                  className={`p-2 rounded-lg transition-all ${
-                    pinnedAgentId === m.id
-                      ? "text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300"
-                      : "text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }`}
-                  title={
-                    pinnedAgentId === m.id
-                      ? t("chat.unpinAgent")
-                      : t("chat.pinAgent")
-                  }
-                >
-                  {pinnedAgentId === m.id ? (
-                    <Pin className="w-3.5 h-3.5 fill-current" />
-                  ) : (
-                    <PinOff className="w-3.5 h-3.5" />
                   )}
                 </button>
               </div>
@@ -117,7 +117,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           <div
             className={`w-2 h-2 rounded-full ${
               pinnedAgentId === modelConfig.modelId
-                ? "bg-amber-500"
+                ? "bg-emerald-500"
                 : modelConfig.provider === "google"
                   ? "bg-blue-500"
                   : "bg-blue-500"

@@ -154,6 +154,12 @@ async function uploadFileToLangFlow(
     const headers: HeadersInit = {};
     if (apiKey) headers['x-api-key'] = apiKey;
 
+    console.log('📤 Upload file to LangFlow:', {
+      url: `${baseUrl}/api/v1/files/upload/${flowId}`,
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length
+    });
+
     // Convert Data URI to Blob
     const response = await fetch(dataURI);
     const blob = await response.blob();
@@ -168,7 +174,8 @@ async function uploadFileToLangFlow(
     });
 
     if (!uploadResponse.ok) {
-      console.error('File upload failed:', await uploadResponse.text());
+      const errorText = await uploadResponse.text();
+      console.error('File upload failed:', uploadResponse.status, errorText);
       return null;
     }
 
@@ -684,6 +691,12 @@ export async function fetchHistoryFromLangFlow(
     const headers: HeadersInit = { 'Content-Type': 'application/json' };
     if (config.langflowApiKey) headers['x-api-key'] = config.langflowApiKey;
 
+    console.log('📥 Fetch history from LangFlow:', {
+      url: `${baseUrl}/api/v1/monitor/messages?session_id=${chatId}&order_by=timestamp`,
+      hasApiKey: !!config.langflowApiKey,
+      apiKeyLength: config.langflowApiKey?.length
+    });
+
     // Fetch messages for this session
     const response = await fetch(`${baseUrl}/api/v1/monitor/messages?session_id=${chatId}&order_by=timestamp`, { headers });
 
@@ -745,14 +758,20 @@ export async function fetchAllSessionsFromLangFlow(config: ModelConfig): Promise
       console.log('>>> Sample message session_id:', allMessages[0].session_id);
     }
 
+    // Get suggestion session ID to exclude
+    const suggestionSessionId = import.meta.env.VITE_SUGGESTION_SESSION_ID;
+
     // Group by Session ID
     const sessionsMap = new Map<string, LangFlowMessage[]>();
 
     allMessages.forEach((msg) => {
       // Find session ID robustly
       const sessionId = msg.session_id || (msg as any).sessionId || (msg as any).sessionID;
-      
+
       if (!sessionId) return;
+
+      // Skip suggestion session
+      if (suggestionSessionId && sessionId === suggestionSessionId) return;
 
       const existing = sessionsMap.get(sessionId) || [];
       existing.push(msg);

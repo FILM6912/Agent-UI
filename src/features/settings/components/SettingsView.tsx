@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Settings,
   User,
-  Wrench,
   Bot,
   Workflow,
   ArrowLeft,
@@ -13,7 +12,6 @@ import { ModelConfig, ChatSession } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
 import { GeneralTab } from "./tabs/GeneralTab";
 import { AccountTab } from "./tabs/AccountTab";
-import { ToolsTab } from "./tabs/ToolsTab";
 import { AgentTab } from "./tabs/AgentTab";
 import { LangflowTab } from "./tabs/LangflowTab";
 
@@ -28,7 +26,7 @@ interface SettingsViewProps {
   onTabChange?: (tab: SettingsTab) => void;
 }
 
-type SettingsTab = "general" | "account" | "tools" | "agent" | "langflow";
+type SettingsTab = "general" | "account" | "agent" | "langflow";
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   modelConfig,
@@ -82,7 +80,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {[
             { id: "general", icon: Settings, label: t("settings.general") },
             { id: "account", icon: User, label: t("settings.account") },
-            { id: "tools", icon: Wrench, label: t("settings.myTools") },
             { id: "agent", icon: Bot, label: t("settings.agent") },
             { id: "langflow", icon: Workflow, label: t("settings.langflow") },
           ].map((item) => (
@@ -132,9 +129,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {activeTab === "account" && (
                 <User className="w-5 h-5 text-blue-500" />
               )}
-              {activeTab === "tools" && (
-                <Wrench className="w-5 h-5 text-blue-500" />
-              )}
               {activeTab === "agent" && (
                 <Bot className="w-5 h-5 text-indigo-500" />
               )}
@@ -142,7 +136,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-wide">
                 {activeTab === "general" && t("settings.general")}
                 {activeTab === "account" && t("settings.account")}
-                {activeTab === "tools" && t("settings.myTools")}
                 {activeTab === "agent" && t("settings.agent")}
               </h2>
             </div>
@@ -161,13 +154,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
 
           {activeTab === "account" && <AccountTab />}
-
-          {activeTab === "tools" && (
-            <ToolsTab
-              modelConfig={modelConfig}
-              onModelConfigChange={onModelConfigChange}
-            />
-          )}
 
           {activeTab === "agent" && (
             <AgentTab

@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useState } from "react";
 import { Settings, ArrowDown, Menu } from "lucide-react";
 import { Message, ModelConfig, AIProvider, Attachment } from "@/types";
 import { useLanguage } from "@/hooks/useLanguage";
-import { SettingsMenu } from "./SettingsMenu";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { MessageItem } from "./MessageItem";
 import { LoadingIndicator } from "./LoadingIndicator";
@@ -105,14 +104,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const shouldFocusRef = useRef(false);
 
   // Menu Refs for click outside handling
-  const settingsMenuRef = useRef<HTMLDivElement>(null);
-  const languageDropdownRef = useRef<HTMLDivElement>(null);
   const modelMenuRef = useRef<HTMLDivElement>(null);
   const mcpMenuRef = useRef<HTMLDivElement>(null);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [showMcpMenu, setShowMcpMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
@@ -198,9 +194,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
 
-      if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(target)) {
-        setShowSettingsMenu(false);
-      }
       if (showModelMenu && modelMenuRef.current && !modelMenuRef.current.contains(target)) {
         setShowModelMenu(false);
       }
@@ -213,7 +206,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showSettingsMenu, showModelMenu, showMcpMenu]);
+  }, [showModelMenu, showMcpMenu]);
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -261,7 +254,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-50 dark:bg-zinc-950 relative transition-colors duration-200">
-      {/* Top Bar - Model Selector (Left) and Settings (Right) */}
+      {/* Top Bar - Model Selector */}
       <div className="absolute top-4 left-4 z-30 flex items-center gap-2">
         {isMobile && onToggleSidebar && (
           <button
@@ -283,32 +276,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           menuRef={modelMenuRef as React.RefObject<HTMLDivElement>}
         />
       </div>
-
-      {/* Settings Button - Top Right */}
-      {onOpenSettings && (
-        <div className="relative" ref={settingsMenuRef}>
-          <button
-            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-            className={`absolute top-4 z-30 p-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-all ${isPreviewOpen ? "right-4" : "right-12"
-              } ${showSettingsMenu ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
-            title={t("settings.title")}
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-
-          <SettingsMenu
-            isOpen={showSettingsMenu}
-            onClose={() => setShowSettingsMenu(false)}
-            onOpenSettings={onOpenSettings}
-            onLogout={onLogout}
-            isPreviewOpen={isPreviewOpen}
-            menuRef={settingsMenuRef as React.RefObject<HTMLDivElement>}
-            languageDropdownRef={
-              languageDropdownRef as React.RefObject<HTMLDivElement>
-            }
-          />
-        </div>
-      )}
 
       <div
         className="flex-1 overflow-y-auto scroll-smooth"
