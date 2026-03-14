@@ -101,6 +101,8 @@ interface MessageItemProps {
   // AI version props
   onAIVersionChange?: (id: string, newIndex: number) => void;
   onRegenVersionChange?: (id: string, aiIndex: number, regenIndex: number) => void;
+  /** Resolved agent name to avoid flashing on refresh */
+  resolvedAgentName?: string;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -124,6 +126,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onSuggestionClick,
   onAIVersionChange,
   onRegenVersionChange,
+  resolvedAgentName,
 }) => {
   const { t } = useLanguage();
   const isAssistant = msg.role === "assistant";
@@ -160,7 +163,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           </div>
         )}
         <span className="text-xs text-zinc-500 font-medium">
-          {msg.role === "user" ? t("chat.you") : modelConfig.name.toUpperCase()}
+          {msg.role === "user" ? t("chat.you") : (resolvedAgentName || modelConfig.name || t("chat.selectAgent")).toUpperCase()}
         </span>
       </div>
 
