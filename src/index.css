@@ -192,10 +192,9 @@ button {
   opacity: 1;
 }
 
-/* Accordion: เปิด-ปิด ใช้เวลาเท่ากัน (ตัวแปรเดียว) */
+/* Accordion: เปิด 1s / ปิด 0.5s */
 .think-details,
 .process-step {
-  --accordion-duration: 1s;
   --accordion-ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -215,20 +214,23 @@ button {
 .think-details .think-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--accordion-duration) var(--accordion-ease);
+  transition: max-height 0.5s var(--accordion-ease);
 }
 
 .think-details.open .think-content {
   max-height: 80vh;
+  transition-duration: 1s;
 }
 
 .think-details .think-chevron {
-  transition: transform var(--accordion-duration) var(--accordion-ease);
+  transition: transform 0.5s var(--accordion-ease);
 }
 
 .think-details.open .think-chevron {
   transform: rotate(180deg);
+  transition-duration: 1s;
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   .think-details .think-content,
@@ -237,15 +239,16 @@ button {
   }
 }
 
-/* ProcessStep accordion – เวลาเปิด/ปิดเท่ากัน ใช้ --accordion-duration เหมือน think block */
+/* ProcessStep accordion – เปิด 1s / ปิด 0.5s */
 .process-step .process-step-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--accordion-duration) var(--accordion-ease);
+  transition: max-height 0.5s var(--accordion-ease);
 }
 
 .process-step.process-step-open .process-step-content {
   max-height: 80vh;
+  transition-duration: 1s;
 }
 
 @media (prefers-reduced-motion: reduce) {
