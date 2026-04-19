@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AIIcon } from "./AIIcon";
 import {
   Copy,
   RotateCw,
@@ -163,7 +164,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       <div className="mb-3 flex items-center gap-2 px-1">
         {isAssistant && (
           <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+            <AIIcon size="sm" className="text-white" />
           </div>
         )}
         <span className="text-xs text-zinc-500 font-medium">

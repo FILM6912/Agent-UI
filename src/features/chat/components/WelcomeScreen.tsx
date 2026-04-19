@@ -1,4 +1,5 @@
 import React from "react";
+import { AIIcon } from "./AIIcon";
 import {
   Sparkles,
   Code,
@@ -120,7 +121,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="w-20 h-20 rounded-full bg-linear-to-br from-[#1447E6] via-[#3d6ff7] to-[#0d35b8] flex items-center justify-center mb-6 shadow-2xl shadow-blue-500/30 animate-in zoom-in duration-500 ring-4 ring-blue-100 dark:ring-blue-900/30">
-        <Sparkles className="w-10 h-10 text-white" />
+        <AIIcon size="lg" className="text-white" />
       </div>
 
       <h1 className="text-3xl md:text-4xl font-bold mb-3 text-center">
