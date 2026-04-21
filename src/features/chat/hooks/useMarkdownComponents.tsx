@@ -10,6 +10,9 @@ export const useMarkdownComponents = ({
   onPreviewRequest,
   onViewImage,
 }: UseMarkdownComponentsProps) => {
+  const isExternalHref = (href?: string) =>
+    !!href && /^(https?:\/\/|mailto:|tel:)/i.test(href);
+
   return {
     // Paragraphs
     p: ({ children }: any) => (
@@ -62,14 +65,24 @@ export const useMarkdownComponents = ({
 
     // Links
     a: ({ href, children }: any) => (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline transition-colors"
-      >
-        {children}
-      </a>
+      isExternalHref(href) ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline transition-colors"
+        >
+          {children}
+        </a>
+      ) : (
+        <a
+          href={href}
+          className="inline-flex items-center px-1.5 py-0.5 rounded-md border border-indigo-200/70 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/35 transition-colors text-xs no-underline"
+          title={href}
+        >
+          {children}
+        </a>
+      )
     ),
 
     // Images

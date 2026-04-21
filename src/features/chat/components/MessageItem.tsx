@@ -20,6 +20,21 @@ import rehypeRaw from "rehype-raw";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CachedImage } from "./CachedImage";
 
+const normalizeCitationSyntax = (content: string): string => {
+  if (!content) return content;
+
+  // Normalize common citation styles from code chat tools:
+  // - 【label†https://example.com】 -> [label](https://example.com)
+  // - 〖label†https://example.com〗 -> [label](https://example.com)
+  // - 【label†ref-id】            -> [label](ref-id)
+  return content.replace(/[【〖]([^†\]\n]+)†([^\]】〗\n]+)[】〗]/g, (_match, rawLabel, rawRef) => {
+    const label = String(rawLabel).trim();
+    const ref = String(rawRef).trim();
+    if (!label || !ref) return _match;
+    return `[${label}](${ref})`;
+  });
+};
+
 /** Single think block with smooth open/close animation (state + max-height) */
 function ThinkBlock({
   block,
@@ -284,6 +299,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               // Wrap text in “...” with a span for orange coloring and HIDE the quotes
               // We replace it with <span class="text-orange-500 font-medium">...</span>
               const coloredContent = mainContent.replace(/“([\s\S]*?)”/g, '<span class="text-orange-500 font-medium">$1</span>');
+              const normalizedContent = normalizeCitationSyntax(coloredContent);
 
               return (
                 <Markdown
@@ -291,7 +307,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   rehypePlugins={[rehypeRaw]}
                   components={markdownComponents as any}
                 >
-                  {coloredContent}
+                  {normalizedContent}
                 </Markdown>
               );
             })()}
