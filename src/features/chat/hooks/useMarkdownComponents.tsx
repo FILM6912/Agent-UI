@@ -109,36 +109,79 @@ export const useMarkdownComponents = ({
 
   const scrollToAnchor = (rawId: string) => {
     const target = findAnchorTarget(rawId);
-    if (!target) return false;
-
-    const scrollable = findScrollableAncestor(target);
-    if (scrollable) {
-      const targetRect = target.getBoundingClientRect();
-      const containerRect = scrollable.getBoundingClientRect();
-      const nextTop = scrollable.scrollTop + (targetRect.top - containerRect.top) - 24;
-      scrollable.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
-    } else {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!target) {
+      if (typeof window !== "undefined" && (window as any).console) {
+        console.warn("[scrollToAnchor] target not found for id:", rawId);
+      }
+      return false;
     }
 
+    const doScroll = () => {
+      try {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        target.scrollIntoView();
+      }
+
+      const scrollable = findScrollableAncestor(target);
+      if (scrollable) {
+        const targetRect = target.getBoundingClientRect();
+        const containerRect = scrollable.getBoundingClientRect();
+        const currentOffset = targetRect.top - containerRect.top;
+        if (currentOffset < 0 || currentOffset > containerRect.height - 40) {
+          const nextTop =
+            scrollable.scrollTop + currentOffset - containerRect.height / 2 + targetRect.height / 2;
+          try {
+            scrollable.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+          } catch {
+            scrollable.scrollTop = Math.max(0, nextTop);
+          }
+        }
+      }
+    };
+
+    doScroll();
+    window.setTimeout(doScroll, 80);
     highlightTarget(target);
     return true;
   };
 
   const isFootnoteId = (id: string) => /^(?:user-content-)?fn-/i.test(id);
 
-  const findFootnoteAction = (target: HTMLElement): { url?: string; file?: string } | null => {
+  const findFootnoteUrl = (target: HTMLElement): string | null => {
     const links = Array.from(target.querySelectorAll("a")) as HTMLAnchorElement[];
+    let textContent = target.textContent || "";
+    for (const link of links) {
+      if (link.hasAttribute("data-footnote-backref")) {
+        textContent = textContent.replace(link.textContent || "", "");
+        continue;
+      }
+      const cls = link.getAttribute("class") || "";
+      if (cls.includes("footnote-backref")) {
+        textContent = textContent.replace(link.textContent || "", "");
+        continue;
+      }
+    }
+
+    const trimmed = textContent.trim();
     for (const link of links) {
       if (link.hasAttribute("data-footnote-backref")) continue;
       const cls = link.getAttribute("class") || "";
       if (cls.includes("footnote-backref")) continue;
       const raw = link.getAttribute("href") || "";
       if (!raw || raw.startsWith("#")) continue;
-      if (isExternalHref(raw)) return { url: raw };
-      if (isFileHref(raw)) return { file: raw };
-      return { file: raw };
+      if (!isExternalHref(raw)) continue;
+
+      const linkText = (link.textContent || "").trim();
+      if (linkText === trimmed || raw === trimmed) {
+        return raw;
+      }
     }
+
+    if (/^(https?:\/\/|mailto:|tel:)\S+$/i.test(trimmed)) {
+      return trimmed;
+    }
+
     return null;
   };
 
@@ -153,17 +196,9 @@ export const useMarkdownComponents = ({
       if (isFootnoteId(targetId)) {
         const target = findAnchorTarget(targetId);
         if (target) {
-          const action = findFootnoteAction(target);
-          if (action?.url) {
-            window.open(action.url, "_blank", "noopener,noreferrer");
-            return;
-          }
-          if (action?.file) {
-            if (onPreviewRequest) {
-              onPreviewRequest(action.file);
-            } else {
-              window.open(action.file, "_blank", "noopener,noreferrer");
-            }
+          const url = findFootnoteUrl(target);
+          if (url) {
+            window.open(url, "_blank", "noopener,noreferrer");
             return;
           }
         }
