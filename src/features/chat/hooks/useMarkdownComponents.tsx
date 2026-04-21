@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import { CodeBlock } from "../components/CodeBlock";
 import { TableWithExport } from "../components/TableWithExport";
 
@@ -12,6 +13,176 @@ export const useMarkdownComponents = ({
 }: UseMarkdownComponentsProps) => {
   const isExternalHref = (href?: string) =>
     !!href && /^(https?:\/\/|mailto:|tel:)/i.test(href);
+  const isAnchorHref = (href?: string) => !!href && href.startsWith("#");
+  const isFileHref = (href?: string) =>
+    !!href &&
+    !isExternalHref(href) &&
+    !isAnchorHref(href) &&
+    /\.(?:docx?|xlsx?|pptx?|pdf|txt|csv|md|rtf|odt|ods|odp|zip|rar|7z|json|xml|html?|png|jpe?g|gif|webp|svg|mp3|mp4|wav|mov)$/i.test(href);
+  const isReferenceId = (href?: string) =>
+    !!href &&
+    !isExternalHref(href) &&
+    !isAnchorHref(href) &&
+    !isFileHref(href) &&
+    /^[a-zA-Z0-9_-]{6,}$/.test(href);
+
+  const classNameToString = (className: unknown): string => {
+    if (typeof className === "string") return className;
+    if (Array.isArray(className)) return className.map((c) => String(c ?? "")).join(" ");
+    return "";
+  };
+
+  const isFootnoteBackref = (
+    href: string | undefined,
+    props: Record<string, unknown>
+  ) => {
+    if ("data-footnote-backref" in props) return true;
+    const cls = classNameToString(props["className"]);
+    if (cls.includes("data-footnote-backref") || cls.includes("footnote-backref")) return true;
+    const ariaLabel = typeof props["aria-label"] === "string" ? (props["aria-label"] as string) : "";
+    if (/^back to (reference|footnote)/i.test(ariaLabel)) return true;
+    if (!!href && /#(?:user-content-)?fnref[-:]/i.test(href)) return true;
+    return false;
+  };
+
+  const findScrollableAncestor = (el: HTMLElement | null): HTMLElement | null => {
+    let current: HTMLElement | null = el?.parentElement ?? null;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const style = window.getComputedStyle(current);
+      const overflowY = style.overflowY;
+      const isScrollable =
+        (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+        current.scrollHeight > current.clientHeight + 1;
+      if (isScrollable) return current;
+      current = current.parentElement;
+    }
+    return null;
+  };
+
+  const highlightTarget = (el: HTMLElement) => {
+    const prevTransition = el.style.transition;
+    const prevBackground = el.style.backgroundColor;
+    el.style.transition = "background-color 0.6s ease";
+    el.style.backgroundColor = "rgba(99, 102, 241, 0.18)";
+    window.setTimeout(() => {
+      el.style.backgroundColor = prevBackground;
+      window.setTimeout(() => {
+        el.style.transition = prevTransition;
+      }, 650);
+    }, 900);
+  };
+
+  const findAnchorTarget = (rawId: string): HTMLElement | null => {
+    let decoded = rawId;
+    try {
+      decoded = decodeURIComponent(rawId);
+    } catch {
+      // ignore decode failure
+    }
+    const candidates = Array.from(
+      new Set(
+        [rawId, decoded]
+          .flatMap((id) => [id, id.replace(/^user-content-/, ""), `user-content-${id}`])
+          .filter((id) => typeof id === "string" && id.length > 0)
+      )
+    );
+
+    for (const id of candidates) {
+      const byId = document.getElementById(id);
+      if (byId) return byId;
+    }
+
+    for (const id of candidates) {
+      try {
+        const escaped =
+          typeof (window as any).CSS?.escape === "function"
+            ? (window as any).CSS.escape(id)
+            : id.replace(/(["\\])/g, "\\$1");
+        const byQuery = document.querySelector(`[id="${escaped}"]`) as HTMLElement | null;
+        if (byQuery) return byQuery;
+      } catch {
+        // ignore selector errors
+      }
+    }
+    return null;
+  };
+
+  const scrollToAnchor = (rawId: string) => {
+    const target = findAnchorTarget(rawId);
+    if (!target) return false;
+
+    const scrollable = findScrollableAncestor(target);
+    if (scrollable) {
+      const targetRect = target.getBoundingClientRect();
+      const containerRect = scrollable.getBoundingClientRect();
+      const nextTop = scrollable.scrollTop + (targetRect.top - containerRect.top) - 24;
+      scrollable.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    } else {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    highlightTarget(target);
+    return true;
+  };
+
+  const isFootnoteId = (id: string) => /^(?:user-content-)?fn-/i.test(id);
+
+  const findFootnoteAction = (target: HTMLElement): { url?: string; file?: string } | null => {
+    const links = Array.from(target.querySelectorAll("a")) as HTMLAnchorElement[];
+    for (const link of links) {
+      if (link.hasAttribute("data-footnote-backref")) continue;
+      const cls = link.getAttribute("class") || "";
+      if (cls.includes("footnote-backref")) continue;
+      const raw = link.getAttribute("href") || "";
+      if (!raw || raw.startsWith("#")) continue;
+      if (isExternalHref(raw)) return { url: raw };
+      if (isFileHref(raw)) return { file: raw };
+      return { file: raw };
+    }
+    return null;
+  };
+
+  const handleLinkClick = (event: MouseEvent<HTMLAnchorElement>, href?: string) => {
+    if (!href) return;
+
+    if (isAnchorHref(href)) {
+      event.preventDefault();
+      const targetId = href.slice(1);
+      if (!targetId) return;
+
+      if (isFootnoteId(targetId)) {
+        const target = findAnchorTarget(targetId);
+        if (target) {
+          const action = findFootnoteAction(target);
+          if (action?.url) {
+            window.open(action.url, "_blank", "noopener,noreferrer");
+            return;
+          }
+          if (action?.file) {
+            if (onPreviewRequest) {
+              onPreviewRequest(action.file);
+            } else {
+              window.open(action.file, "_blank", "noopener,noreferrer");
+            }
+            return;
+          }
+        }
+      }
+
+      scrollToAnchor(targetId);
+      return;
+    }
+
+    if (isFileHref(href) || isReferenceId(href)) {
+      event.preventDefault();
+      if (onPreviewRequest) {
+        onPreviewRequest(href);
+      } else {
+        window.open(href, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+  };
 
   return {
     // Paragraphs
@@ -37,11 +208,17 @@ export const useMarkdownComponents = ({
         {children}
       </h1>
     ),
-    h2: ({ children }: any) => (
-      <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-3 mt-5">
-        {children}
-      </h2>
-    ),
+    h2: ({ children, id }: any) => {
+      const idStr = typeof id === "string" ? id : "";
+      if (idStr === "footnote-label" || idStr === "user-content-footnote-label") {
+        return null;
+      }
+      return (
+        <h2 id={idStr || undefined} className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-3 mt-5">
+          {children}
+        </h2>
+      );
+    },
     h3: ({ children }: any) => (
       <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 mb-2 mt-4">
         {children}
@@ -64,12 +241,17 @@ export const useMarkdownComponents = ({
     ),
 
     // Links
-    a: ({ href, children }: any) => (
-      isExternalHref(href) ? (
+    a: ({ href, children, ...props }: any) => {
+      if (isFootnoteBackref(href, props)) {
+        return null;
+      }
+
+      return isExternalHref(href) ? (
         <a
           href={href}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(event) => handleLinkClick(event, href)}
           className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 hover:underline transition-colors"
         >
           {children}
@@ -77,13 +259,20 @@ export const useMarkdownComponents = ({
       ) : (
         <a
           href={href}
-          className="inline-flex items-center px-1.5 py-0.5 rounded-md border border-indigo-200/70 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/35 transition-colors text-xs no-underline"
+          target={isAnchorHref(href) || isReferenceId(href) || isFileHref(href) ? undefined : "_blank"}
+          rel={isAnchorHref(href) || isReferenceId(href) || isFileHref(href) ? undefined : "noopener noreferrer"}
+          onClick={(event) => handleLinkClick(event, href)}
+          className={
+            isFileHref(href)
+              ? "text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 underline underline-offset-4 decoration-1 decoration-indigo-400/70 dark:decoration-indigo-500/60 hover:decoration-indigo-500 dark:hover:decoration-indigo-300 transition-colors cursor-pointer break-all"
+              : "inline-flex items-center px-1.5 py-0.5 rounded-md border border-indigo-200/70 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/35 transition-colors text-xs no-underline"
+          }
           title={href}
         >
           {children}
         </a>
-      )
-    ),
+      );
+    },
 
     // Images
     img: ({ src, alt }: any) => (

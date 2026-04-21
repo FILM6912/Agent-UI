@@ -20,6 +20,9 @@ import rehypeRaw from "rehype-raw";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CachedImage } from "./CachedImage";
 
+const FILE_EXT_PATTERN =
+  /(?:docx?|xlsx?|pptx?|pdf|txt|csv|md|rtf|odt|ods|odp|zip|rar|7z|json|xml|html?|png|jpe?g|gif|webp|svg|mp3|mp4|wav|mov)/i;
+
 const normalizeCitationSyntax = (content: string): string => {
   if (!content) return content;
 
@@ -27,12 +30,25 @@ const normalizeCitationSyntax = (content: string): string => {
   // - 【label†https://example.com】 -> [label](https://example.com)
   // - 〖label†https://example.com〗 -> [label](https://example.com)
   // - 【label†ref-id】            -> [label](ref-id)
-  return content.replace(/[【〖]([^†\]\n]+)†([^\]】〗\n]+)[】〗]/g, (_match, rawLabel, rawRef) => {
+  let next = content.replace(/[【〖]([^†\]\n]+)†([^\]】〗\n]+)[】〗]/g, (_match, rawLabel, rawRef) => {
     const label = String(rawLabel).trim();
     const ref = String(rawRef).trim();
     if (!label || !ref) return _match;
     return `[${label}](${ref})`;
   });
+
+  // Convert filenames inside footnote definitions to markdown links so they become clickable.
+  // Example: "[^1]: Brake_OffLine_Specification_LessonLearned.docx"
+  //      -> "[^1]: [Brake_OffLine_Specification_LessonLearned.docx](Brake_OffLine_Specification_LessonLearned.docx)"
+  next = next.replace(
+    new RegExp(
+      String.raw`^(\s*\[\^[^\]\n]+\]:\s*)([^\s\[\<][^\s\<\>]*?\.` + FILE_EXT_PATTERN.source + String.raw`)(\s|$)`,
+      "gim"
+    ),
+    (_match, prefix, fileName, tail) => `${prefix}[${fileName}](${fileName})${tail}`
+  );
+
+  return next;
 };
 
 /** Single think block with smooth open/close animation (state + max-height) */
