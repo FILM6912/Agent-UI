@@ -303,6 +303,42 @@ button {
   }
 }
 
+/* Anchor / footnote highlight: blink a few times in orange, then fade */
+@keyframes anchor-flash-blink {
+  0%   { background-color: rgba(249, 115, 22, 0); }
+  10%  { background-color: rgba(249, 115, 22, 0.55); }
+  25%  { background-color: rgba(249, 115, 22, 0); }
+  35%  { background-color: rgba(249, 115, 22, 0.55); }
+  50%  { background-color: rgba(249, 115, 22, 0); }
+  60%  { background-color: rgba(249, 115, 22, 0.55); }
+  75%  { background-color: rgba(249, 115, 22, 0.35); }
+  100% { background-color: rgba(249, 115, 22, 0); }
+}
+
+mark[data-anchor-flash] {
+  background-color: transparent;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  animation: anchor-flash-blink 2.2s ease-in-out forwards;
+}
+
+.anchor-flash-fallback {
+  animation: anchor-flash-blink 2.2s ease-in-out forwards;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  mark[data-anchor-flash],
+  .anchor-flash-fallback {
+    animation: none;
+    background-color: rgba(249, 115, 22, 0.4);
+    transition: background-color 0.6s ease 1.6s;
+  }
+}
+
 /* ProcessStep accordion – เปิด 1s / ปิด 0.5s */
 .process-step .process-step-content {
   max-height: 0;

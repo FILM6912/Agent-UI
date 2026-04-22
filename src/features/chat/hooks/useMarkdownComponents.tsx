@@ -87,10 +87,17 @@ export const useMarkdownComponents = ({
     return anchorEl;
   };
 
-  /** Wrap visible text in a temporary <mark> so only glyphs are highlighted, not full block width. */
+  /** Wrap visible text in a temporary <mark> that blinks orange a few times, then unwrap. */
   const highlightAnchorText = (anchorEl: HTMLElement) => {
     const el = pickHighlightTextContainer(anchorEl);
     if (!el.textContent?.trim()) return;
+
+    const unwrap = (mark: HTMLElement) => {
+      const parent = mark.parentNode;
+      if (!parent) return;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    };
 
     try {
       const range = document.createRange();
@@ -99,27 +106,15 @@ export const useMarkdownComponents = ({
 
       const mark = document.createElement("mark");
       mark.setAttribute("data-anchor-flash", "");
-      mark.style.cssText =
-        "background-color:rgba(249,115,22,0.4);border-radius:2px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;color:inherit;";
       range.surroundContents(mark);
 
-      window.setTimeout(() => {
-        const parent = mark.parentNode;
-        if (!parent) return;
-        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-        parent.removeChild(mark);
-      }, 950);
+      const cleanup = () => unwrap(mark);
+      mark.addEventListener("animationend", cleanup, { once: true });
+      window.setTimeout(cleanup, 2600);
     } catch {
-      const prevTransition = el.style.transition;
-      const prevBackground = el.style.backgroundColor;
-      el.style.transition = "background-color 0.6s ease";
-      el.style.backgroundColor = "rgba(249, 115, 22, 0.22)";
-      window.setTimeout(() => {
-        el.style.backgroundColor = prevBackground;
-        window.setTimeout(() => {
-          el.style.transition = prevTransition;
-        }, 650);
-      }, 900);
+      const cls = "anchor-flash-fallback";
+      el.classList.add(cls);
+      window.setTimeout(() => el.classList.remove(cls), 2600);
     }
   };
 
