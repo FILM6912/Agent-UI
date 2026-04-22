@@ -118,6 +118,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+  /** Suppress auto-scroll-to-bottom for a short window after clicking an in-page anchor */
+  const suppressAutoScrollUntilRef = useRef<number>(0);
 
   // Agent Models Hook
   const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
@@ -151,11 +153,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const markdownComponents = useMarkdownComponents({
     onPreviewRequest,
     onViewImage: setViewingImage,
+    scrollRootRef: scrollRef,
+    onAnchorNavigation: () => {
+      suppressAutoScrollUntilRef.current = Date.now() + 4000;
+      setUserHasScrolledUp(true);
+    },
   });
 
   // Auto-scroll to bottom (smooth while AI is streaming for a smoother feel)
   useEffect(() => {
     if (!scrollRef.current || userHasScrolledUp) return;
+    if (Date.now() < suppressAutoScrollUntilRef.current) return;
     const el = scrollRef.current;
     const target = el.scrollHeight;
     if (isStreaming) {
@@ -170,6 +178,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       if (isAtBottom && userHasScrolledUp) {
+        if (Date.now() < suppressAutoScrollUntilRef.current) return;
         setUserHasScrolledUp(false);
       } else if (!isAtBottom && !userHasScrolledUp) {
         setUserHasScrolledUp(true);
@@ -290,6 +299,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div
         className="flex-1 overflow-y-auto scroll-smooth"
         ref={scrollRef}
+        data-chat-scroll-root
         onScroll={handleScroll}
       >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">

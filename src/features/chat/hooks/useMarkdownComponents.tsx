@@ -1,15 +1,21 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, RefObject } from "react";
 import { CodeBlock } from "../components/CodeBlock";
 import { TableWithExport } from "../components/TableWithExport";
 
 interface UseMarkdownComponentsProps {
   onPreviewRequest?: (content: string) => void;
   onViewImage: (url: string) => void;
+  /** Chat messages scroll container — anchor/footnote jumps use this for reliable scrolling */
+  scrollRootRef?: RefObject<HTMLElement | null>;
+  /** Called when jumping to an in-page anchor — disables “stick to bottom” so auto-scroll won’t undo the jump */
+  onAnchorNavigation?: () => void;
 }
 
 export const useMarkdownComponents = ({
   onPreviewRequest,
   onViewImage,
+  scrollRootRef,
+  onAnchorNavigation,
 }: UseMarkdownComponentsProps) => {
   const isExternalHref = (href?: string) =>
     !!href && /^(https?:\/\/|mailto:|tel:)/i.test(href);
@@ -59,17 +65,62 @@ export const useMarkdownComponents = ({
     return null;
   };
 
-  const highlightTarget = (el: HTMLElement) => {
-    const prevTransition = el.style.transition;
-    const prevBackground = el.style.backgroundColor;
-    el.style.transition = "background-color 0.6s ease";
-    el.style.backgroundColor = "rgba(99, 102, 241, 0.18)";
-    window.setTimeout(() => {
-      el.style.backgroundColor = prevBackground;
+  const isFootnoteId = (id: string) => /^(?:user-content-)?fn-/i.test(id);
+
+  /** Smallest element whose text should flash (footnote body, link, or block itself). */
+  const pickHighlightTextContainer = (anchorEl: HTMLElement): HTMLElement => {
+    const id = anchorEl.id || "";
+    if (anchorEl.tagName === "LI" && isFootnoteId(id)) {
+      const directP = anchorEl.querySelector(":scope > p");
+      if (directP instanceof HTMLElement) return directP;
+      const nestedP = anchorEl.querySelector("p");
+      if (nestedP instanceof HTMLElement) return nestedP;
+      const mainLink = Array.from(anchorEl.querySelectorAll("a")).find((a) => {
+        if (a.hasAttribute("data-footnote-backref")) return false;
+        const c = a.getAttribute("class") || "";
+        return !c.includes("footnote-backref");
+      });
+      if (mainLink) return mainLink;
+    }
+    const scopeP = anchorEl.querySelector(":scope > p");
+    if (scopeP instanceof HTMLElement) return scopeP;
+    return anchorEl;
+  };
+
+  /** Wrap visible text in a temporary <mark> so only glyphs are highlighted, not full block width. */
+  const highlightAnchorText = (anchorEl: HTMLElement) => {
+    const el = pickHighlightTextContainer(anchorEl);
+    if (!el.textContent?.trim()) return;
+
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      if (range.collapsed) return;
+
+      const mark = document.createElement("mark");
+      mark.setAttribute("data-anchor-flash", "");
+      mark.style.cssText =
+        "background-color:rgba(249,115,22,0.4);border-radius:2px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone;color:inherit;";
+      range.surroundContents(mark);
+
       window.setTimeout(() => {
-        el.style.transition = prevTransition;
-      }, 650);
-    }, 900);
+        const parent = mark.parentNode;
+        if (!parent) return;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+      }, 950);
+    } catch {
+      const prevTransition = el.style.transition;
+      const prevBackground = el.style.backgroundColor;
+      el.style.transition = "background-color 0.6s ease";
+      el.style.backgroundColor = "rgba(249, 115, 22, 0.22)";
+      window.setTimeout(() => {
+        el.style.backgroundColor = prevBackground;
+        window.setTimeout(() => {
+          el.style.transition = prevTransition;
+        }, 650);
+      }, 900);
+    }
   };
 
   const findAnchorTarget = (rawId: string): HTMLElement | null => {
@@ -107,6 +158,17 @@ export const useMarkdownComponents = ({
     return null;
   };
 
+  const scrollWithinRoot = (root: HTMLElement, el: HTMLElement, padding = 24) => {
+    const rootRect = root.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const nextTop = root.scrollTop + (elRect.top - rootRect.top) - padding;
+    try {
+      root.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    } catch {
+      root.scrollTop = Math.max(0, nextTop);
+    }
+  };
+
   const scrollToAnchor = (rawId: string) => {
     const target = findAnchorTarget(rawId);
     if (!target) {
@@ -116,16 +178,29 @@ export const useMarkdownComponents = ({
       return false;
     }
 
+    onAnchorNavigation?.();
+
+    const footnoteSection =
+      (target.closest("section.footnotes, section.footnote, section[data-footnotes]") as HTMLElement | null) ??
+      null;
+    const scrollTarget = footnoteSection ?? target;
+
     const doScroll = () => {
-      try {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-      } catch {
-        target.scrollIntoView();
+      const root = scrollRootRef?.current;
+      if (root && root.contains(scrollTarget)) {
+        scrollWithinRoot(root, scrollTarget, 24);
+        return;
       }
 
-      const scrollable = findScrollableAncestor(target);
+      try {
+        scrollTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        scrollTarget.scrollIntoView();
+      }
+
+      const scrollable = findScrollableAncestor(scrollTarget);
       if (scrollable) {
-        const targetRect = target.getBoundingClientRect();
+        const targetRect = scrollTarget.getBoundingClientRect();
         const containerRect = scrollable.getBoundingClientRect();
         const currentOffset = targetRect.top - containerRect.top;
         if (currentOffset < 0 || currentOffset > containerRect.height - 40) {
@@ -141,12 +216,12 @@ export const useMarkdownComponents = ({
     };
 
     doScroll();
-    window.setTimeout(doScroll, 80);
-    highlightTarget(target);
+    window.requestAnimationFrame(() => {
+      doScroll();
+    });
+    highlightAnchorText(target);
     return true;
   };
-
-  const isFootnoteId = (id: string) => /^(?:user-content-)?fn-/i.test(id);
 
   const findFootnoteUrl = (target: HTMLElement): string | null => {
     const links = Array.from(target.querySelectorAll("a")) as HTMLAnchorElement[];
@@ -261,18 +336,36 @@ export const useMarkdownComponents = ({
     ),
 
     // Lists
-    ul: ({ children }: any) => (
-      <ul className="list-disc pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500">
+    ul: ({ children, className, id, ...props }: any) => (
+      <ul
+        id={typeof id === "string" ? id : undefined}
+        className={["list-disc pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500", className]
+          .filter(Boolean)
+          .join(" ")}
+        {...props}
+      >
         {children}
       </ul>
     ),
-    ol: ({ children }: any) => (
-      <ol className="list-decimal pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500">
+    ol: ({ children, className, id, ...props }: any) => (
+      <ol
+        id={typeof id === "string" ? id : undefined}
+        className={["list-decimal pl-6 mb-4 space-y-1 text-zinc-700 dark:text-zinc-300 marker:text-zinc-400 dark:marker:text-zinc-500", className]
+          .filter(Boolean)
+          .join(" ")}
+        {...props}
+      >
         {children}
       </ol>
     ),
-    li: ({ children }: any) => (
-      <li className="pl-1 leading-relaxed">{children}</li>
+    li: ({ children, className, id, ...props }: any) => (
+      <li
+        id={typeof id === "string" ? id : undefined}
+        className={["pl-1 leading-relaxed", className].filter(Boolean).join(" ")}
+        {...props}
+      >
+        {children}
+      </li>
     ),
 
     // Links
