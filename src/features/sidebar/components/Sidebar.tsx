@@ -115,6 +115,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [activeChatId]);
 
+  // Close menu when sidebar is collapsed so dropdown isn't clipped by narrow width
+  useEffect(() => {
+    if (!isOpen) {
+      setShowUserMenu(false);
+      setShowLanguageDropdown(false);
+    }
+  }, [isOpen]);
+
   // Click outside handler for user menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -517,10 +525,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Settings className="w-5 h-5" />
               </button>
-              {/* Settings Menu Dropdown - Collapsed */}
+              {/* Settings Menu Dropdown - Collapsed (open to the right, align bottom so doesn't overflow below) */}
               {showUserMenu && (
                 <div
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-top-2 fade-in duration-200"
+                  className="absolute left-full bottom-0 ml-2 w-[240px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-in slide-in-from-left-2 fade-in duration-200"
                 >
                   {/* Theme Section */}
                   <div className="mb-3 animate-agent-option" style={{ animationDelay: '0ms' }}>

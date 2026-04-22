@@ -73,6 +73,8 @@ interface ChatInterfaceProps {
   activeChatId?: string;
   /** Resolved agent name for current chat (avoids "Select Agent" flash on refresh) */
   resolvedAgentName?: string;
+  /** Agent description from same source as dropdown (agentModels) so welcome screen matches */
+  resolvedAgentDescription?: string;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -100,6 +102,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   loadingChatId,
   activeChatId = "",
   resolvedAgentName,
+  resolvedAgentDescription,
 }) => {
   const { t, language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+  /** Suppress auto-scroll-to-bottom for a short window after clicking an in-page anchor */
+  const suppressAutoScrollUntilRef = useRef<number>(0);
 
   // Agent Models Hook
   const { agentModels, pinnedAgentId, handlePinAgent } = useAgentModels({
@@ -148,12 +153,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const markdownComponents = useMarkdownComponents({
     onPreviewRequest,
     onViewImage: setViewingImage,
+    scrollRootRef: scrollRef,
+    onAnchorNavigation: () => {
+      suppressAutoScrollUntilRef.current = Date.now() + 4000;
+      setUserHasScrolledUp(true);
+    },
   });
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (smooth while AI is streaming for a smoother feel)
   useEffect(() => {
-    if (scrollRef.current && !userHasScrolledUp) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!scrollRef.current || userHasScrolledUp) return;
+    if (Date.now() < suppressAutoScrollUntilRef.current) return;
+    const el = scrollRef.current;
+    const target = el.scrollHeight;
+    if (isStreaming) {
+      el.scrollTo({ top: target, behavior: "smooth" });
+    } else {
+      el.scrollTop = target;
     }
   }, [messages, isLoading, isStreaming, editingId, input, userHasScrolledUp]);
 
@@ -162,6 +178,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       if (isAtBottom && userHasScrolledUp) {
+        if (Date.now() < suppressAutoScrollUntilRef.current) return;
         setUserHasScrolledUp(false);
       } else if (!isAtBottom && !userHasScrolledUp) {
         setUserHasScrolledUp(true);
@@ -282,6 +299,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div
         className="flex-1 overflow-y-auto scroll-smooth"
         ref={scrollRef}
+        data-chat-scroll-root
         onScroll={handleScroll}
       >
         <div className="max-w-5xl mx-auto px-4 pb-32 md:pb-40 pt-8 space-y-8">
@@ -292,12 +310,38 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ) : (
             <div key={activeChatId ?? "empty"} className="animate-content-fade-in">
             <>
-              {messages.length === 0 && (
-                <WelcomeScreen
-                  language={language}
-                  onSuggestionClick={(prompt) => onSend(prompt, [])}
-                />
-              )}
+              {messages.length === 0 && (() => {
+                const name = resolvedAgentName || modelConfig.name;
+                const isSelectAgentPlaceholder = !name || name === "Select Agent" || name === "เลือก Agent";
+                const agentKey = modelConfig.modelId || "no-agent";
+                
+                return (
+                  <WelcomeScreen
+                    key={agentKey}
+                    language={language}
+                    onSuggestionClick={(prompt) => onSend(prompt, [])}
+                    hasSelectedAgent={!isSelectAgentPlaceholder}
+                    agentName={isSelectAgentPlaceholder ? undefined : name}
+                    agentDescription={(() => {
+                      if (isSelectAgentPlaceholder) return undefined;
+                      // Prefer description from same source as dropdown (agentModels) so it always matches
+                      if (resolvedAgentDescription) return resolvedAgentDescription;
+                      // Fallback: try localStorage
+                      try {
+                        const savedAgents = localStorage.getItem("agent_flows");
+                        if (savedAgents && modelConfig.modelId) {
+                          const parsed = JSON.parse(savedAgents);
+                          if (Array.isArray(parsed)) {
+                            const agent = parsed.find((a: any) => a.id === modelConfig.modelId);
+                            if (agent?.description) return agent.description;
+                          }
+                        }
+                      } catch {}
+                      return undefined;
+                    })()}
+                  />
+                );
+              })()}
 
           {/* Agent Warning - Show if selected model is an agent but not enabled */}
           {messages.length > 0 &&

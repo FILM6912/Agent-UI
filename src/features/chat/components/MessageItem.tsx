@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AIIcon } from "./AIIcon";
 import {
   Copy,
   RotateCw,
@@ -18,6 +19,37 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { useLanguage } from "@/hooks/useLanguage";
 import { CachedImage } from "./CachedImage";
+
+const FILE_EXT_PATTERN =
+  /(?:docx?|xlsx?|pptx?|pdf|txt|csv|md|rtf|odt|ods|odp|zip|rar|7z|json|xml|html?|png|jpe?g|gif|webp|svg|mp3|mp4|wav|mov)/i;
+
+const normalizeCitationSyntax = (content: string): string => {
+  if (!content) return content;
+
+  // Normalize common citation styles from code chat tools:
+  // - 【label†https://example.com】 -> [label](https://example.com)
+  // - 〖label†https://example.com〗 -> [label](https://example.com)
+  // - 【label†ref-id】            -> [label](ref-id)
+  let next = content.replace(/[【〖]([^†\]\n]+)†([^\]】〗\n]+)[】〗]/g, (_match, rawLabel, rawRef) => {
+    const label = String(rawLabel).trim();
+    const ref = String(rawRef).trim();
+    if (!label || !ref) return _match;
+    return `[${label}](${ref})`;
+  });
+
+  // Convert filenames inside footnote definitions to markdown links so they become clickable.
+  // Example: "[^1]: Brake_OffLine_Specification_LessonLearned.docx"
+  //      -> "[^1]: [Brake_OffLine_Specification_LessonLearned.docx](Brake_OffLine_Specification_LessonLearned.docx)"
+  next = next.replace(
+    new RegExp(
+      String.raw`^(\s*\[\^[^\]\n]+\]:\s*)([^\s\[\<][^\s\<\>]*?\.` + FILE_EXT_PATTERN.source + String.raw`)(\s|$)`,
+      "gim"
+    ),
+    (_match, prefix, fileName, tail) => `${prefix}[${fileName}](${fileName})${tail}`
+  );
+
+  return next;
+};
 
 /** Single think block with smooth open/close animation (state + max-height) */
 function ThinkBlock({
@@ -163,7 +195,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       <div className="mb-3 flex items-center gap-2 px-1">
         {isAssistant && (
           <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+            <AIIcon size="sm" className="text-white" />
           </div>
         )}
         <span className="text-xs text-zinc-500 font-medium">
@@ -283,6 +315,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               // Wrap text in “...” with a span for orange coloring and HIDE the quotes
               // We replace it with <span class="text-orange-500 font-medium">...</span>
               const coloredContent = mainContent.replace(/“([\s\S]*?)”/g, '<span class="text-orange-500 font-medium">$1</span>');
+              const normalizedContent = normalizeCitationSyntax(coloredContent);
 
               return (
                 <Markdown
@@ -290,7 +323,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   rehypePlugins={[rehypeRaw]}
                   components={markdownComponents as any}
                 >
-                  {coloredContent}
+                  {normalizedContent}
                 </Markdown>
               );
             })()}

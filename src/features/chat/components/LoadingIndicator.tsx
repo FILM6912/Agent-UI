@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
+import { AIIcon } from "./AIIcon";
 import { ModelConfig } from "@/types";
 
 interface LoadingIndicatorProps {
@@ -12,8 +12,8 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 items-start">
       <div className="mb-2 flex items-center gap-2 px-1">
-        <div className="w-6 h-6 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-          <Sparkles className="w-3 h-3 text-white" />
+        <div className="w-6 h-6 rounded-full bg-linear-to-br from-[#1447E6] to-[#0d35b8] flex items-center justify-center">
+          <AIIcon size="sm" className="text-white w-3 h-3" />
         </div>
         <span className="text-xs text-zinc-500 font-medium">
           {modelConfig.name.toUpperCase()}

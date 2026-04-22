@@ -20,6 +20,61 @@ interface ProcessStepProps {
   isLastStep?: boolean;
 }
 
+/** Strip optional ```json ... ``` fences from tool output / input text */
+const stripJsonFences = (raw: string): string => {
+  let t = raw.trim();
+  const fenced = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/i);
+  if (fenced) return fenced[1].trim();
+  return t;
+};
+
+const tryParseJsonValue = (raw: string): unknown | null => {
+  const t = stripJsonFences(raw);
+  if (!t || (!t.startsWith("{") && !t.startsWith("["))) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+};
+
+/** VS Code–style-ish JSON line highlighting (same rules as Input block) */
+const highlightJsonLine = (line: string): string => {
+  let out = line;
+  out = out.replace(/"([^"]+)":/g, '<span class="text-cyan-500 dark:text-cyan-400">"$1"</span>:');
+  out = out.replace(/: "([^"]*)"/g, ': <span class="text-orange-500 dark:text-orange-400">"$1"</span>');
+  out = out.replace(/: (\d+\.?\d*)/g, ': <span class="text-green-600 dark:text-green-400">$1</span>');
+  out = out.replace(/: (true|false)/g, ': <span class="text-cyan-500 dark:text-cyan-400">$1</span>');
+  out = out.replace(/: (null)/g, ': <span class="text-cyan-500 dark:text-cyan-400">$1</span>');
+  out = out.replace(/([{}[\]])/g, '<span class="text-zinc-400 dark:text-zinc-500">$1</span>');
+  return out;
+};
+
+const JsonPrettyScrollView = ({
+  value,
+  tone,
+}: {
+  value: unknown;
+  tone: "input" | "output";
+}) => {
+  const formatted = JSON.stringify(value, null, 2);
+  const shell =
+    tone === "input"
+      ? "bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 border border-zinc-200/80 dark:border-zinc-800/60"
+      : "bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 border border-emerald-200/60 dark:border-emerald-800/40";
+  return (
+    <div
+      className={`${shell} text-xs font-mono max-h-[min(70vh,520px)] overflow-y-auto overflow-x-auto overscroll-contain`}
+    >
+      <pre className="whitespace-pre m-0 min-w-min text-zinc-800 dark:text-zinc-200 leading-relaxed">
+        {formatted.split("\n").map((line, i) => (
+          <div key={i} dangerouslySetInnerHTML={{ __html: highlightJsonLine(line) || "&nbsp;" }} />
+        ))}
+      </pre>
+    </div>
+  );
+};
+
 export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = false, isLastStep = false }) => {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(() => {
@@ -195,69 +250,19 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
                         <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           Input
                         </div>
-                        <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono overflow-x-auto">
-                          <pre className="whitespace-pre-wrap break-all">
-                            {(() => {
-                              try {
-                                const parsed = JSON.parse(inputContent);
-                                const formatted = JSON.stringify(
-                                  parsed,
-                                  null,
-                                  2,
-                                );
-
-                                // JSON syntax highlighting with VS Code-like colors
-                                return formatted.split("\n").map((line, i) => {
-                                  // Color keys (property names) - Cyan
-                                  line = line.replace(
-                                    /"([^"]+)":/g,
-                                    '<span class="text-cyan-500 dark:text-cyan-400">"$1"</span>:',
-                                  );
-                                  // Color string values - Orange
-                                  line = line.replace(
-                                    /: "([^"]*)"/g,
-                                    ': <span class="text-orange-500 dark:text-orange-400">"$1"</span>',
-                                  );
-                                  // Color numbers - Green
-                                  line = line.replace(
-                                    /: (\d+\.?\d*)/g,
-                                    ': <span class="text-green-600 dark:text-green-400">$1</span>',
-                                  );
-                                  // Color booleans - Cyan (like keywords)
-                                  line = line.replace(
-                                    /: (true|false)/g,
-                                    ': <span class="text-cyan-500 dark:text-cyan-400">$1</span>',
-                                  );
-                                  // Color null - Cyan
-                                  line = line.replace(
-                                    /: (null)/g,
-                                    ': <span class="text-cyan-500 dark:text-cyan-400">$1</span>',
-                                  );
-                                  // Color brackets - Light gray
-                                  line = line.replace(
-                                    /([{}[\]])/g,
-                                    '<span class="text-zinc-400 dark:text-zinc-500">$1</span>',
-                                  );
-
-                                  return (
-                                    <div
-                                      key={i}
-                                      dangerouslySetInnerHTML={{
-                                        __html: line || "&nbsp;",
-                                      }}
-                                    />
-                                  );
-                                });
-                              } catch {
-                                return (
-                                  <span className="text-zinc-700 dark:text-zinc-300">
-                                    {inputContent}
-                                  </span>
-                                );
-                              }
-                            })()}
-                          </pre>
-                        </div>
+                        {(() => {
+                          const parsed = tryParseJsonValue(inputContent);
+                          if (parsed !== null) {
+                            return <JsonPrettyScrollView value={parsed} tone="input" />;
+                          }
+                          return (
+                            <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-3 text-xs font-mono max-h-[min(70vh,520px)] overflow-y-auto overflow-x-auto overscroll-contain">
+                              <pre className="whitespace-pre-wrap break-all m-0 text-zinc-700 dark:text-zinc-300">
+                                {inputContent}
+                              </pre>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -267,42 +272,50 @@ export const ProcessStep: React.FC<ProcessStepProps> = ({ step, forceExpanded = 
                         <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           Output
                         </div>
-                        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto prose prose-sm dark:prose-invert max-w-none">
-                          <Markdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              p: ({ children }) => (
-                                <p className="my-1 last:mb-0">{children}</p>
-                              ),
-                              strong: ({ children }) => (
-                                <strong className="font-bold">
-                                  {children}
-                                </strong>
-                              ),
-                              code: ({
-                                className,
-                                children,
-                                ...props
-                              }: any) => {
-                                const isInline = !className;
-                                return isInline ? (
-                                  <code
-                                    className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded text-[0.9em]"
-                                    {...props}
-                                  >
-                                    {children}
-                                  </code>
-                                ) : (
-                                  <code className={className} {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                            }}
-                          >
-                            {outputContent}
-                          </Markdown>
-                        </div>
+                        {(() => {
+                          const parsedOut = tryParseJsonValue(outputContent);
+                          if (parsedOut !== null) {
+                            return <JsonPrettyScrollView value={parsedOut} tone="output" />;
+                          }
+                          return (
+                            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 text-xs text-zinc-700 dark:text-zinc-300 max-h-[min(70vh,520px)] overflow-y-auto overflow-x-auto overscroll-contain prose prose-sm dark:prose-invert max-w-none">
+                              <Markdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  p: ({ children }) => (
+                                    <p className="my-1 last:mb-0">{children}</p>
+                                  ),
+                                  strong: ({ children }) => (
+                                    <strong className="font-bold">
+                                      {children}
+                                    </strong>
+                                  ),
+                                  code: ({
+                                    className,
+                                    children,
+                                    ...props
+                                  }: any) => {
+                                    const isInline = !className;
+                                    return isInline ? (
+                                      <code
+                                        className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded text-[0.9em]"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    ) : (
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  },
+                                }}
+                              >
+                                {outputContent}
+                              </Markdown>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>

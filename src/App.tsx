@@ -219,6 +219,7 @@ const AppLayout: React.FC<AppLayoutProps> = React.memo(
               loadingChatId={loadingChatId}
               activeChatId={activeChatId}
               resolvedAgentName={resolvedAgentName}
+              resolvedAgentDescription={agentModels.find((a) => a.id === modelConfig.modelId)?.desc}
             />
 
             {!isPreviewOpen && (
@@ -661,13 +662,6 @@ export default function App() {
       prev.modelId === flowId && prev.name === name ? prev : { ...prev, modelId: flowId, name: name || prev.name }
     );
   }, [activeChatId, sessions[activeChatId]?.flowId, sessions[activeChatId]?.flowName, sessions[activeChatId]?.title, agentModels]);
-
-  // Auto-select first agent when none selected (e.g. first load or new chat)
-  useEffect(() => {
-    if (agentModels.length === 0 || modelConfig.modelId) return;
-    const first = agentModels[0];
-    setModelConfig((prev) => ({ ...prev, modelId: first.id, name: first.name }));
-  }, [agentModels]);
 
   // Enrich sessions with flowName from agentModels so sidebar shows name immediately (no id-then-name flash)
   useEffect(() => {
